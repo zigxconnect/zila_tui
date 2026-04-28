@@ -5,29 +5,25 @@ import { theme } from "../ui/theme.js";
 export interface OutputLine {
   id: string;
   text: string;
-  type?: "info" | "error" | "success" | "dim" | "default" | "warning";
+  type?: "info" | "error" | "success" | "warning" | "dim" | "default";
 }
 
 interface OutputHistoryProps {
   history: OutputLine[];
 }
 
-export const OutputHistory: React.FC<OutputHistoryProps> = ({ history }) => {
-  const getColor = (type?: string) => {
-    switch (type) {
-      case "info":
-        return theme.colors.primary;
-      case "error":
-        return theme.colors.error;
-      case "success":
-        return theme.colors.success;
-      case "dim":
-        return theme.colors.muted;
-      default:
-        return theme.colors.white;
-    }
-  };
+function getColor(type: OutputLine["type"]): string {
+  switch (type) {
+    case "info":    return theme.colors.info;
+    case "error":   return theme.colors.error;
+    case "success": return theme.colors.success;
+    case "warning": return theme.colors.warning;
+    case "dim":     return theme.colors.dim;
+    default:        return theme.colors.text;
+  }
+}
 
+export const OutputHistory: React.FC<OutputHistoryProps> = ({ history }) => {
   if (history.length === 0) return null;
 
   return (

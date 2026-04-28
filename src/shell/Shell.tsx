@@ -1,48 +1,39 @@
-import React, { useEffect, useState } from "react";
-import { Box } from "ink";
+import React, { useState, useEffect, useCallback } from "react";
+import { Box, useInput } from "ink";
 import { SplashScreen } from "../screens/SplashScreen.js";
+import { ExitScreen } from "../screens/ExitScreen.js";
+import { HelpScreen } from "../screens/HelpScreen.js";
+import { InitScreen } from "../screens/InitScreen.js";
 import { OutputHistory, type OutputLine } from "./OutputHistory.js";
 import { InputPrompt } from "./InputPrompt.js";
 import {
-  commandRegistry,
+  findCommand,
   getRegisteredCommands,
   type ShellContext,
 } from "../commands/registry.js";
+import { registerAllCommands } from "../commands/index.js";
 import { levenshtein } from "../utils/string.js";
 
-import { registerCommand } from "../commands/registry.js";
-import { exitCommand as exitCmd } from "../commands/exit.js";
-import { ExitScreen } from "../screens/ExitScreen.js";
-import { registerAllCommands } from "../commands/index.js";
-import { HelpScreen } from "../screens/HelpScreen.js";
-import { InitScreen } from "../screens/InitScreen.js";
-// Pre register the exit command
-registerCommand(exitCmd);
+registerAllCommands();
+
+let _idCounter = 0;
+const nextId = () => `line-${++_idCounter}`;
 
 export const Shell: React.FC = () => {
-  const [history, setHistory] = useState<OutputLine[]>([]);
-  const [exitMessage, setExitMessage] = useState<string | undefined>();
-  const [isExiting, setIsExiting] = useState(false);
-  const [running, setRunning] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
-  const [isShowingHelp, setIsShowingHelp] = useState(false);
-  const [isShowingInit, setIsShowingInit] = useState(false);
+  const [history, setHistory] = useState<OutputLine[]>([]);
+  const [running, setRunning] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+  const [exitMessage, setExitMessage] = useState<string | undefined>();
+  const [showHelp, setShowHelp] = useState(false);
+  const [showInit, setShowInit] = useState(false);
 
-  // Register All commands when shell boots
-  useEffect(() => {
-    registerAllCommands();
-  }, []);
-  
-  const pushHistory = (text: string, type: OutputLine["type"] = "default") => {
-    setHistory((prev) => [
-      ...prev,
-      {
-        id: Math.random().toString(36).slice(2, 11),
-        text,
-        ...(type !== undefined ? { type } : {}),
-      },
-    ]);
-  };
+  const pushLine = useCallback(
+    (text: string, type: OutputLine["type"] = "default") => {
+      setHistory((prev) => [...prev, { id: nextId(), text, type }]);
+    },
+    [],
+  );
 
   const shellContext: ShellContext = {
     exit: (msg?: string) => {
@@ -50,79 +41,117 @@ export const Shell: React.FC = () => {
       setIsExiting(true);
     },
     executeCommand: async (command: string) => {
-      await handleCommand(command);
+      await handleCommand(command, false);
     },
-    showHelp: () => setIsShowingHelp(true),
-    startInit: () => setIsShowingInit(true),
+    showHelp: () => setShowHelp(true),
+    startInit: () => setShowInit(true),
   };
 
-  const handleCommand = async (input: string, echo = true) => {
-    if (!input) return;
-    if (echo) pushHistory(`zila> ${input}`, "dim");
+  async function handleCommand(rawInput: string, echo: boolean) {
+    if (!rawInput) return;
+
+    // Echo the typed command into history
+    if (echo) {
+      pushLine(`zila ${theme_pointer} ${rawInput}`, "dim");
+    }
 
     setRunning(true);
 
-    const [cmdName, ...args] = input.split(" ");
-    const command = commandRegistry.get(cmdName!);
+    const [cmdName = "", ...args] = rawInput.trim().split(/\s+/);
+    const cmd = findCommand(cmdName);
 
-    if (command) {
-      if (!command.available) {
-        pushHistory(
-          `Command "${cmdName}" is not available in this version of ZILA.`,
+    if (cmd) {
+      if (!cmd.available) {
+        pushLine(
+          `"${cmdName}" is planned but not yet available in this version.`,
           "warning",
         );
+        pushLine(`Check back soon, or type  help  to see what's ready.`, "dim");
       } else {
         try {
-          await command.handler(args, pushHistory, shellContext);
-        } catch (error) {
-          pushHistory(
-            `Error occurred while executing command "${cmdName}": ${error}`,
-            "error",
-          );
+          await cmd.handler(args, pushLine, shellContext);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          pushLine(`Error in "${cmdName}": ${msg}`, "error");
         }
       }
     } else {
-      pushHistory(`Unknown Command "${cmdName}"`, "error");
-      const commands = getRegisteredCommands().map((c) => c.name);
+      // Unknown command — suggest nearest match
+      pushLine(`Unknown command: "${cmdName}"`, "error");
 
-      let closestMatch = "";
-      let lowestDistance = Infinity;
-
-      for (const name of commands) {
-        const dist = levenshtein(cmdName!, name);
-        if (dist < lowestDistance) {
-          lowestDistance = dist;
-          closestMatch = name;
+      const allNames = getRegisteredCommands().map((c) => c.name);
+      let closest = "";
+      let minDist = Infinity;
+      for (const name of allNames) {
+        const d = levenshtein(cmdName, name);
+        if (d < minDist) {
+          minDist = d;
+          closest = name;
         }
       }
-      if (lowestDistance <= 2 && closestMatch) {
-        pushHistory(`Did you mean "${closestMatch}"?`, "warning");
+      if (minDist <= 2 && closest) {
+        pushLine(`Did you mean: ${closest}?`, "warning");
       }
-      pushHistory(`Type "help" to see a list of available commands.`, "dim");
+      pushLine(`Type  help  to see all available commands.`, "dim");
     }
-    setRunning(false);
-  };
 
-  if (isExiting) {
-    return <ExitScreen onExited={() => process.exit(0)} />;
+    setRunning(false);
   }
 
+  useInput(
+    (char, key) => {
+      // Ctrl+C — char will be '\x03' (ETX)
+      if (key.ctrl && char === "\x03") {
+        setIsExiting(true);
+      }
+    },
+    { isActive: splashDone && !isExiting && !showHelp && !showInit },
+  );
+
+  // 1. Splash (before anything else)
+  if (!splashDone) {
+    return (
+      <Box flexDirection="column" paddingX={1} paddingY={1}>
+        <SplashScreen onComplete={() => setSplashDone(true)} />
+      </Box>
+    );
+  }
+
+  // 2. Exit screen
+  if (isExiting) {
+    return (
+      <Box flexDirection="column" paddingX={1}>
+        <ExitScreen message={exitMessage} onExited={() => process.exit(0)} />
+      </Box>
+    );
+  }
+
+  // 3. Normal shell
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
-      {splashDone && (
-  <>
-    <OutputHistory history={history} />
-    
-    {isShowingHelp ? (
-      <HelpScreen onClose={() => setIsShowingHelp(false)} onSelect={(cmd) => { setIsShowingHelp(false); handleCommand(cmd, true); }} />
-    ) : isShowingInit ? (
-      <InitScreen onComplete={() => setIsShowingInit(false)} /> // <-- Render InitScreen
-    ) : (
-      <InputPrompt running={running} onSubmit={(input) => handleCommand(input, true)} />
-    )}
-  </>
-)}
+      {/* Past command output */}
+      <OutputHistory history={history} />
+
+      {/* Overlay screens (replace the prompt while active) */}
+      {showHelp ? (
+        <HelpScreen
+          onClose={() => setShowHelp(false)}
+          onSelect={(name) => {
+            setShowHelp(false);
+            handleCommand(name, true);
+          }}
+        />
+      ) : showInit ? (
+        <InitScreen onComplete={() => setShowInit(false)} />
+      ) : (
+        <InputPrompt
+          running={running}
+          onSubmit={(input) => handleCommand(input, true)}
+        />
+      )}
     </Box>
   );
 };
+
+// Local constant to avoid importing theme into Shell (Shell is pure logic)
+const theme_pointer = "❯";

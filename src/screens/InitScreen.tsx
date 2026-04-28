@@ -1,170 +1,390 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
-import { theme } from '../ui/theme.js';
-import { StatusLine } from '../ui/StatusLine.js';
-import { Banner } from '../ui/Banner.js';
-import { checkGit, checkNode } from '../commands/init/checks.js';
-import { probeNetwork } from '../utils/network.js';
+import React, { useState, useEffect, useCallback } from "react";
+import { Box, Text, useInput } from "ink";
+import { theme } from "../ui/theme.js";
+import { StatusLine, type StatusType } from "../ui/StatusLine.js";
+import { Banner } from "../ui/Banner.js";
+import { Divider } from "../ui/Divider.js";
+import { checkGit, checkNode } from "../commands/init/checks.js";
+import { probeNetwork, NetworkError } from "../utils/network.js";
+import { cloneRepo } from "../commands/init/cloner.js";
+import {
+  installPythonDependencies,
+  installNpmDependencies,
+} from "../commands/init/installer.js";
+
+// ── Repo URLs 
+const CURRICULUM_URL = "https://github.com/SEED-INC-AI/Machine-learning-and-Ai-beginner-track.git";
+const ASSISTANT_URL  = "https://github.com/rawlingsnsame/track_my_directory_ai.git";
+
+const S = {
+  GIT:       0,
+  NODE:      1,
+  NETWORK:   2,
+  CLONE_C:   3,
+  INSTALL_C: 4,
+  CLONE_A:   5,
+  INSTALL_A: 6,
+} as const;
+
+const STEP_LABELS: Record<number, string> = {
+  [S.GIT]:       "Check git",
+  [S.NODE]:      "Check Node.js ≥ 18",
+  [S.NETWORK]:   "Network connectivity",
+  [S.CLONE_C]:   "Clone curriculum",
+  [S.INSTALL_C]: "Curriculum dependencies",
+  [S.CLONE_A]:   "Clone assistant",
+  [S.INSTALL_A]: "Assistant dependencies",
+};
+
+const STEP_COUNT = Object.keys(STEP_LABELS).length;
+
+interface Step {
+  status: StatusType;
+  detail: string;
+}
+
+function makeSteps(): Step[] {
+  return Array.from({ length: STEP_COUNT }, () => ({
+    status: "pending" as StatusType,
+    detail: "",
+  }));
+}
+
+// ── Network retry state 
+type NetworkRetryChoice = "waiting" | "retrying" | "skipping";
 
 interface InitScreenProps {
   onComplete: () => void;
 }
 
-type StepStatus = 'pending' | 'loading' | 'success' | 'error' | 'warning';
-
 export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [statuses, setStatuses] = useState<StepStatus[]>(Array(6).fill('pending'));
-  const [details, setDetails] = useState<string[]>(Array(6).fill(''));
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
-  // State for the network failure mini-prompt
-  const [awaitingNetworkChoice, setAwaitingNetworkChoice] = useState(false);
-  const [isFinished, setIsFinished] = useState(false);
+  const [steps, setSteps]                         = useState<Step[]>(makeSteps);
+  const [isDone, setIsDone]                       = useState(false);
+  const [fatalMsg, setFatalMsg]                   = useState<string | null>(null);
+  const [hasNetworkError, setHasNetworkError]     = useState(false);
+  const [networkChoice, setNetworkChoice]         = useState<NetworkRetryChoice>("waiting");
+  // A trigger value incremented to re-run the network probe + rest of flow
+  const [retryTrigger, setRetryTrigger]           = useState(0);
 
-  const updateStep = (index: number, status: StepStatus, detail: string = '') => {
-    setStatuses(prev => { const n = [...prev]; n[index] = status; return n; });
-    setDetails(prev => { const n = [...prev]; n[index] = detail; return n; });
-  };
-
-  const runFlow = async (skipNetwork = false) => {
-    setErrorMsg(null);
-    setAwaitingNetworkChoice(false);
-
-    try {
-      // STEP 1: System Checks
-      if (currentStep <= 1) {
-        updateStep(0, 'loading', 'Checking git and node...');
-        const git = await checkGit();
-        if (!git.passed) throw new Error(git.error);
-        const node = await checkNode();
-        if (!node.passed) throw new Error(node.error);
-        
-        updateStep(0, 'success', `git (${git.version}), node (${node.version})`);
-        setCurrentStep(2);
-      }
-
-
-      // STEP 2: Network Probe
-      if (currentStep <= 2) {
-        if (skipNetwork) {
-          updateStep(1, 'warning', 'Skipped');
-          setCurrentStep(3);
-        } else {
-          updateStep(1, 'loading', 'Pinging github.com...');
-          try {
-            await probeNetwork();
-            updateStep(1, 'success', 'Connected');
-            setCurrentStep(3);
-          } catch (err: any) {
-            updateStep(1, 'error', 'Offline');
-            setAwaitingNetworkChoice(true);
-            return; // Halt execution and wait for user input
-          }
-        }
-      }
-
-      // STEPS 3: Mocks for Cloner and Installer
-      if (currentStep <= 3) {
-        if(skipNetwork){
-            updateStep(3, "warning", 'Skipped')
-        }
-      }
-
-      if (currentStep <= 4) {
-        updateStep(3, 'loading', 'Installing python deps...');
-        await new Promise(r => setTimeout(r, 1200));
-        updateStep(3, 'success', '12 packages installed');
-        setCurrentStep(5);
-      }
-
-      if (currentStep <= 5) {
-        updateStep(4, 'loading', 'Cloning assistant...');
-        await new Promise(r => setTimeout(r, 600));
-        updateStep(4, 'success', '.assistant/ (890 KB)');
-        setCurrentStep(6);
-      }
-
-      if (currentStep <= 6) {
-        updateStep(5, 'loading', 'Installing assistant deps...');
-        await new Promise(r => setTimeout(r, 900));
-        updateStep(5, 'success', '8 packages installed');
-        setIsFinished(true);
-      }
-
-    } catch (err: any) {
-      updateStep(currentStep - 1, 'error');
-      setErrorMsg(err.message);
-    }
-  };
+  const setStep = useCallback(
+    (index: number, status: StatusType, detail = "") => {
+      setSteps((prev) => {
+        const next = [...prev];
+        next[index] = { status, detail };
+        return next;
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
-    runFlow();
-  }, []); // Run once on mount
+    let cancelled = false;
 
-  // Handle mini-prompt input when network fails
-  useInput((char, key) => {
-    if (isFinished && (key.return || key.escape || char === 'q')) {
-      onComplete();
+    async function runFlow() {
+      // Reset on retry
+      setSteps(makeSteps());
+      setFatalMsg(null);
+      setHasNetworkError(false);
+      setIsDone(false);
+
+      // ── 1. git 
+      setStep(S.GIT, "loading", "Checking…");
+      const git = await checkGit();
+      if (cancelled) return;
+
+      if (!git.passed) {
+        setStep(S.GIT, "error", git.error);
+        setFatalMsg(git.error ?? "git check failed.");
+        return;
+      }
+      setStep(S.GIT, "success", git.version);
+
+      // ── 2. node 
+      setStep(S.NODE, "loading", "Checking…");
+      const node = await checkNode();
+      if (cancelled) return;
+
+      if (!node.passed) {
+        setStep(S.NODE, "error", node.error);
+        setFatalMsg(node.error ?? "Node check failed.");
+        return;
+      }
+      setStep(S.NODE, "success", node.version);
+
+      // ── 3. network 
+      setStep(S.NETWORK, "loading", "Probing github.com…");
+      try {
+        await probeNetwork();
+        if (cancelled) return;
+        setStep(S.NETWORK, "success", "Connected");
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof NetworkError) {
+          setStep(S.NETWORK, "error", "Offline");
+          setHasNetworkError(true);
+          return; 
+        }
+        throw err;
+      }
+
+      // ── 4. clone curriculum 
+      setStep(S.CLONE_C, "loading", "Cloning from GitHub…");
+      try {
+        const { cloned } = await cloneRepo(
+          CURRICULUM_URL,
+          "./internship/curriculum",
+          (_attempt: number) =>
+            setStep(S.CLONE_C, "warning", `Retry ${_attempt}/3…`),
+        );
+        if (cancelled) return;
+        setStep(
+          S.CLONE_C,
+          "success",
+          cloned ? "Cloned → ./internship/curriculum/" : "Already exists — skipped",
+        );
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setStep(S.CLONE_C, "error", msg);
+        setFatalMsg(`Failed to clone curriculum: ${msg}`);
+        return;
+      }
+
+      // ── 5. curriculum dependencies 
+      setStep(S.INSTALL_C, "loading", "Setting up Python environment…");
+      try {
+        const installed = await installPythonDependencies(
+          "./internship/curriculum",
+          (_attempt: number) =>
+            setStep(S.INSTALL_C, "warning", `Retry ${_attempt}/3…`),
+        );
+        if (cancelled) return;
+        setStep(
+          S.INSTALL_C,
+          installed ? "success" : "skipped",
+          installed ? "Python packages installed" : "No requirements.txt — skipped",
+        );
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setStep(S.INSTALL_C, "warning", `Install failed: ${msg}`);
+      }
+
+      // ── 6. clone assistant 
+      setStep(S.CLONE_A, "loading", "Cloning from GitHub…");
+      try {
+        const { cloned } = await cloneRepo(
+          ASSISTANT_URL,
+          "./internship/assistant",
+          (_attempt: number) =>
+            setStep(S.CLONE_A, "warning", `Retry ${_attempt}/3…`),
+        );
+        if (cancelled) return;
+        setStep(
+          S.CLONE_A,
+          "success",
+          cloned ? "Cloned → .assistant/" : "Already exists — skipped",
+        );
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setStep(S.CLONE_A, "error", msg);
+        setFatalMsg(`Failed to clone assistant: ${msg}`);
+        return;
+      }
+
+      // ── 7. assistant dependencies 
+      setStep(S.INSTALL_A, "loading", "Installing dependencies…");
+      try {
+        // Try npm first, then Python
+        const npm = await installNpmDependencies(
+          "./internship/assistant",
+          (_attempt: number) =>
+            setStep(S.INSTALL_A, "warning", `npm retry ${_attempt}/3…`),
+        );
+        if (cancelled) return;
+
+        const py = await installPythonDependencies(
+          "./internship/assistant",
+          (_attempt: number) =>
+            setStep(S.INSTALL_A, "warning", `pip retry ${_attempt}/3…`),
+        );
+        if (cancelled) return;
+
+        if (!npm && !py) {
+          setStep(S.INSTALL_A, "skipped", "No package.json or requirements.txt");
+        } else {
+          const what = [npm && "npm packages", py && "Python packages"]
+            .filter(Boolean)
+            .join(", ");
+          setStep(S.INSTALL_A, "success", `Installed ${what}`);
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setStep(S.INSTALL_A, "warning", `Install failed: ${msg}`);
+        // Non-fatal
+      }
+
+      if (!cancelled) setIsDone(true);
     }
 
-    if (awaitingNetworkChoice) {
-      if (char === 'r') runFlow(false); // Retry
-      if (char === 's') runFlow(true);  // Skip
-      if (char === 'q') onComplete();   // Quit back to prompt
+    runFlow().catch((err: unknown) => {
+      if (!cancelled) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setFatalMsg(msg);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [retryTrigger]);
+
+  // ── Network retry keyboard handler 
+  useInput((char) => {
+    // "Press Enter / q" after success or fatal
+    if ((isDone || fatalMsg) && !hasNetworkError) {
+      if (char === "\r" || char === "q" || char === "\u001b") {
+        onComplete();
+      }
+      return;
+    }
+
+    // Network error mini-prompt
+    if (hasNetworkError && networkChoice === "waiting") {
+      if (char === "r") {
+        setNetworkChoice("retrying");
+        setRetryTrigger((n) => n + 1);
+      } else if (char === "s") {
+        setNetworkChoice("skipping");
+        // Mark remaining steps skipped and finish
+        setSteps((prev) => {
+          const next = [...prev];
+          for (let i = S.CLONE_C; i < STEP_COUNT; i++) {
+            next[i] = { status: "skipped", detail: "Skipped (offline)" };
+          }
+          return next;
+        });
+        setHasNetworkError(false);
+        setIsDone(true);
+      } else if (char === "q" || char === "\u001b") {
+        onComplete();
+      }
+      return;
+    }
+
+    // After init completes: any key returns to shell
+    if (isDone || fatalMsg) {
+      onComplete();
     }
   });
 
-  const getDetail = (index: number): string => details[index] ?? "";
+  // ── Render 
+
+  const stepLabel = (i: number) =>
+    `[${i + 1}/${STEP_COUNT}]  ${STEP_LABELS[i]}`;
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <StatusLine status={statuses[0] ?? 'pending'} label="[1/6] System requirements" detail={getDetail(0)} />
-      <StatusLine status={statuses[1] ?? 'pending'} label="[2/6] Network connectivity" detail={getDetail(1)} />
-      <StatusLine status={statuses[2] ?? 'pending'} label="[3/6] Curriculum workspace" detail={getDetail(2)} />
-      <StatusLine status={statuses[3] ?? 'pending'} label="[4/6] Curriculum dependencies" detail={getDetail(3)} />
-      <StatusLine status={statuses[4] ?? 'pending'} label="[5/6] Assistant workspace" detail={getDetail(4)} />
-      <StatusLine status={statuses[5] ?? 'pending'} label="[6/6] Assistant dependencies" detail={getDetail(5)} />
+      {/* Section header */}
+      <Box marginBottom={1}>
+        <Divider label="zila init" width={40} />
+      </Box>
 
-      {/* Fatal Error Display */}
-      {errorMsg && (
-        <Box marginTop={1}>
-          <Banner type="error" title="Setup Halted">
-            <Text color={theme.colors.white}>{errorMsg}</Text>
-            <Text color={theme.colors.dim}>Fix the issue above and run <Text color={theme.colors.primary}>zila init</Text> again.</Text>
-          </Banner>
-        </Box>
+      {/* Step list */}
+      {Array.from({ length: STEP_COUNT }, (_, i) => (
+        <StatusLine
+          key={i}
+          status={steps[i]?.status ?? "pending"}
+          label={stepLabel(i)}
+          detail={steps[i]?.detail}
+        />
+      ))}
+
+      {/* ── Network error inline prompt  */}
+      {hasNetworkError && networkChoice === "waiting" && (
+        <Banner type="error" title="No Internet Connection">
+          <Text color={theme.colors.text}>
+            ZILA needs internet access to clone its components.
+          </Text>
+          <Box marginTop={1} flexDirection="column">
+            <Text color={theme.colors.muted}>
+              Check your connection, then press:
+            </Text>
+            <Box marginTop={1} flexDirection="column" marginLeft={2}>
+              <Text color={theme.colors.white}>
+                <Text color={theme.colors.primary} bold>r</Text>
+                {"  Retry now"}
+              </Text>
+              <Text color={theme.colors.white}>
+                <Text color={theme.colors.warning} bold>s</Text>
+                {"  Skip cloning (checks only)"}
+              </Text>
+              <Text color={theme.colors.white}>
+                <Text color={theme.colors.muted} bold>q</Text>
+                {"  Return to shell"}
+              </Text>
+            </Box>
+          </Box>
+        </Banner>
       )}
 
-      {/* Network Recovery Prompt */}
-      {awaitingNetworkChoice && (
-        <Box marginTop={1}>
-          <Banner type="error" title="Network Error">
-            <Text color={theme.colors.white}>No network connection detected.</Text>
-            <Box flexDirection="column" marginY={1}>
-              <Text color={theme.colors.dim}>  <Text bold color={theme.colors.white}>r</Text>  Retry now</Text>
-              <Text color={theme.colors.dim}>  <Text bold color={theme.colors.white}>s</Text>  Skip cloning</Text>
-              <Text color={theme.colors.dim}>  <Text bold color={theme.colors.white}>q</Text>  Quit setup</Text>
+      {/* ── Fatal error (git / node missing)  */}
+      {fatalMsg && !hasNetworkError && (
+        <Banner type="error" title="Setup Halted">
+          <Box flexDirection="column" gap={0}>
+            <Text color={theme.colors.text}>{fatalMsg}</Text>
+            <Box marginTop={1}>
+              <Text color={theme.colors.muted}>
+                Fix the issue above, then run{" "}
+                <Text color={theme.colors.primary} bold>zila init</Text>
+                {" "}again.
+              </Text>
             </Box>
-            <Text color={theme.colors.primary}>{'> _'}</Text>
-          </Banner>
-        </Box>
+            <Box marginTop={1}>
+              <Text color={theme.colors.border}>
+                Press any key to return to shell…
+              </Text>
+            </Box>
+          </Box>
+        </Banner>
       )}
 
-      {/* Final Success Banner */}
-      {isFinished && (
-        <Box marginTop={1} flexDirection="column">
-          <Banner type="success" title="ZILA is ready">
-            <Text color={theme.colors.white}>🚀 Your workspace has been set up.</Text>
-            <Box flexDirection="column" marginY={1}>
-              <Text color={theme.colors.dim}>.curriculum/   <Text color={theme.colors.muted}>ML & AI beginner track content</Text></Text>
-              <Text color={theme.colors.dim}>.assistant/    <Text color={theme.colors.muted}>Your AI progress companion</Text></Text>
+      {/* ── Success  */}
+      {isDone && !fatalMsg && (
+        <Banner type="success" title="ZILA is ready">
+          <Box flexDirection="column" gap={0}>
+            <Text color={theme.colors.text}>
+              Your workspace has been set up successfully.
+            </Text>
+
+            <Box marginTop={1} flexDirection="column">
+              <Box flexDirection="row">
+                <Text color={theme.colors.primary} bold>{"./internship/curriculum/"}</Text>
+                <Text color={theme.colors.muted}>{"  ML & AI beginner track content"}</Text>
+              </Box>
+              <Box flexDirection="row">
+                <Text color={theme.colors.primary} bold>{"./internship/assistant/"}</Text>
+                <Text color={theme.colors.muted}>{"  Your AI progress companion"}</Text>
+              </Box>
             </Box>
-            <Text color={theme.colors.white}>Next: type <Text color={theme.colors.primary}>assistant --agent</Text> to get started.</Text>
-          </Banner>
-          <Text color={theme.colors.muted}>Press Enter to return to shell...</Text>
-        </Box>
+
+            <Box marginTop={1}>
+              <Text color={theme.colors.text}>
+                {"Next: type "}
+                <Text color={theme.colors.primary} bold>{"assistant --agent"}</Text>
+                {" to get started."}
+              </Text>
+            </Box>
+
+            <Box marginTop={1}>
+              <Text color={theme.colors.border}>
+                Press any key to return to shell…
+              </Text>
+            </Box>
+          </Box>
+        </Banner>
       )}
     </Box>
   );
 };
+

@@ -1,5 +1,4 @@
-import { type OutputLine } from "../shell/OutputHistory.js";
-
+import type { OutputLine } from "../shell/OutputHistory.js";
 export type OutputCallback = (text: string, type?: OutputLine["type"]) => void;
 
 export interface ShellContext {
@@ -25,16 +24,17 @@ export interface ZilaCommand {
   available: boolean;
 }
 
-export const commandRegistry: Map<string, ZilaCommand> = new Map();
+const _registry: Map<string, ZilaCommand> = new Map();
 
-export function registerCommand(command: ZilaCommand) {
-  commandRegistry.set(command.name, command);
-  if (command.aliases) {
-    command.aliases.forEach((alias) => commandRegistry.set(alias, command));
-  }
+export function registerCommand(command: ZilaCommand): void {
+  _registry.set(command.name, command);
+  command.aliases?.forEach((alias) => _registry.set(alias, command));
+}
+
+export function findCommand(name: string): ZilaCommand | undefined {
+  return _registry.get(name);
 }
 
 export function getRegisteredCommands(): ZilaCommand[] {
-    return Array.from(new Set(commandRegistry.values()));
+  return Array.from(new Set(_registry.values()));
 }
-

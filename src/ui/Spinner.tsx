@@ -2,16 +2,21 @@ import React, { useState, useEffect } from "react";
 import { Text } from "ink";
 import { theme } from "./theme.js";
 
-export const Spinner: React.FC = () => {
+interface SpinnerProps {
+  color?: string;
+}
+
+export const Spinner: React.FC<SpinnerProps> = ({
+  color = theme.colors.primary,
+}) => {
   const [frame, setFrame] = useState(0);
-  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setFrame((prev) => (prev + 1) % frames.length);
-    }, 80);
-    return () => clearInterval(timer);
+    const id = setInterval(() => {
+      setFrame((prev) => (prev + 1) % theme.spinner.frames.length);
+    }, theme.spinner.intervalMs);
+    return () => clearInterval(id);
   }, []);
 
-  return <Text color={theme.colors.primary}>{frames[frame]}</Text>;
+  return <Text color={color}>{theme.spinner.frames[frame]}</Text>;
 };

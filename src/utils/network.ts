@@ -1,20 +1,22 @@
 import dns from "node:dns/promises";
 
+/** Thrown by probeNetwork() when there is no usable internet connection */
 export class NetworkError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = "NetworkError";
-    }
+  constructor(message: string) {
+    super(message);
+    this.name = "NetworkError";
+  }
 }
 
-/**
- * Resolves against github.com (since it is what we need to clone from there anyway).
- * Rejects quickly if the network is completely down.
- */
+
 export async function probeNetwork(): Promise<void> {
   try {
-    await dns.resolve('github.com');
-  } catch (error: any) {
-    throw new NetworkError('No network connection detected. DNS resolution failed.');
+    await fetch("https://www.google.com", {
+      method: "HEAD",
+    });
+  } catch {
+    throw new NetworkError(
+      "No internet connection detected.",
+    );
   }
 }
