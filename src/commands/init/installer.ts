@@ -70,7 +70,7 @@ export async function installNpmDependencies(
   const modulesPath = path.join(absTargetDir, "node_modules");
 
   if (!fs.existsSync(pkgPath)) return false;
-  if (fs.existsSync(modulesPath)) return false;
+  // if (fs.existsSync(modulesPath)) return false;
 
   await withRetry(
     async () => {

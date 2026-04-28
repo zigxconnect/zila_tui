@@ -5,13 +5,11 @@ const execAsync = promisify(exec);
 
 export interface CheckResult {
   passed: boolean;
-  /** Human-readable version string when passed, e.g. "2.43.0" */
   version?: string;
-  /** Actionable error message when not passed */
   error?: string;
 }
 
-// ── git ───────────────────────────────────────────────────────────────────────
+// git 
 
 export async function checkGit(): Promise<CheckResult> {
   try {
@@ -32,7 +30,7 @@ export async function checkGit(): Promise<CheckResult> {
   }
 }
 
-// ── node ──────────────────────────────────────────────────────────────────────
+// node 
 
 const MIN_NODE_MAJOR = 18;
 
@@ -49,8 +47,7 @@ export async function checkNode(): Promise<CheckResult> {
         version,
         error:
           `Node ${version} found — ZILA needs Node ≥ ${MIN_NODE_MAJOR}.\n` +
-          "Upgrade at: https://nodejs.org\n" +
-          "We recommend using nvm for easy version management.",
+          "Upgrade at: https://nodejs.org\n"
       };
     }
 

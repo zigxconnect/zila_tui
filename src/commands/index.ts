@@ -2,6 +2,8 @@ import { registerCommand, type ZilaCommand } from "./registry.js";
 import { exitCommand } from "./exit.js";
 import { helpCommand } from "./help.js";
 import { initCommand } from "./init/index.js";
+import { assistantCommand } from "./assistant.js";
+
 
 const comingSoon: ZilaCommand[] = [
   {
@@ -20,19 +22,12 @@ const comingSoon: ZilaCommand[] = [
     available: false,
     handler: async () => {},
   },
-  {
-    name: "assistant",
-    description: "Chat with your AI progress companion",
-    usage: "assistant [--agent]",
-    category: "agent",
-    available: false,
-    handler: async () => {},
-  },
 ];
 
 export function registerAllCommands(): void {
   registerCommand(exitCommand);
   registerCommand(helpCommand);
   registerCommand(initCommand);
+  registerCommand(assistantCommand);
   comingSoon.forEach(registerCommand);
 }

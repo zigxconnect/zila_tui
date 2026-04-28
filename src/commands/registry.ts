@@ -6,6 +6,8 @@ export interface ShellContext {
   executeCommand: (command: string) => Promise<void>;
   showHelp: () => void;
   startInit: () => void;
+  /** Launch the Python assistant (TTY handoff) */
+  startAssistant: () => void;
 }
 
 export type CommandHandler = (

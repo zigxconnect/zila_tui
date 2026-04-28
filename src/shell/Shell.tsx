@@ -13,13 +13,18 @@ import {
 } from "../commands/registry.js";
 import { registerAllCommands } from "../commands/index.js";
 import { levenshtein } from "../utils/string.js";
+import { AssistantScreen } from "../screens/AssistantScreen.js";
 
 registerAllCommands();
 
-let _idCounter = 0;
-const nextId = () => `line-${++_idCounter}`;
+let _id = 0;
+const nextId = () => `l${++_id}`;
 
-export const Shell: React.FC = () => {
+export interface ShellProps {
+  /** The Ink render() instance, passed through to AssistantScreen for TTY teardown */
+  inkInstance: { unmount: () => void };
+}
+export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [splashDone, setSplashDone] = useState(false);
   const [history, setHistory] = useState<OutputLine[]>([]);
   const [running, setRunning] = useState(false);
@@ -27,6 +32,7 @@ export const Shell: React.FC = () => {
   const [exitMessage, setExitMessage] = useState<string | undefined>();
   const [showHelp, setShowHelp] = useState(false);
   const [showInit, setShowInit] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
 
   const pushLine = useCallback(
     (text: string, type: OutputLine["type"] = "default") => {
@@ -45,15 +51,14 @@ export const Shell: React.FC = () => {
     },
     showHelp: () => setShowHelp(true),
     startInit: () => setShowInit(true),
+    startAssistant: () => {
+      setShowAssistant(true);
+    },
   };
 
-  async function handleCommand(rawInput: string, echo: boolean) {
+   async function handleCommand(rawInput: string, echo: boolean) {
     if (!rawInput) return;
-
-    // Echo the typed command into history
-    if (echo) {
-      pushLine(`zila ${theme_pointer} ${rawInput}`, "dim");
-    }
+    if (echo) pushLine(`zila ❯ ${rawInput}`, "dim");
 
     setRunning(true);
 
@@ -62,50 +67,34 @@ export const Shell: React.FC = () => {
 
     if (cmd) {
       if (!cmd.available) {
-        pushLine(
-          `"${cmdName}" is planned but not yet available in this version.`,
-          "warning",
-        );
-        pushLine(`Check back soon, or type  help  to see what's ready.`, "dim");
+        pushLine(`"${cmdName}" is coming soon and isn't available yet.`, "warning");
+        pushLine("Type  help  to see what's ready.", "dim");
       } else {
         try {
           await cmd.handler(args, pushLine, shellContext);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          pushLine(`Error in "${cmdName}": ${msg}`, "error");
+          pushLine(`Error running "${cmdName}": ${msg}`, "error");
         }
       }
     } else {
-      // Unknown command — suggest nearest match
       pushLine(`Unknown command: "${cmdName}"`, "error");
-
-      const allNames = getRegisteredCommands().map((c) => c.name);
-      let closest = "";
-      let minDist = Infinity;
-      for (const name of allNames) {
+      const names = getRegisteredCommands().map((c) => c.name);
+      let closest = ""; let minDist = Infinity;
+      for (const name of names) {
         const d = levenshtein(cmdName, name);
-        if (d < minDist) {
-          minDist = d;
-          closest = name;
-        }
+        if (d < minDist) { minDist = d; closest = name; }
       }
-      if (minDist <= 2 && closest) {
-        pushLine(`Did you mean: ${closest}?`, "warning");
-      }
-      pushLine(`Type  help  to see all available commands.`, "dim");
+      if (minDist <= 2 && closest) pushLine(`Did you mean: ${closest}?`, "warning");
+      pushLine("Type  help  to see all available commands.", "dim");
     }
 
     setRunning(false);
   }
 
   useInput(
-    (char, key) => {
-      // Ctrl+C — char will be '\x03' (ETX)
-      if (key.ctrl && char === "\x03") {
-        setIsExiting(true);
-      }
-    },
-    { isActive: splashDone && !isExiting && !showHelp && !showInit },
+    (char, key) => { if (key.ctrl && char === "\x03") setIsExiting(true); },
+    { isActive: splashDone && !isExiting && !showHelp && !showInit && !showAssistant },
   );
 
   // 1. Splash (before anything else)
@@ -126,23 +115,25 @@ export const Shell: React.FC = () => {
     );
   }
 
-  // 3. Normal shell
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      {/* Past command output */}
       <OutputHistory history={history} />
 
-      {/* Overlay screens (replace the prompt while active) */}
       {showHelp ? (
         <HelpScreen
           onClose={() => setShowHelp(false)}
-          onSelect={(name) => {
-            setShowHelp(false);
-            handleCommand(name, true);
-          }}
+          onSelect={(name) => { setShowHelp(false); handleCommand(name, true); }}
         />
       ) : showInit ? (
         <InitScreen onComplete={() => setShowInit(false)} />
+      ) : showAssistant ? (
+        <AssistantScreen
+          inkInstance={inkInstance}
+          onComplete={() => {
+            setShowAssistant(false);
+            pushLine("Welcome back to ZILA.", "success");
+          }}
+        />
       ) : (
         <InputPrompt
           running={running}

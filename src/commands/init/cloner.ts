@@ -17,6 +17,9 @@ export async function cloneRepo(
   // Already present — nothing to do
   if (fs.existsSync(targetDir)) {
     return { cloned: false };
+
+    // Add logic to check if packages are already installed, if not, install them]
+  
   }
 
   await withRetry(
