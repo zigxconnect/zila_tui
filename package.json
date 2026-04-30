@@ -1,17 +1,25 @@
 {
   "name": "@zigex/zila",
   "version": "0.2.0",
-  "description": "ZILA – Zigex Intelligent Layer for Agents. Terminal-first developer productivity.",
+  "description": "ZILA : Zigex Intelligent Layer for Agents. Terminal-first developer productivity.",
   "type": "module",
   "bin": {
-    "zila": "./dist/cli.js"
+    "zila": "./bin/zila.js"
   },
+  "preferGlobal": true,
   "scripts": {
     "build": "tsc",
     "dev": "tsc -w",
     "start": "node ./dist/cli.js"
   },
-  "keywords": ["ZILA", "zigex", "CLI", "AI", "agent", "terminal"],
+  "keywords": [
+    "ZILA",
+    "zigex",
+    "CLI",
+    "AI",
+    "agent",
+    "terminal"
+  ],
   "author": "Zigex Open Source Initiative",
   "license": "MIT",
   "dependencies": {

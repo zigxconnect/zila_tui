@@ -1,4 +1,6 @@
 // Shown briefly when the assistant is launching and TTY handoff is in progress
+import fs from "node:fs";
+import path from "node:path";
 import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
@@ -8,6 +10,11 @@ import { Divider } from "../ui/Divider.js";
 import { StatusLine } from "../ui/StatusLine.js";
 import { loadWorkspace } from "../utils/workspace.js";
 import { launchAssistant } from "../utils/assistantLauncher.js";
+
+const LOG_FILE = path.join(process.cwd(), "zila-assistant-debug.log");
+function logToFile(msg: string) {
+  fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
+}
 
 type Phase = "checking" | "launching" | "error" | "done";
 
@@ -35,6 +42,7 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({
       if (cancelled) return;
 
       if (!ws) {
+        logToFile("ERROR: No workspace config found");
         setErrorMsg(
           "No workspace found. Run  zila init  first to set up your\n" +
           "curriculum and assistant.",
@@ -42,21 +50,30 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({
         setPhase("error");
         return;
       }
+
+      logToFile("Workspace config loaded:");
+      logToFile(`  workspacePath: ${ws.workspacePath}`);
+      logToFile(`  curriculumPath: ${ws.curriculumPath}`);
+      logToFile(`  assistantPath: ${ws.assistantPath}`);
+
       setPhase("launching");
       await new Promise((r) => setTimeout(r, 600));
       if (cancelled) return;
 
-      // Hand off to Python (Ink unmounts here) 
+      // Hand off to Python (Ink unmounts here)
       const result = await launchAssistant(
         ws.assistantPath,
         ws.curriculumPath,
         () => inkInstance.unmount(),
       );
 
-      // Python has exited — handle result 
+      // Python has exited — handle result
+      logToFile(`launchAssistant returned: ${JSON.stringify(result)}`);
       if (result.ok) {
+        logToFile("Assistant launched successfully");
         onComplete();
       } else {
+        logToFile(`Assistant launch failed: ${result.error}`);
         if (!cancelled) {
           setErrorMsg(result.error ?? "Unknown error launching assistant.");
           setPhase("error");

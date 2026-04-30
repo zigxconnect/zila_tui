@@ -11,9 +11,10 @@ import {
   installPythonDependencies,
   installNpmDependencies,
 } from "../commands/init/installer.js";
+import { saveWorkspace } from "../utils/workspace.js";
 
-// ── Repo URLs 
-const CURRICULUM_URL = "https://github.com/SEED-INC-AI/Machine-learning-and-Ai-beginner-track.git";
+// Repo URLs 
+const CURRICULUM_URL = "https://github.com/rawlingsnsame/evaluation_internship.git";
 const ASSISTANT_URL  = "https://github.com/rawlingsnsame/track_my_directory_ai.git";
 
 const S = {
@@ -50,7 +51,7 @@ function makeSteps(): Step[] {
   }));
 }
 
-// ── Network retry state 
+// Network retry state 
 type NetworkRetryChoice = "waiting" | "retrying" | "skipping";
 
 interface InitScreenProps {
@@ -87,7 +88,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
       setHasNetworkError(false);
       setIsDone(false);
 
-      // ── 1. git 
+      // 1. git 
       setStep(S.GIT, "loading", "Checking…");
       const git = await checkGit();
       if (cancelled) return;
@@ -99,7 +100,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
       }
       setStep(S.GIT, "success", git.version);
 
-      // ── 2. node 
+      // 2. node 
       setStep(S.NODE, "loading", "Checking…");
       const node = await checkNode();
       if (cancelled) return;
@@ -111,7 +112,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
       }
       setStep(S.NODE, "success", node.version);
 
-      // ── 3. network 
+      // 3. network 
       setStep(S.NETWORK, "loading", "Probing github.com…");
       try {
         await probeNetwork();
@@ -127,7 +128,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         throw err;
       }
 
-      // ── 4. clone curriculum 
+      // 4. clone curriculum 
       setStep(S.CLONE_C, "loading", "Cloning from GitHub…");
       try {
         const { cloned } = await cloneRepo(
@@ -150,7 +151,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         return;
       }
 
-      // ── 5. curriculum dependencies 
+      // 5. curriculum dependencies 
       setStep(S.INSTALL_C, "loading", "Setting up Python environment…");
       try {
         const installed = await installPythonDependencies(
@@ -170,7 +171,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         setStep(S.INSTALL_C, "warning", `Install failed: ${msg}`);
       }
 
-      // ── 6. clone assistant 
+      // 6. clone assistant 
       setStep(S.CLONE_A, "loading", "Cloning from GitHub…");
       try {
         const { cloned } = await cloneRepo(
@@ -193,7 +194,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         return;
       }
 
-      // ── 7. assistant dependencies 
+      // 7. assistant dependencies 
       setStep(S.INSTALL_A, "loading", "Installing dependencies…");
       try {
         // Try npm first, then Python
@@ -226,7 +227,13 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         // Non-fatal
       }
 
-      if (!cancelled) setIsDone(true);
+      if (!cancelled) {
+        // Save workspace location to ~/.zila/config.json so every
+        // subsequent command (assistant, search, etc.) knows where
+        // the curriculum and assistant directories live.
+        await saveWorkspace(process.cwd());
+        setIsDone(true);
+      }
     }
 
     runFlow().catch((err: unknown) => {
@@ -239,7 +246,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
     return () => { cancelled = true; };
   }, [retryTrigger]);
 
-  // ── Network retry keyboard handler 
+  // Network retry keyboard handler 
   useInput((char) => {
     // "Press Enter / q" after success or fatal
     if ((isDone || fatalMsg) && !hasNetworkError) {
@@ -249,7 +256,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
       return;
     }
 
-    // Network error mini-prompt
+    // Network error
     if (hasNetworkError && networkChoice === "waiting") {
       if (char === "r") {
         setNetworkChoice("retrying");
@@ -278,7 +285,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
     }
   });
 
-  // ── Render 
+  // Render 
 
   const stepLabel = (i: number) =>
     `[${i + 1}/${STEP_COUNT}]  ${STEP_LABELS[i]}`;
@@ -300,7 +307,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         />
       ))}
 
-      {/* ── Network error inline prompt  */}
+      {/* Network error inline prompt  */}
       {hasNetworkError && networkChoice === "waiting" && (
         <Banner type="error" title="No Internet Connection">
           <Text color={theme.colors.text}>
@@ -328,7 +335,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         </Banner>
       )}
 
-      {/* ── Fatal error (git / node missing)  */}
+      {/* Fatal error (git / node missing)  */}
       {fatalMsg && !hasNetworkError && (
         <Banner type="error" title="Setup Halted">
           <Box flexDirection="column" gap={0}>
@@ -349,7 +356,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         </Banner>
       )}
 
-      {/* ── Success  */}
+      {/* Success  */}
       {isDone && !fatalMsg && (
         <Banner type="success" title="ZILA is ready">
           <Box flexDirection="column" gap={0}>

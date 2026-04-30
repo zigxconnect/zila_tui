@@ -144,5 +144,4 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   );
 };
 
-// Local constant to avoid importing theme into Shell (Shell is pure logic)
 const theme_pointer = "❯";

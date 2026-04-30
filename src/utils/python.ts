@@ -5,6 +5,11 @@ import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
 
+const LOG_FILE = path.join(process.cwd(), "zila-assistant-debug.log");
+function logToFile(msg: string) {
+  fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
+}
+
 export interface PythonInfo {
   bin: string;
   version: string;
@@ -18,16 +23,28 @@ export async function resolvePython(projectDir?: string): Promise<PythonInfo> {
       ? path.join(projectDir, ".venv", "Scripts", "python.exe")
       : path.join(projectDir, ".venv", "bin", "python");
 
-    if (fs.existsSync(venvPy)) {
+    logToFile(`[resolvePython] Checking venv at: ${venvPy}`);
+    const exists = fs.existsSync(venvPy);
+    logToFile(`[resolvePython] Exists: ${exists}`);
+
+    if (exists) {
       const version = await getPythonVersion(venvPy);
-      if (version) return { bin: venvPy, version };
+      logToFile(`[resolvePython] Venv Python version: ${version}`);
+      if (version) {
+        logToFile(`[resolvePython] Using venv Python: ${venvPy}`);
+        return { bin: venvPy, version };
+      }
     }
   }
 
   // 2. Fallback to system python
+  logToFile(`[resolvePython] Venv not found, trying system python`);
   for (const bin of ["python3", "python"]) {
     const version = await getPythonVersion(bin);
-    if (version) return { bin, version };
+    if (version) {
+      logToFile(`[resolvePython] Using system: ${bin} (v${version})`);
+      return { bin, version };
+    }
   }
 
   throw new Error(
@@ -38,9 +55,11 @@ export async function resolvePython(projectDir?: string): Promise<PythonInfo> {
 
 async function getPythonVersion(bin: string): Promise<string | null> {
   try {
-    const { stdout } = await execAsync(`${bin} --version`);
-    return stdout.trim().replace("Python ", "");
+    const { stdout, stderr } = await execAsync(`"${bin}" --version`);
+    const output = (stdout.trim() || stderr.trim()).replace("Python ", "");
+    return output || null;
   } catch (error) {
+    logToFile(`[getPythonVersion] Failed to execute ${bin} --version: ${error}`);
     return null;
   }
 }
