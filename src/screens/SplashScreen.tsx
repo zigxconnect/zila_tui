@@ -1,25 +1,3 @@
-/**
- * src/screens/SplashScreen.tsx
- * ──────────────────────────────────────────────────────────────────────────────
- * Animated boot splash shown once when ZILA starts.
- *
- * ANIMATION SEQUENCE (~700 ms total)
- * ───────────────────────────────────
- *  0 ms    First logo line appears
- * +55 ms   Each subsequent logo line stagger
- * +330 ms  Full name + version fade in
- * +430 ms  Tagline appears
- * +600 ms  Divider appears + onComplete() fires → shell prompt shows
- *
- * The invisible placeholder lines (spaces) keep the layout stable while
- * lines are still animating in, preventing the rest of the UI from jumping.
- *
- * MODIFYING THE LOGO
- * ──────────────────
- * Edit the LOGO_LINES array. Use a block-letter generator that produces
- * box-drawing characters. Keep lines ≤ 40 chars for 80-col terminal safety.
- */
-
 import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
 import { theme } from "../ui/theme.js";

@@ -93,3 +93,6 @@
 [2026-05-01T06:12:59.511Z] CWD: C:\Users\My PC\Dev\ml_internship\tui\final\zila\internship\assistant
 [2026-05-01T06:12:59.511Z] Using piped spawn (Windows)
 [2026-05-01T06:12:59.526Z] Spawn returned, PID: 36428
+[2026-05-02T06:40:55.368Z] Python process closed with code: 3221225786
+[2026-05-02T06:40:55.434Z] launchAssistant returned: {"ok":false,"error":"Assistant exited with code 3221225786","exitCode":3221225786}
+[2026-05-02T06:40:55.434Z] Assistant launch failed: Assistant exited with code 3221225786
