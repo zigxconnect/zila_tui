@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { spawn, type SpawnOptions } from "node:child_process";
+import { spawnSync, spawn, type SpawnOptions } from "node:child_process";
 import { resolvePython } from "./python.js";
 
 export interface LaunchResult {
@@ -15,13 +15,6 @@ function logToFile(msg: string) {
   fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
 }
 
-/**
- * Launch the Python assistant, handing off the TTY completely.
- *
- * On Windows, we spawn Python with stdio: 'inherit' and then exit the Node process
- * so Python takes full control of the terminal. When Python exits, control returns
- * to the Node process (if still alive) or the shell.
- */
 export async function launchAssistant(
   assistantPath: string,
   curriculumPath: string,
@@ -30,10 +23,12 @@ export async function launchAssistant(
   logToFile("=== Assistant Launch Debug ===");
   logToFile(`assistantPath: ${assistantPath}`);
   logToFile(`curriculumPath: ${curriculumPath}`);
+  logToFile(`platform: ${process.platform}`);
+
+  // Pre-flight checks
 
   const mainPy = path.join(assistantPath, "main.py");
 
-  logToFile(`Checking main.py at: ${mainPy}`);
   if (!fs.existsSync(mainPy)) {
     logToFile(`ERROR: main.py not found at: ${mainPy}`);
     return {
@@ -42,9 +37,8 @@ export async function launchAssistant(
       exitCode: null,
     };
   }
-  logToFile(`OK: main.py exists`);
+  logToFile("OK: main.py exists");
 
-  logToFile(`Checking curriculum at: ${curriculumPath}`);
   if (!fs.existsSync(curriculumPath)) {
     logToFile(`ERROR: Curriculum not found at: ${curriculumPath}`);
     return {
@@ -53,12 +47,12 @@ export async function launchAssistant(
       exitCode: null,
     };
   }
-  logToFile(`OK: Curriculum exists`);
+  logToFile("OK: Curriculum exists");
+
+  // Resolve Python
 
   let python: { bin: string; version: string };
-
   try {
-    logToFile(`Resolving Python for: ${assistantPath}`);
     python = await resolvePython(assistantPath);
     logToFile(`Found Python: ${python.bin} (v${python.version})`);
   } catch (error) {
@@ -70,35 +64,89 @@ export async function launchAssistant(
     };
   }
 
-  logToFile(`Preparing TTY handoff to Python`);
-
-  // Show cursor and clear any Ink state
+  if (process.stdin.isTTY && typeof process.stdin.setRawMode === "function") {
+    process.stdin.setRawMode(false);
+  }
+  process.stdin.pause();
   process.stdout.write("\x1b[?25h");
   process.stdout.write("\x1b[0m");
-
-  // Unmount Ink to release TTY control
+  process.stdout.write("\x1b[?1049l"); // leave alternate screen
+  process.stdout.write("\x1b[2J\x1b[H"); // clear and home
   unmountInk();
 
-  // Give Ink a moment to clean up
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  process.stdout.write("yooo \n");
+
+  await new Promise<void>((resolve) => {
+    if (process.stdout.writableNeedDrain) {
+      process.stdout.once("drain", resolve);
+    } else {
+      setImmediate(resolve);
+    }
+  });
+
+  const spawnEnv = {
+    ...process.env,
+    PYTHONUNBUFFERED: "1",
+    PYTHONIOENCODING: "utf-8",
+  };
 
   logToFile(`Spawning: ${python.bin} "${mainPy}" "${curriculumPath}"`);
   logToFile(`CWD: ${assistantPath}`);
 
-  return new Promise((resolve) => {
-    const options: SpawnOptions = {
+  if (process.platform !== "win32") {
+    logToFile("Using spawnSync (Unix/Mac)");
+
+    const result = spawnSync(python.bin, [mainPy, curriculumPath], {
       cwd: assistantPath,
       stdio: "inherit",
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: "1",
-        PYTHONIOENCODING: "utf-8",
-      },
-    };
+      env: spawnEnv,
+    });
 
-    const child = spawn(python.bin, [mainPy, curriculumPath], options);
+    logToFile(
+      `spawnSync returned — status: ${result.status}, signal: ${result.signal}`,
+    );
+
+    if (result.error) {
+      logToFile(`ERROR: spawnSync error: ${result.error.message}`);
+      return {
+        ok: false,
+        error: `Failed to launch assistant: ${result.error.message}`,
+        exitCode: null,
+      };
+    }
+
+    const code = result.status;
+    return {
+      ok: code === 0,
+      error: code !== 0 ? `Assistant exited with code ${code}` : undefined,
+      exitCode: code,
+    };
+  }
+
+  logToFile("Using piped spawn (Windows)");
+
+  return new Promise((resolve) => {
+    const child = spawn(python.bin, [mainPy, curriculumPath], {
+      cwd: assistantPath,
+      stdio: ["inherit", "pipe", "pipe"],
+      env: spawnEnv,
+    });
 
     logToFile(`Spawn returned, PID: ${child.pid}`);
+
+    if (child.stdout) {
+      child.stdout.setEncoding("utf8");
+      child.stdout.on("data", (chunk: string) => {
+        process.stdout.write(chunk);
+      });
+    }
+
+    if (child.stderr) {
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", (chunk: string) => {
+        process.stderr.write(chunk);
+      });
+    }
 
     child.on("error", (err) => {
       logToFile(`ERROR: Spawn error: ${err.message}`);
@@ -117,17 +165,5 @@ export async function launchAssistant(
         exitCode: code,
       });
     });
-
-    child.on("spawn", () => {
-      logToFile(`Spawn event fired for PID ${child.pid}`);
-    });
-
-    // Reconfigure stdout to use UTF-8 for Python child
-    if (child.stdout) {
-      child.stdout.setEncoding("utf-8");
-    }
-    if (child.stderr) {
-      child.stderr.setEncoding("utf-8");
-    }
   });
 }

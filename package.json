@@ -4,7 +4,7 @@
   "description": "ZILA : Zigex Intelligent Layer for Agents. Terminal-first developer productivity.",
   "type": "module",
   "bin": {
-    "zila": "./bin/zila.js"
+    "zila": "./src/bin/zila.js"
   },
   "preferGlobal": true,
   "scripts": {

@@ -2,3 +2,8 @@ node_modules/
 dist/
 internship/
 build/
+.venv/
+__pycache__/
+*.pyc
+.git/
+zila-assistant-debug.log
