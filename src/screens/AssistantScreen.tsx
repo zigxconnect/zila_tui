@@ -2,26 +2,21 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
 import { Spinner } from "../ui/Spinner.js";
-import { Divider } from "../ui/Divider.js";
 import { loadWorkspace } from "../utils/workspace.js";
 import { isGitRepo, getRepoName, getRepoStats } from "../assistant/gatherer.js";
 import { initClient } from "../assistant/config.js";
 import { runAgent, type AgentEvent } from "../assistant/agent.js";
 
-// Types 
+// Types
 
-type Phase =
-  | "booting"      // loading workspace + validating repo
-  | "ready"        // waiting for user input
-  | "thinking"     // agent is running
-  | "error"        // fatal setup error
-  | "done";        // user typed 'back'
+type Phase = "booting" | "ready" | "thinking" | "error";
 
-interface ConversationEntry {
+interface Turn {
   id: string;
   question: string;
   events: AgentEvent[];
   complete: boolean;
+  stepSummary: string;
 }
 
 interface RepoMeta {
@@ -33,254 +28,336 @@ interface RepoMeta {
 }
 
 let _uid = 0;
-const uid = () => `e${++_uid}`;
+const uid = () => `t${++_uid}`;
 
-// ─── Sub-components 
+// Primitives
 
-const Header: React.FC<{ repo: RepoMeta | null; phase: Phase }> = ({ repo, phase }) => (
+const Rule: React.FC<{ label?: string; color?: string }> = ({
+  label,
+  color = theme.colors.border,
+}) => {
+  if (!label) return <Text color={color}>{"─".repeat(64)}</Text>;
+  const pad = "─".repeat(3);
+  return (
+    <Box flexDirection="row">
+      <Text color={color}>{pad} </Text>
+      <Text color={theme.colors.dim}>{label}</Text>
+      <Text color={color}> {"─".repeat(Math.max(0, 57 - label.length))}</Text>
+    </Box>
+  );
+};
+
+/** Blinking cursor block */
+const Cursor: React.FC<{ on: boolean }> = ({ on }) => (
+  <Text color={theme.colors.primary}>{on ? "▊" : ""}</Text>
+);
+
+// Header
+
+const Header: React.FC<{ repo: RepoMeta | null; phase: Phase; turnCount: number }> = ({
+  repo,
+  phase,
+  turnCount,
+}) => (
   <Box flexDirection="column" marginBottom={1}>
+    {/* Top bar */}
     <Box flexDirection="row" justifyContent="space-between">
+      {/* Left: branding + repo */}
       <Box flexDirection="row" gap={1}>
         <Text color={theme.colors.primary} bold>ZILA</Text>
-        <Text color={theme.colors.dim}>assistant</Text>
+        <Text color={theme.colors.dim}>›</Text>
+        <Text color={theme.colors.muted}>assistant</Text>
         {repo && (
           <>
-            <Text color={theme.colors.border}>•</Text>
+            <Text color={theme.colors.border}> │ </Text>
             <Text color={theme.colors.secondary} bold>{repo.name}</Text>
-            <Text color={theme.colors.dim}>@</Text>
+            <Text color={theme.colors.dim}> on </Text>
             <Text color={theme.colors.accent}>{repo.branch}</Text>
           </>
         )}
       </Box>
+      {/* Right: live status badge */}
       <Box flexDirection="row" gap={1}>
         {phase === "thinking" && (
-          <>
-            <Spinner color={theme.colors.primary} />
-            <Text color={theme.colors.dim}>thinking</Text>
-          </>
+          <Box flexDirection="row" gap={1}>
+            <Spinner color={theme.colors.accent} />
+            <Text color={theme.colors.accent}>thinking</Text>
+          </Box>
         )}
-        {phase === "ready" && (
+        {phase === "ready" && turnCount === 0 && (
           <Text color={theme.colors.successDim}>ready</Text>
         )}
+        {phase === "ready" && turnCount > 0 && (
+          <Text color={theme.colors.dim}>
+            {turnCount} {turnCount === 1 ? "question" : "questions"} answered
+          </Text>
+        )}
+        {phase === "booting" && (
+          <Box flexDirection="row" gap={1}>
+            <Spinner color={theme.colors.dim} />
+            <Text color={theme.colors.dim}>starting</Text>
+          </Box>
+        )}
       </Box>
     </Box>
+    {/* Subtitle: repo meta */}
     {repo && (
-      <Box flexDirection="row" gap={2} marginTop={0}>
-        <Text color={theme.colors.dim}>{repo.commitCount} commits</Text>
-        <Text color={theme.colors.dim}>last commit {repo.lastCommit}</Text>
-        <Text color={theme.colors.dim}>{repo.path}</Text>
-      </Box>
+      <Text color={theme.colors.dim}>
+        {"     "}
+        {repo.commitCount} commits · last {repo.lastCommit} · {repo.path}
+      </Text>
     )}
-    <Divider width={72} />
-  </Box>
-);
-
-const ThoughtBlock: React.FC<{ text: string }> = ({ text }) => (
-  <Box flexDirection="column" marginBottom={1}>
-    <Box flexDirection="row" gap={1}>
-      <Text color={theme.colors.accent}>◈</Text>
-      <Text color={theme.colors.accent} bold>Thinking</Text>
-    </Box>
-    <Box marginLeft={2}>
-      <Text color={theme.colors.muted} wrap="wrap">{text}</Text>
+    <Box marginTop={1}>
+      <Rule color={theme.colors.border} />
     </Box>
   </Box>
 );
 
-const ActionBlock: React.FC<{ tool: string; args: Record<string, string> }> = ({ tool, args }) => {
-  const argsStr = Object.keys(args).length
-    ? Object.entries(args).map(([k, v]) => `${k}="${v}"`).join(" ")
-    : "";
+// components
+
+/** Show when no questions have been asked yet */
+const EmptyState: React.FC = () => (
+  <Box flexDirection="column" gap={1} paddingY={1}>
+    <Text color={theme.colors.muted}>Ask anything about this repository. Try:</Text>
+    <Box flexDirection="column" marginLeft={2}>
+      {[
+        "What has been worked on recently?",
+        "What does this project do?",
+        "Who contributed the most?",
+        "What did the last commit change?",
+        "Find all uses of the authenticate function",
+      ].map((ex) => (
+        <Text key={ex} color={theme.colors.dim}>
+          <Text color={theme.colors.border}>› </Text>
+          {ex}
+        </Text>
+      ))}
+    </Box>
+    <Box marginTop={1}>
+      <Text color={theme.colors.dim}>
+        Type <Text color={theme.colors.muted}>back</Text> to return · <Text color={theme.colors.muted}>clear</Text> to reset
+      </Text>
+    </Box>
+  </Box>
+);
+
+const TurnGhost: React.FC<{ turn: Turn }> = ({ turn }) => (
+  <Box flexDirection="row" gap={1} marginBottom={0}>
+    <Text color={theme.colors.border}>·</Text>
+    <Text color={theme.colors.dim}>{turn.question.slice(0, 55)}{turn.question.length > 55 ? "…" : ""}</Text>
+    <Text color={theme.colors.border}>  {turn.stepSummary}</Text>
+  </Box>
+);
+
+/** shown only while thinking */
+const LiveFeed: React.FC<{ events: AgentEvent[] }> = ({ events }) => {
+  // Only show the last N events to keep it tight
+  const visible = events.slice(-6);
   return (
-    <Box flexDirection="row" gap={1} marginBottom={1} marginLeft={1}>
-      <Text color={theme.colors.dim}>↳</Text>
-      <Text color={theme.colors.info} bold>{tool}</Text>
-      {argsStr && <Text color={theme.colors.dim}>{argsStr}</Text>}
+    <Box flexDirection="column" gap={0} paddingLeft={1}>
+      {visible.map((ev, i) => {
+        if (ev.type === "step") {
+          const dots = Array.from({ length: ev.max }, (_, j) =>
+            j < ev.iteration ? "●" : "○"
+          ).join("");
+          return (
+            <Box key={i} flexDirection="row" gap={1} marginBottom={1}>
+              <Text color={theme.colors.dim}>{dots}</Text>
+              <Text color={theme.colors.dim}>step {ev.iteration} of {ev.max}</Text>
+            </Box>
+          );
+        }
+        if (ev.type === "thought") {
+          return (
+            <Box key={i} flexDirection="row" gap={1} marginBottom={0}>
+              <Text color={theme.colors.accent}>◈</Text>
+              <Text color={theme.colors.muted} wrap="wrap">
+                {ev.text.slice(0, 120)}{ev.text.length > 120 ? "…" : ""}
+              </Text>
+            </Box>
+          );
+        }
+        if (ev.type === "action") {
+          const argsStr = Object.entries(ev.args)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(" ");
+          return (
+            <Box key={i} flexDirection="row" gap={1} marginLeft={2} marginBottom={0}>
+              <Text color={theme.colors.dim}>↳</Text>
+              <Text color={theme.colors.info}>{ev.tool}</Text>
+              {argsStr && <Text color={theme.colors.dim}>{argsStr.slice(0, 60)}</Text>}
+            </Box>
+          );
+        }
+        if (ev.type === "observation") {
+          return (
+            <Box key={i} flexDirection="row" gap={1} marginLeft={2} marginBottom={0}>
+              <Text color={theme.colors.successDim}>✦</Text>
+              <Text color={theme.colors.dim}>
+                got {ev.full.split("\n").length} lines from {ev.tool}
+              </Text>
+            </Box>
+          );
+        }
+        if (ev.type === "warn") {
+          return (
+            <Box key={i} flexDirection="row" gap={1} marginBottom={0}>
+              <Text color={theme.colors.warning}>{theme.symbols.warning}</Text>
+              <Text color={theme.colors.warning} wrap="wrap">{ev.text.slice(0, 100)}</Text>
+            </Box>
+          );
+        }
+        if (ev.type === "error") {
+          return (
+            <Box key={i} flexDirection="row" gap={1} marginBottom={0}>
+              <Text color={theme.colors.error}>{theme.symbols.cross}</Text>
+              <Text color={theme.colors.error} wrap="wrap">{ev.text.slice(0, 120)}</Text>
+            </Box>
+          );
+        }
+        return null;
+      })}
     </Box>
   );
 };
 
-const ObservationBlock: React.FC<{ tool: string; preview: string }> = ({ tool, preview }) => (
-  <Box flexDirection="column" marginBottom={1} marginLeft={1}>
-    <Box flexDirection="row" gap={1}>
-      <Text color={theme.colors.successDim}>✦</Text>
-      <Text color={theme.colors.successDim}>Observation</Text>
-      <Text color={theme.colors.dim}>from {tool}</Text>
-    </Box>
-    <Box
-      marginLeft={2}
-      marginTop={0}
-      borderStyle="single"
-      borderColor={theme.colors.border}
-      paddingX={1}
-    >
-      <Text color={theme.colors.dim} wrap="wrap">{preview}</Text>
-    </Box>
-  </Box>
-);
+/** The answer section */
+const AnswerCard: React.FC<{ turn: Turn }> = ({ turn }) => {
+  const answerEvent = [...turn.events].reverse().find((e) => e.type === "answer");
+  const errorEvent = [...turn.events].reverse().find((e) => e.type === "error");
 
-const AnswerBlock: React.FC<{ text: string }> = ({ text }) => (
-  <Box flexDirection="column" marginBottom={1}>
-    <Divider label="answer" width={60} />
-    <Box
-      marginTop={1}
-      borderStyle="round"
-      borderColor={theme.colors.primary}
-      paddingX={2}
-      paddingY={1}
-    >
-      <Text color={theme.colors.white} wrap="wrap">{text}</Text>
-    </Box>
-  </Box>
-);
+  // Step summary pill
+  const toolsUsed = turn.events
+    .filter((e) => e.type === "action")
+    .map((e) => (e as { type: "action"; tool: string }).tool);
+  const uniqueTools = [...new Set(toolsUsed)];
 
-const WarnBlock: React.FC<{ text: string }> = ({ text }) => (
-  <Box flexDirection="row" gap={1} marginBottom={1}>
-    <Text color={theme.colors.warning}>{theme.symbols.warning}</Text>
-    <Text color={theme.colors.warning} wrap="wrap">{text}</Text>
-  </Box>
-);
-
-const ErrorBlock: React.FC<{ text: string }> = ({ text }) => (
-  <Box
-    flexDirection="column"
-    borderStyle="round"
-    borderColor={theme.colors.error}
-    paddingX={2}
-    paddingY={1}
-    marginBottom={1}
-  >
-    <Box flexDirection="row" gap={1}>
-      <Text color={theme.colors.error} bold>{theme.symbols.cross}</Text>
-      <Text color={theme.colors.error} bold>Error</Text>
-    </Box>
-    <Text color={theme.colors.text} wrap="wrap">{text}</Text>
-  </Box>
-);
-
-const StepIndicator: React.FC<{ iteration: number; max: number }> = ({ iteration, max }) => {
-  const dots = Array.from({ length: max }, (_, i) => i < iteration ? "●" : "○").join(" ");
   return (
-    <Box flexDirection="row" gap={2} marginBottom={1}>
-      <Divider label={`step ${iteration} of ${max}`} width={40} />
-      <Text color={theme.colors.dim}>{dots}</Text>
-    </Box>
-  );
-};
+    <Box flexDirection="column" marginBottom={1}>
+      {/* Question line */}
+      <Box flexDirection="row" gap={1} marginBottom={1}>
+        <Text color={theme.colors.secondary} bold>›</Text>
+        <Text color={theme.colors.white} bold wrap="wrap">{turn.question}</Text>
+      </Box>
 
-const EventView: React.FC<{ event: AgentEvent }> = ({ event }) => {
-  switch (event.type) {
-    case "step":
-      return <StepIndicator iteration={event.iteration} max={event.max} />;
-    case "thought":
-      return <ThoughtBlock text={event.text} />;
-    case "action":
-      return <ActionBlock tool={event.tool} args={event.args} />;
-    case "observation":
-      return <ObservationBlock tool={event.tool} preview={event.preview} />;
-    case "answer":
-      return <AnswerBlock text={event.text} />;
-    case "warn":
-      return <WarnBlock text={event.text} />;
-    case "error":
-      return <ErrorBlock text={event.text} />;
-    case "max_steps":
-      return (
-        <Box flexDirection="row" gap={1} marginBottom={1}>
-          <Text color={theme.colors.warning}>{theme.symbols.warning}</Text>
+      {/* Step summary pill */}
+      {uniqueTools.length > 0 && (
+        <Box flexDirection="row" gap={1} marginLeft={2} marginBottom={1}>
+          <Text color={theme.colors.dim}>checked</Text>
+          {uniqueTools.map((t, i) => (
+            <React.Fragment key={t}>
+              <Text color={theme.colors.border}>{t}</Text>
+              {i < uniqueTools.length - 1 && <Text color={theme.colors.dim}>·</Text>}
+            </React.Fragment>
+          ))}
+          <Text color={theme.colors.dim}>in {turn.stepSummary}</Text>
+        </Box>
+      )}
+
+      {/* Answer or error */}
+      {answerEvent && answerEvent.type === "answer" && (
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor={theme.colors.primary}
+          paddingX={2}
+          paddingY={1}
+        >
+          <Text color={theme.colors.white} wrap="wrap">{answerEvent.text}</Text>
+        </Box>
+      )}
+      {!answerEvent && errorEvent && errorEvent.type === "error" && (
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor={theme.colors.error}
+          paddingX={2}
+          paddingY={1}
+        >
+          <Box flexDirection="row" gap={1} marginBottom={1}>
+            <Text color={theme.colors.error} bold>{theme.symbols.cross}</Text>
+            <Text color={theme.colors.error} bold>Failed</Text>
+          </Box>
+          <Text color={theme.colors.text} wrap="wrap">{errorEvent.text}</Text>
+        </Box>
+      )}
+      {!answerEvent && !errorEvent && (
+        <Box paddingX={2}>
           <Text color={theme.colors.warning}>
-            Reached maximum reasoning steps. Try a more specific question.
+            {theme.symbols.warning} No answer was produced. Try rephrasing.
           </Text>
         </Box>
-      );
-    default:
-      return null;
-  }
+      )}
+    </Box>
+  );
 };
 
-const ConversationEntry: React.FC<{ entry: ConversationEntry; isLast: boolean }> = ({ entry, isLast }) => (
-  <Box flexDirection="column" marginBottom={1}>
-    {/* Question */}
-    <Box flexDirection="row" gap={1} marginBottom={1}>
-      <Text color={theme.colors.secondary} bold>you</Text>
-      <Text color={theme.colors.secondary}>{theme.symbols.pointer}</Text>
-      <Text color={theme.colors.white} bold wrap="wrap">{entry.question}</Text>
-    </Box>
-    {/* Events */}
-    {entry.events.map((ev, i) => (
-      <EventView key={i} event={ev} />
-    ))}
-    {/* Streaming indicator */}
-    {isLast && !entry.complete && (
-      <Box flexDirection="row" gap={1} marginLeft={2}>
-        <Spinner color={theme.colors.accent} />
-        <Text color={theme.colors.dim}>reasoning…</Text>
-      </Box>
-    )}
-    {/* Separator between turns */}
-    {entry.complete && <Box marginTop={1}><Divider width={48} /></Box>}
-  </Box>
-);
-
-const HelpHint: React.FC = () => (
-  <Box flexDirection="row" gap={3} marginTop={1}>
-    <Text color={theme.colors.dim}>
-      <Text color={theme.colors.muted}>back</Text>  return to shell
-    </Text>
-    <Text color={theme.colors.dim}>
-      <Text color={theme.colors.muted}>clear</Text>  clear history
-    </Text>
-    <Text color={theme.colors.dim}>
-      <Text color={theme.colors.muted}>Ctrl+C</Text>  exit
-    </Text>
-  </Box>
-);
+// Input bar
 
 const InputBar: React.FC<{
   input: string;
   cursorOn: boolean;
-  running: boolean;
-  error: string;
-}> = ({ input, cursorOn, running, error }) => (
-  <Box flexDirection="column" marginTop={1}>
-    {error && (
-      <Box flexDirection="row" gap={1} marginBottom={1}>
-        <Text color={theme.colors.error}>{theme.symbols.cross}</Text>
-        <Text color={theme.colors.error}>{error}</Text>
+  phase: Phase;
+  inputError: string;
+}> = ({ input, cursorOn, phase, inputError }) => {
+  const isThinking = phase === "thinking";
+  const isBooting = phase === "booting";
+  const disabled = isThinking || isBooting;
+
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Rule color={disabled ? theme.colors.border : theme.colors.borderActive} />
+
+      {inputError && (
+        <Box marginTop={1}>
+          <Text color={theme.colors.warning}>
+            {theme.symbols.warning} {inputError}
+          </Text>
+        </Box>
+      )}
+
+      <Box flexDirection="row" gap={1} marginTop={1}>
+        {disabled ? (
+          <Text color={theme.colors.dim}>…</Text>
+        ) : (
+          <Text color={theme.colors.primary} bold>{theme.symbols.pointer}</Text>
+        )}
+        <Text color={disabled ? theme.colors.dim : theme.colors.white}>
+          {disabled ? (isThinking ? "thinking…" : "starting…") : input}
+        </Text>
+        {!disabled && <Cursor on={cursorOn} />}
       </Box>
-    )}
-    <Box flexDirection="row" gap={1}>
-      <Text color={running ? theme.colors.dim : theme.colors.primary} bold>
-        {running ? "…" : theme.symbols.pointer}
-      </Text>
-      <Text color={theme.colors.white}>{input}</Text>
-      {!running && (
-        <Text color={theme.colors.primary}>{cursorOn ? "▊" : " "}</Text>
+
+      {!disabled && (
+        <Box marginTop={1}>
+          <Text color={theme.colors.dim}>
+            <Text color={theme.colors.border}>back</Text> return  ·  <Text color={theme.colors.border}>clear</Text> reset  ·  <Text color={theme.colors.border}>↵</Text> ask
+          </Text>
+        </Box>
       )}
     </Box>
-    {!running && <HelpHint />}
-  </Box>
-);
+  );
+};
 
-// ─── Main screen 
-
+// Main screen
 interface AssistantScreenProps {
   onComplete: () => void;
-  inkInstance: { unmount: () => void };
+  inkInstance?: { unmount: () => void };
 }
 
 export const AssistantScreen: React.FC<AssistantScreenProps> = ({ onComplete }) => {
   const [phase, setPhase] = useState<Phase>("booting");
   const [errorMsg, setErrorMsg] = useState("");
   const [repo, setRepo] = useState<RepoMeta | null>(null);
-  const [conversation, setConversation] = useState<ConversationEntry[]>([]);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [activeTurn, setActiveTurn] = useState<Turn | null>(null);
   const [input, setInput] = useState("");
   const [cursorOn, setCursorOn] = useState(true);
   const [inputError, setInputError] = useState("");
 
   const repoPathRef = useRef<string>("");
 
-  // ── Boot: load workspace, validate git repo, init AI client ────────────────
+  // Start
   useEffect(() => {
     async function boot() {
       try {
@@ -290,31 +367,22 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({ onComplete }) 
           setPhase("error");
           return;
         }
+        repoPathRef.current = ws.curriculumPath;
 
-        const repoPath = ws.curriculumPath;
-        repoPathRef.current = repoPath;
-
-        if (!isGitRepo(repoPath)) {
-          setErrorMsg(`Not a git repository:\n${repoPath}\n\nRun  zila init  to set up your workspace.`);
+        if (!isGitRepo(ws.curriculumPath)) {
+          setErrorMsg(`Not a git repository:\n${ws.curriculumPath}`);
           setPhase("error");
           return;
         }
-
         try {
           initClient(ws.assistantPath);
         } catch (e) {
-          setErrorMsg(`AI client setup failed: ${e instanceof Error ? e.message : String(e)}`);
+          setErrorMsg(`AI setup failed: ${e instanceof Error ? e.message : String(e)}`);
           setPhase("error");
           return;
         }
-
-        const stats = getRepoStats(repoPath);
-        setRepo({
-          name: getRepoName(repoPath),
-          path: repoPath,
-          ...stats,
-        });
-
+        const stats = getRepoStats(ws.curriculumPath);
+        setRepo({ name: getRepoName(ws.curriculumPath), path: ws.curriculumPath, ...stats });
         setPhase("ready");
       } catch (e) {
         setErrorMsg(e instanceof Error ? e.message : String(e));
@@ -324,59 +392,58 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({ onComplete }) 
     boot();
   }, []);
 
+  // Cursor blink
   useEffect(() => {
     if (phase !== "ready") return;
     const id = setInterval(() => setCursorOn((v) => !v), 530);
     return () => clearInterval(id);
   }, [phase]);
 
-  const submitQuestion = useCallback(async (question: string) => {
-    if (!question.trim()) return;
+  const submit = useCallback(
+    async (question: string) => {
+      const q = question.trim();
+      if (!q) return;
+      if (q.toLowerCase() === "back") { onComplete(); return; }
+      if (q.toLowerCase() === "clear") { setTurns([]); return; }
 
-    // Built-in commands
-    if (question.trim().toLowerCase() === "back") { onComplete(); return; }
-    if (question.trim().toLowerCase() === "clear") { setConversation([]); return; }
+      const turn: Turn = { id: uid(), question: q, events: [], complete: false, stepSummary: "" };
+      setActiveTurn(turn);
+      setPhase("thinking");
+      setInputError("");
 
-    const entry: ConversationEntry = {
-      id: uid(),
-      question: question.trim(),
-      events: [],
-      complete: false,
-    };
+      const startMs = Date.now();
 
-    setConversation((prev) => [...prev, entry]);
-    setPhase("thinking");
-    setInputError("");
-
-    const entryId = entry.id;
-
-    try {
-      for await (const event of runAgent(question.trim(), repoPathRef.current)) {
-        setConversation((prev) =>
-          prev.map((e) =>
-            e.id === entryId ? { ...e, events: [...e.events, event] } : e,
-          ),
+      try {
+        for await (const event of runAgent(q, repoPathRef.current)) {
+          setActiveTurn((prev) =>
+            prev ? { ...prev, events: [...prev.events, event] } : prev
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setActiveTurn((prev) =>
+          prev ? { ...prev, events: [...prev.events, { type: "error", text: msg }] } : prev
         );
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setConversation((prev) =>
-        prev.map((e) =>
-          e.id === entryId
-            ? { ...e, events: [...e.events, { type: "error", text: msg }] }
-            : e,
-        ),
-      );
-    } finally {
-      setConversation((prev) =>
-        prev.map((e) =>
-          e.id === entryId ? { ...e, complete: true } : e,
-        ),
-      );
-      setPhase("ready");
-    }
-  }, [onComplete]);
 
+      const elapsedS = ((Date.now() - startMs) / 1000).toFixed(1);
+
+      setActiveTurn((prev) => {
+        if (!prev) return prev;
+        const steps = prev.events.filter((e) => e.type === "step").length;
+        const completed: Turn = {
+          ...prev,
+          complete: true,
+          stepSummary: `${steps}s / ${elapsedS}s`,
+        };
+        setTurns((t) => [...t, completed]);
+        return null;
+      });
+
+      setPhase("ready");
+    },
+    [onComplete]
+  );
   useInput(
     (char, key) => {
       if (phase === "error") { onComplete(); return; }
@@ -385,97 +452,95 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({ onComplete }) 
       if (key.return) {
         const q = input.trim();
         setInput("");
-        if (!q) { setInputError("Please type a question first."); return; }
+        if (!q) { setInputError("Type a question first."); return; }
         setInputError("");
-        submitQuestion(q);
+        submit(q);
         return;
       }
       if (key.backspace || key.delete) {
-        setInput((prev) => prev.slice(0, -1));
+        setInput((p) => p.slice(0, -1));
         setInputError("");
         return;
       }
       if (key.ctrl || key.meta) return;
-      if (char) {
-        setInput((prev) => prev + char);
-        setInputError("");
-      }
+      if (char) { setInput((p) => p + char); setInputError(""); }
     },
-    { isActive: phase !== "done" },
+    { isActive: phase !== "booting" }
   );
 
-  if (phase === "booting") {
-    return (
-      <Box flexDirection="column" paddingY={1}>
-        <Header repo={null} phase="booting" />
-        <Box flexDirection="row" gap={1} marginTop={1}>
-          <Spinner />
-          <Text color={theme.colors.text}>Loading workspace…</Text>
-        </Box>
-      </Box>
-    );
-  }
-
+  // Error screen
   if (phase === "error") {
     return (
       <Box flexDirection="column" paddingY={1}>
-        <Header repo={null} phase="error" />
+        <Header repo={null} phase="error" turnCount={0} />
         <Box
           flexDirection="column"
           borderStyle="round"
           borderColor={theme.colors.error}
           paddingX={2}
           paddingY={1}
-          marginTop={1}
         >
           <Box flexDirection="row" gap={1} marginBottom={1}>
-            <Text color={theme.colors.error} bold>{theme.symbols.cross}</Text>
-            <Text color={theme.colors.error} bold>Could not start assistant</Text>
+            <Text color={theme.colors.error} bold>{theme.symbols.cross} Could not start</Text>
           </Box>
           <Text color={theme.colors.text} wrap="wrap">{errorMsg}</Text>
           <Box marginTop={1}>
-            <Text color={theme.colors.dim}>Press any key to return to the shell…</Text>
+            <Text color={theme.colors.dim}>Press any key to return…</Text>
           </Box>
         </Box>
       </Box>
     );
   }
+  const ghosts = turns.slice(0, -1);
+  // The latest completed turn gets the full answer card
+  const lastTurn = turns.length > 0 ? turns[turns.length - 1] : null;
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <Header repo={repo} phase={phase} />
+      {/* Header */}
+      <Header repo={repo} phase={phase} turnCount={turns.length} />
 
-      {/* Empty state */}
-      {conversation.length === 0 && phase === "ready" && (
-        <Box flexDirection="column" gap={1} marginBottom={2}>
-          <Text color={theme.colors.muted}>
-            Ask anything about your repository. Examples:
-          </Text>
-          <Box marginLeft={2} flexDirection="column">
-            <Text color={theme.colors.dim}>• What has been worked on recently?</Text>
-            <Text color={theme.colors.dim}>• What does this project do?</Text>
-            <Text color={theme.colors.dim}>• Who are the main contributors?</Text>
-            <Text color={theme.colors.dim}>• What did the last commit change?</Text>
-            <Text color={theme.colors.dim}>• Find all uses of the login function</Text>
+      {/* Zone 2: Work zone */}
+      <Box flexDirection="column" flexGrow={1}>
+
+        {/* Empty state */}
+        {turns.length === 0 && !activeTurn && <EmptyState />}
+
+        {/* History: collapsed to one line each */}
+        {ghosts.length > 0 && (
+          <Box flexDirection="column" marginBottom={1}>
+            {ghosts.map((t) => <TurnGhost key={t.id} turn={t} />)}
+            <Box marginTop={1} marginBottom={1}>
+              <Rule color={theme.colors.border} />
+            </Box>
           </Box>
-        </Box>
-      )}
+        )}
 
-      {/* Conversation history */}
-      {conversation.map((entry, i) => (
-        <ConversationEntry
-          key={entry.id}
-          entry={entry}
-          isLast={i === conversation.length - 1}
-        />
-      ))}
+        {/* Last completed answer — shown in full */}
+        {lastTurn && !activeTurn && (
+          <AnswerCard turn={lastTurn} />
+        )}
 
-      {/* Input */}
+        {/* Active turn: live feed while thinking */}
+        {activeTurn && (
+          <Box flexDirection="column">
+            {/* Question */}
+            <Box flexDirection="row" gap={1} marginBottom={1}>
+              <Text color={theme.colors.secondary} bold>›</Text>
+              <Text color={theme.colors.white} bold wrap="wrap">{activeTurn.question}</Text>
+            </Box>
+            {/* Live events */}
+            <LiveFeed events={activeTurn.events} />
+          </Box>
+        )}
+      </Box>
+
+      {/* Zone 3: Input bar (always visible) */}
       <InputBar
         input={input}
         cursorOn={cursorOn}
-        running={phase === "thinking"}
-        error={inputError}
+        phase={phase}
+        inputError={inputError}
       />
     </Box>
   );

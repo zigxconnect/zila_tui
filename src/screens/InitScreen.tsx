@@ -15,7 +15,7 @@ import { saveWorkspace } from "../utils/workspace.js";
 
 // Repo URLs 
 const CURRICULUM_URL = "https://github.com/rawlingsnsame/evaluation_internship.git";
-const ASSISTANT_URL  = "https://github.com/rawlingsnsame/track_my_directory_ai.git";
+//const ASSISTANT_URL  = "https://github.com/rawlingsnsame/track_my_directory_ai.git";
 
 const S = {
   GIT:       0,
@@ -171,66 +171,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
         setStep(S.INSTALL_C, "warning", `Install failed: ${msg}`);
       }
 
-      // 6. clone assistant 
-      setStep(S.CLONE_A, "loading", "Cloning from GitHub…");
-      try {
-        const { cloned } = await cloneRepo(
-          ASSISTANT_URL,
-          "./internship/assistant",
-          (_attempt: number) =>
-            setStep(S.CLONE_A, "warning", `Retry ${_attempt}/3…`),
-        );
-        if (cancelled) return;
-        setStep(
-          S.CLONE_A,
-          "success",
-          cloned ? "Cloned → .assistant/" : "Already exists — skipped",
-        );
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        setStep(S.CLONE_A, "error", msg);
-        setFatalMsg(`Failed to clone assistant: ${msg}`);
-        return;
-      }
-
-      // 7. assistant dependencies 
-      setStep(S.INSTALL_A, "loading", "Installing dependencies…");
-      try {
-        // Try npm first, then Python
-        const npm = await installNpmDependencies(
-          "./internship/assistant",
-          (_attempt: number) =>
-            setStep(S.INSTALL_A, "warning", `npm retry ${_attempt}/3…`),
-        );
-        if (cancelled) return;
-
-        const py = await installPythonDependencies(
-          "./internship/assistant",
-          (_attempt: number) =>
-            setStep(S.INSTALL_A, "warning", `pip retry ${_attempt}/3…`),
-        );
-        if (cancelled) return;
-
-        if (!npm && !py) {
-          setStep(S.INSTALL_A, "skipped", "No package.json or requirements.txt");
-        } else {
-          const what = [npm && "npm packages", py && "Python packages"]
-            .filter(Boolean)
-            .join(", ");
-          setStep(S.INSTALL_A, "success", `Installed ${what}`);
-        }
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        setStep(S.INSTALL_A, "warning", `Install failed: ${msg}`);
-        // Non-fatal
-      }
-
       if (!cancelled) {
-        // Save workspace location to ~/.zila/config.json so every
-        // subsequent command (assistant, search, etc.) knows where
-        // the curriculum and assistant directories live.
         await saveWorkspace(process.cwd());
         setIsDone(true);
       }
@@ -245,10 +186,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
 
     return () => { cancelled = true; };
   }, [retryTrigger]);
-
-  // Network retry keyboard handler 
   useInput((char) => {
-    // "Press Enter / q" after success or fatal
     if ((isDone || fatalMsg) && !hasNetworkError) {
       if (char === "\r" || char === "q" || char === "\u001b") {
         onComplete();
@@ -256,14 +194,12 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
       return;
     }
 
-    // Network error
     if (hasNetworkError && networkChoice === "waiting") {
       if (char === "r") {
         setNetworkChoice("retrying");
         setRetryTrigger((n) => n + 1);
       } else if (char === "s") {
         setNetworkChoice("skipping");
-        // Mark remaining steps skipped and finish
         setSteps((prev) => {
           const next = [...prev];
           for (let i = S.CLONE_C; i < STEP_COUNT; i++) {
@@ -279,7 +215,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete }) => {
       return;
     }
 
-    // After init completes: any key returns to shell
     if (isDone || fatalMsg) {
       onComplete();
     }

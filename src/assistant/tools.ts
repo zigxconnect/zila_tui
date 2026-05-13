@@ -80,10 +80,11 @@ export function runTool(
   repoPath: string,
   args: Record<string, string> = {},
 ): string {
-  if (!(name in TOOLS))
+  const tool = TOOLS[name as keyof typeof TOOLS];
+  if (!tool)
     return `Error: Unknown tool '${name}'. Available: ${Object.keys(TOOLS).join(", ")}`;
   try {
-    return TOOLS[name].fn(repoPath, args);
+    return tool.fn(repoPath, args);
   } catch (e) {
     return `Error running tool '${name}': ${e}`;
   }
