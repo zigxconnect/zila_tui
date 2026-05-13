@@ -21,7 +21,6 @@ let _id = 0;
 const nextId = () => `l${++_id}`;
 
 export interface ShellProps {
-  /** The Ink render() instance, passed through to AssistantScreen for TTY teardown */
   inkInstance: { unmount: () => void };
 }
 export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {

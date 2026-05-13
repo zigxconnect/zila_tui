@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { spawnSync, spawn, type SpawnOptions } from "node:child_process";
+import { spawn } from "node:child_process";
 import { resolvePython } from "./python.js";
 
 export interface LaunchResult {
@@ -25,8 +25,6 @@ export async function launchAssistant(
   logToFile(`curriculumPath: ${curriculumPath}`);
   logToFile(`platform: ${process.platform}`);
 
-  // Pre-flight checks
-
   const mainPy = path.join(assistantPath, "main.py");
 
   if (!fs.existsSync(mainPy)) {
@@ -49,8 +47,6 @@ export async function launchAssistant(
   }
   logToFile("OK: Curriculum exists");
 
-  // Resolve Python
-
   let python: { bin: string; version: string };
   try {
     python = await resolvePython(assistantPath);
@@ -64,18 +60,17 @@ export async function launchAssistant(
     };
   }
 
+  unmountInk();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
   if (process.stdin.isTTY && typeof process.stdin.setRawMode === "function") {
     process.stdin.setRawMode(false);
   }
-  process.stdin.pause();
-  process.stdout.write("\x1b[?25h");
-  process.stdout.write("\x1b[0m");
-  process.stdout.write("\x1b[?1049l"); // leave alternate screen
-  process.stdout.write("\x1b[2J\x1b[H"); // clear and home
-  unmountInk();
+  process.stdout.write("\x1b[?25h"); // Show cursor
+  process.stdout.write("\x1b[0m"); // Reset formatting
+  process.stdout.write("\x1b[?1049l"); // Leave alternate screen
 
-  process.stdout.write("yooo \n");
-
+  await new Promise((resolve) => setTimeout(resolve, 50));
   await new Promise<void>((resolve) => {
     if (process.stdout.writableNeedDrain) {
       process.stdout.once("drain", resolve);
@@ -84,86 +79,47 @@ export async function launchAssistant(
     }
   });
 
+  const venvDir = path.resolve(assistantPath, ".venv");
+  const venvScripts =
+    process.platform === "win32"
+      ? path.join(venvDir, "Scripts")
+      : path.join(venvDir, "bin");
+
   const spawnEnv = {
     ...process.env,
     PYTHONUNBUFFERED: "1",
     PYTHONIOENCODING: "utf-8",
+    VIRTUAL_ENV: venvDir,
+    PATH: `${venvScripts}${path.delimiter}${process.env.PATH}`,
   };
 
   logToFile(`Spawning: ${python.bin} "${mainPy}" "${curriculumPath}"`);
   logToFile(`CWD: ${assistantPath}`);
 
-  if (process.platform !== "win32") {
-    logToFile("Using spawnSync (Unix/Mac)");
-
-    const result = spawnSync(python.bin, [mainPy, curriculumPath], {
+  return new Promise((resolve) => {
+    const child = spawn(python.bin, [mainPy, curriculumPath], {
       cwd: assistantPath,
       stdio: "inherit",
       env: spawnEnv,
     });
 
-    logToFile(
-      `spawnSync returned — status: ${result.status}, signal: ${result.signal}`,
-    );
-
-    if (result.error) {
-      logToFile(`ERROR: spawnSync error: ${result.error.message}`);
-      return {
-        ok: false,
-        error: `Failed to launch assistant: ${result.error.message}`,
-        exitCode: null,
-      };
-    }
-
-    const code = result.status;
-    return {
-      ok: code === 0,
-      error: code !== 0 ? `Assistant exited with code ${code}` : undefined,
-      exitCode: code,
-    };
-  }
-
-  logToFile("Using piped spawn (Windows)");
-
-  return new Promise((resolve) => {
-    const child = spawn(python.bin, [mainPy, curriculumPath], {
-      cwd: assistantPath,
-      stdio: ["inherit", "pipe", "pipe"],
-      env: spawnEnv,
-    });
-
     logToFile(`Spawn returned, PID: ${child.pid}`);
-
-    if (child.stdout) {
-      child.stdout.setEncoding("utf8");
-      child.stdout.on("data", (chunk: string) => {
-        process.stdout.write(chunk);
-      });
-    }
-
-    if (child.stderr) {
-      child.stderr.setEncoding("utf8");
-      child.stderr.on("data", (chunk: string) => {
-        process.stderr.write(chunk);
-      });
-    }
 
     child.on("error", (err) => {
       logToFile(`ERROR: Spawn error: ${err.message}`);
-      resolve({
-        ok: false,
-        error: `Failed to launch assistant: ${err.message}`,
-        exitCode: null,
-      });
+      resolve({ ok: false, error: err.message, exitCode: null });
     });
 
     child.on("close", (code) => {
       logToFile(`Python process closed with code: ${code}`);
-      resolve({
-        ok: code === 0,
-        error: code !== 0 ? `Assistant exited with code ${code}` : undefined,
-        exitCode: code,
-      });
+      if (
+        process.stdin.isTTY &&
+        typeof process.stdin.setRawMode === "function"
+      ) {
+        process.stdin.setRawMode(true);
+      }
+      process.stdin.resume();
+      resolve({ ok: code === 0, exitCode: code });
     });
   });
 }
