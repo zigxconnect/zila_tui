@@ -3,7 +3,14 @@ import { exitCommand } from "./exit.js";
 import { helpCommand } from "./help.js";
 import { initCommand } from "./init/index.js";
 import { assistantCommand } from "./assistant.js";
-
+import { authCommand } from "./auth.js";
+import { infoCommand } from "./info.js";
+import { aboutCommand } from "./about.js";
+import { searchCommand } from "./search.js";
+import { evaluateCommand } from "./evaluate.js";
+import { clearCommand } from "./clear.js";
+// import { trackCommand } from "./track/index.js";
+// import { logCommand } from "./log.js";
 
 const comingSoon: ZilaCommand[] = [
   {
@@ -29,5 +36,12 @@ export function registerAllCommands(): void {
   registerCommand(helpCommand);
   registerCommand(initCommand);
   registerCommand(assistantCommand);
-  comingSoon.forEach(registerCommand);
+  registerCommand(authCommand);
+  registerCommand(infoCommand);
+  registerCommand(aboutCommand);
+  registerCommand(searchCommand);
+  registerCommand(evaluateCommand);
+  registerCommand(clearCommand);
+  // registerCommand(trackCommand);
+  // registerCommand(logCommand);
 }

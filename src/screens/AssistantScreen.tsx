@@ -115,7 +115,6 @@ const Header: React.FC<{ repo: RepoMeta | null; phase: Phase; turnCount: number 
 
 // components
 
-/** Show when no questions have been asked yet */
 const EmptyState: React.FC = () => (
   <Box flexDirection="column" gap={1} paddingY={1}>
     <Text color={theme.colors.muted}>Ask anything about this repository. Try:</Text>
@@ -135,7 +134,7 @@ const EmptyState: React.FC = () => (
     </Box>
     <Box marginTop={1}>
       <Text color={theme.colors.dim}>
-        Type <Text color={theme.colors.muted}>back</Text> to return · <Text color={theme.colors.muted}>clear</Text> to reset
+        Type <Text color={theme.colors.muted}>back</Text>, <Text color={theme.colors.muted}>exit</Text>, or <Text color={theme.colors.muted}>quit</Text> to return · <Text color={theme.colors.muted}>clear</Text> to reset
       </Text>
     </Box>
   </Box>
@@ -149,7 +148,6 @@ const TurnGhost: React.FC<{ turn: Turn }> = ({ turn }) => (
   </Box>
 );
 
-/** shown only while thinking */
 const LiveFeed: React.FC<{ events: AgentEvent[] }> = ({ events }) => {
   // Only show the last N events to keep it tight
   const visible = events.slice(-6);
@@ -316,11 +314,11 @@ const InputBar: React.FC<{
         </Box>
       )}
 
-      <Box flexDirection="row" gap={1} marginTop={1}>
+      <Box flexDirection="row" gap={0} marginTop={1}>
         {disabled ? (
-          <Text color={theme.colors.dim}>…</Text>
+          <Text color={theme.colors.dim}>… </Text>
         ) : (
-          <Text color={theme.colors.primary} bold>{theme.symbols.pointer}</Text>
+          <Text color={theme.colors.primary} bold>{theme.symbols.pointer} </Text>
         )}
         <Text color={disabled ? theme.colors.dim : theme.colors.white}>
           {disabled ? (isThinking ? "thinking…" : "starting…") : input}
@@ -331,7 +329,7 @@ const InputBar: React.FC<{
       {!disabled && (
         <Box marginTop={1}>
           <Text color={theme.colors.dim}>
-            <Text color={theme.colors.border}>back</Text> return  ·  <Text color={theme.colors.border}>clear</Text> reset  ·  <Text color={theme.colors.border}>↵</Text> ask
+            <Text color={theme.colors.border}>back</Text> return  ·  <Text color={theme.colors.border}>clear</Text> reset  ·  <Text color={theme.colors.border}>exit/quit</Text> leave  ·  <Text color={theme.colors.border}>↵</Text> ask
           </Text>
         </Box>
       )}
@@ -343,6 +341,7 @@ const InputBar: React.FC<{
 interface AssistantScreenProps {
   onComplete: () => void;
   inkInstance?: { unmount: () => void };
+  clearHistory?: () => void;
 }
 
 export const AssistantScreen: React.FC<AssistantScreenProps> = ({ onComplete }) => {
@@ -403,8 +402,8 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({ onComplete }) 
     async (question: string) => {
       const q = question.trim();
       if (!q) return;
-      if (q.toLowerCase() === "back") { onComplete(); return; }
-      if (q.toLowerCase() === "clear") { setTurns([]); return; }
+      if (q.toLowerCase() === "back" || q.toLowerCase() === "exit" || q.toLowerCase() === "quit") { onComplete(); return; }
+      if (q.toLowerCase() === "clear") { clearHistory?.(); return; }
 
       const turn: Turn = { id: uid(), question: q, events: [], complete: false, stepSummary: "" };
       setActiveTurn(turn);
@@ -501,7 +500,7 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({ onComplete }) 
       <Header repo={repo} phase={phase} turnCount={turns.length} />
 
       {/* Zone 2: Work zone */}
-      <Box flexDirection="column" flexGrow={1}>
+      <Box flexDirection="column" marginBottom={1}>
 
         {/* Empty state */}
         {turns.length === 0 && !activeTurn && <EmptyState />}
@@ -545,3 +544,7 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({ onComplete }) 
     </Box>
   );
 };
+
+function clearHistory() {
+  throw new Error("Function not implemented.");
+}

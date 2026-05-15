@@ -17,7 +17,7 @@ export async function saveWorkspace(workspaceRoot: string): Promise<void> {
   const config: WorkspaceConfig = {
     workspacePath: workspaceRoot,
     curriculumPath: path.join(workspaceRoot, "internship", "curriculum"),
-    assistantPath: path.join(workspaceRoot, "internship", "assistant"),
+    assistantPath: path.join(workspaceRoot, "src", "assistant"),
     createdAt: new Date().toISOString(),
   };
 

@@ -8,6 +8,10 @@ export interface ShellContext {
   startInit: () => void;
   /** Launch the Python assistant (TTY handoff) */
   startAssistant: () => void;
+  startAuth: () => void;
+  startAbout: () => void;
+  startInfo: () => void;
+  clearHistory: () => void;
 }
 
 export type CommandHandler = (
