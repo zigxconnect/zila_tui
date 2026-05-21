@@ -1,5 +1,8 @@
+// src/screens/InitScreen.tsx
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text, useInput } from "ink";
+import path from "node:path";
 import { theme } from "../ui/theme.js";
 import { StatusLine, type StatusType } from "../ui/StatusLine.js";
 import { Banner } from "../ui/Banner.js";
@@ -23,26 +26,46 @@ interface InternshipProfile {
   curriculum_repo_url?: string;
 }
 
-async function fetchInternshipProfile(): Promise<InternshipProfile> {
-  // Fetch internship details (department, level, curriculum repo) from Zigex
-  const data = await zilaApi<{
-    profile?: InternshipProfile;
-    internship?: InternshipProfile;
-  }>("/auth/profile");
-  const profile = data.profile ?? data.internship;
-  if (!profile)
-    throw new Error(
-      "No internship profile returned from Zigex. Make sure you have an active internship.",
-    );
-  if (!profile.department)
-    throw new Error(
-      "Zigex profile is missing 'department'. Complete your registration on the Zigex platform.",
-    );
-  if (!profile.level)
-    throw new Error(
-      "Zigex profile is missing 'level'. Complete your registration on the Zigex platform.",
-    );
-  return profile;
+async function fetchInternshipProfile(): Promise<{
+  profile: InternshipProfile;
+  source: "Zigex API" | "Default Fallback";
+}> {
+  let profile: InternshipProfile | null = null;
+  let source: "Zigex API" | "Default Fallback" = "Zigex API";
+
+  // 1. Query the correct authenticated endpoint: `/profile/me`
+  try {
+    const data = await zilaApi<{
+      profile?: InternshipProfile;
+      internship?: InternshipProfile;
+    }>("/profile/me");
+    profile = data.profile ?? data.internship ?? null;
+  } catch {
+    // Fall through on error
+  }
+
+  // 2. Fallback to default Web (Beginner) track if profile is empty or API fails
+  if (!profile) {
+    profile = {
+      department: "web",
+      level: "beginner",
+    };
+    source = "Default Fallback";
+  }
+
+  if (!profile.department) {
+    profile.department = "web";
+    source = "Default Fallback";
+  }
+  if (!profile.level) {
+    profile.level = "beginner";
+    source = "Default Fallback";
+  }
+
+  profile.department = profile.department.toLowerCase().trim();
+  profile.level = profile.level.toLowerCase().trim();
+
+  return { profile, source };
 }
 
 function resolveStudentName(profile: InternshipProfile): string {
@@ -53,7 +76,6 @@ function resolveStudentName(profile: InternshipProfile): string {
   return parts.length > 0 ? parts.join(" ") : "Student";
 }
 
-// Step indices — sequential, no gaps
 const S = {
   GIT: 0,
   NODE: 1,
@@ -95,8 +117,6 @@ interface InitScreenProps {
   clearHistory?: () => void;
 }
 
-// Progress bar
-
 const ProgressBar: React.FC<{ steps: Step[] }> = ({ steps }) => {
   const done = steps.filter(
     (s) => s.status === "success" || s.status === "skipped",
@@ -116,8 +136,6 @@ const ProgressBar: React.FC<{ steps: Step[] }> = ({ steps }) => {
     </Box>
   );
 };
-
-// Main
 
 export const InitScreen: React.FC<InitScreenProps> = ({
   onComplete,
@@ -152,7 +170,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
     [],
   );
 
-  // Init flow
   useEffect(() => {
     if (phase !== "running") return;
     let cancelled = false;
@@ -188,7 +205,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       setStep(S.PYTHON, "loading", "Checking…");
       const python = await checkPython();
       if (cancelled) return;
-      // Python is non-fatal for non-ML/data departments — warn and continue
       if (!python.passed) {
         setStep(
           S.PYTHON,
@@ -223,22 +239,20 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       );
       let internshipProfile: InternshipProfile;
       try {
-        internshipProfile = await fetchInternshipProfile();
+        const { profile, source } = await fetchInternshipProfile();
+        internshipProfile = profile;
         if (cancelled) return;
         setStep(
           S.PROFILE,
           "success",
-          `${internshipProfile.department} · ${internshipProfile.level}`,
+          `${internshipProfile.department} · ${internshipProfile.level} (${source})`,
         );
       } catch (err) {
+        internshipProfile = { department: "web", level: "beginner" };
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : String(err);
-        setStep(S.PROFILE, "error", msg);
-        setFatalMsg(msg);
-        return;
+        setStep(S.PROFILE, "success", "web · beginner (Default Fallback)");
       }
 
-      // Resolve curriculum URL from Zigex profile, falling back to a sensible default
       const curriculumUrl =
         internshipProfile.curriculum_repo_url ??
         "https://github.com/rawlingsnsame/evaluation_internship.git";
@@ -246,7 +260,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       const workspaceName = `${internshipProfile.department}-${internshipProfile.level}`;
       const workspaceTarget = `./internship/curriculum`;
 
-      // 6. clone curriculum (URL from Zigex)
+      // 6. clone curriculum
       setStep(S.CLONE_C, "loading", `Cloning ${workspaceName} curriculum…`);
       try {
         const { cloned } = await cloneRepo(
@@ -316,7 +330,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
 
       if (!cancelled) {
         const studentName = resolveStudentName(internshipProfile);
-        // BUG FIX: pass all required profile fields to saveWorkspace — previously called with only workspaceRoot
         await saveWorkspace(process.cwd(), {
           department: internshipProfile.department,
           level: internshipProfile.level,
@@ -325,7 +338,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         setWorkspaceInfo({
           department: internshipProfile.department,
           level: internshipProfile.level,
-          path: workspaceTarget,
+          path: path.resolve(workspaceTarget),
         });
         setPhase("done");
       }
@@ -341,7 +354,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
     };
   }, [phase, retryTrigger, setStep]);
 
-  // Keyboard
   useInput((char, key) => {
     if (phase === "auth") return;
 
@@ -370,7 +382,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
     if (phase === "done" || fatalMsg) onComplete();
   });
 
-  // Auth gate
   if (phase === "auth") {
     return (
       <AuthScreen
@@ -384,10 +395,8 @@ export const InitScreen: React.FC<InitScreenProps> = ({
     );
   }
 
-  // Running / done / fatal
   return (
     <Box flexDirection="column" paddingY={1}>
-      {/* Header */}
       <Box flexDirection="column" marginBottom={1}>
         <Box flexDirection="row" gap={1}>
           <Text color={theme.colors.primary} bold>
@@ -410,7 +419,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
 
       <ProgressBar steps={steps} />
 
-      {/* Steps */}
       <Box flexDirection="column" marginBottom={1}>
         <Text color={theme.colors.dim} bold>
           {" "}
@@ -472,7 +480,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         />
       </Box>
 
-      {/* Network error */}
       {hasNetworkError && networkChoice === "waiting" && (
         <Banner type="error" title="No Internet Connection">
           <Text color={theme.colors.text}>
@@ -501,7 +508,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         </Banner>
       )}
 
-      {/* Fatal error */}
       {fatalMsg && !hasNetworkError && (
         <Banner type="error" title="Setup halted">
           <Text color={theme.colors.text}>{fatalMsg}</Text>
@@ -520,7 +526,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         </Banner>
       )}
 
-      {/* Success */}
       {phase === "done" && !fatalMsg && (
         <Banner type="success" title="ZILA workspace ready">
           <Text color={theme.colors.text}>Everything is set up.</Text>

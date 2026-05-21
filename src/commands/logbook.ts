@@ -11,8 +11,6 @@ import {
 } from "../utils/monitor.js";
 import { zilaApi } from "../utils/auth.js";
 
-// Profile helper
-
 interface ZigexProfile {
   full_name?: string;
   first_name?: string;
@@ -21,8 +19,7 @@ interface ZigexProfile {
 
 async function fetchStudentName(fallback: string): Promise<string> {
   try {
-    // The API returns { profile: { full_name, first_name, last_name, ... } }
-    const data = await zilaApi<{ profile?: ZigexProfile }>("/auth/profile");
+    const data = await zilaApi<{ profile?: ZigexProfile }>("/profile/me");
     const p = data.profile;
     if (!p) return fallback;
 
@@ -34,7 +31,7 @@ async function fetchStudentName(fallback: string): Promise<string> {
       .join(" ");
     if (composed) return composed;
   } catch {
-    // API unreachable, token expired
+    // API unreachable or session expired
   }
   return fallback;
 }
