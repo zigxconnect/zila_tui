@@ -3,19 +3,14 @@ import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
 
 interface InputPromptProps {
-  /** When true the prompt hides itself and ignores keystrokes */
   running: boolean;
   onSubmit: (input: string) => void;
 }
 
-export const InputPrompt: React.FC<InputPromptProps> = ({
-  running,
-  onSubmit,
-}) => {
-  const [input, setInput]         = useState("");
-  const [cursorOn, setCursorOn]   = useState(true);
+export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) => {
+  const [input,    setInput]    = useState("");
+  const [cursorOn, setCursorOn] = useState(true);
 
-  // Blink cursor at 530 ms interval (matches most terminal defaults)
   useEffect(() => {
     if (running) return;
     const id = setInterval(() => setCursorOn((v) => !v), 530);
@@ -24,39 +19,26 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
   useInput((char, key) => {
     if (running) return;
-
     if (key.return) {
       const trimmed = input.trim();
       setInput("");
       onSubmit(trimmed);
       return;
     }
-
-    if (key.backspace || key.delete) {
-      setInput((prev) => prev.slice(0, -1));
-      return;
-    }
-
-    // Ignore control sequences (ctrl+c is handled globally)
+    if (key.backspace || key.delete) { setInput((p) => p.slice(0, -1)); return; }
     if (key.ctrl || key.meta) return;
-
-    if (char) {
-      setInput((prev) => prev + char);
-    }
+    if (char) setInput((p) => p + char);
   });
 
   if (running) return null;
 
   return (
-    <Box flexDirection="row" marginTop={0}>
-      {/* Prompt symbol */}
-      <Text color={theme.colors.primary} bold>{"zila "}</Text>
-      <Text color={theme.colors.secondary} bold>{theme.symbols.pointer + " "}</Text>
-
-      {/* User's typed text */}
+    // gap={1} = exactly one space between each child — no manual padding needed
+    <Box flexDirection="row" gap={1}>
+      <Text color={theme.colors.muted} bold>zila</Text>
+      <Text color={theme.colors.primary} bold>{theme.symbols.pointer}</Text>
       <Text color={theme.colors.white}>{input}</Text>
-
-      {/* Blinking block cursor */}
+      {/* Space-preserving cursor: " " keeps layout stable when off */}
       <Text color={theme.colors.primary}>{cursorOn ? "▊" : " "}</Text>
     </Box>
   );

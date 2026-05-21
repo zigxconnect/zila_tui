@@ -3,10 +3,8 @@ import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
 import { StatusLine, type StatusType } from "../ui/StatusLine.js";
 import { Banner } from "../ui/Banner.js";
-import { Divider } from "../ui/Divider.js";
-import { Spinner } from "../ui/Spinner.js";
 import { AuthScreen } from "./AuthScreen.js";
-import { checkGit, checkNode } from "../commands/init/checks.js";
+import { checkGit, checkNode, checkPython } from "../commands/init/checks.js";
 import { probeNetwork, NetworkError } from "../utils/network.js";
 import { cloneRepo } from "../commands/init/cloner.js";
 import {
@@ -14,33 +12,70 @@ import {
   installNpmDependencies,
 } from "../commands/init/installer.js";
 import { saveWorkspace } from "../utils/workspace.js";
-import { isAuthenticated, loadAuth } from "../utils/auth.js";
+import { isAuthenticated, loadAuth, zilaApi } from "../utils/auth.js";
 
-const CURRICULUM_URL =
-  "https://github.com/rawlingsnsame/evaluation_internship.git";
-// const ASSISTANT_URL  = "https://github.com/rawlingsnsame/track_my_directory_ai.git";
+interface InternshipProfile {
+  department: string;
+  level: string;
+  full_name?: string;
+  first_name?: string;
+  last_name?: string;
+  curriculum_repo_url?: string;
+}
 
+async function fetchInternshipProfile(): Promise<InternshipProfile> {
+  // Fetch internship details (department, level, curriculum repo) from Zigex
+  const data = await zilaApi<{
+    profile?: InternshipProfile;
+    internship?: InternshipProfile;
+  }>("/auth/profile");
+  const profile = data.profile ?? data.internship;
+  if (!profile)
+    throw new Error(
+      "No internship profile returned from Zigex. Make sure you have an active internship.",
+    );
+  if (!profile.department)
+    throw new Error(
+      "Zigex profile is missing 'department'. Complete your registration on the Zigex platform.",
+    );
+  if (!profile.level)
+    throw new Error(
+      "Zigex profile is missing 'level'. Complete your registration on the Zigex platform.",
+    );
+  return profile;
+}
+
+function resolveStudentName(profile: InternshipProfile): string {
+  if (profile.full_name?.trim()) return profile.full_name.trim();
+  const parts = [profile.first_name, profile.last_name]
+    .map((s) => s?.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(" ") : "Student";
+}
+
+// Step indices — sequential, no gaps
 const S = {
   GIT: 0,
   NODE: 1,
-  NETWORK: 2,
-  CLONE_C: 3,
-  INSTALL_C: 4,
-  CLONE_A: 5,
-  INSTALL_A: 6,
+  PYTHON: 2,
+  NETWORK: 3,
+  PROFILE: 4,
+  CLONE_C: 5,
+  INSTALL_C: 6,
+  INSTALL_NPM: 7,
 } as const;
+const STEP_COUNT = 8;
 
 const STEP_LABELS: Record<number, string> = {
   [S.GIT]: "git installed",
   [S.NODE]: "Node.js ≥ 18",
+  [S.PYTHON]: "Python 3",
   [S.NETWORK]: "Internet connectivity",
+  [S.PROFILE]: "Fetch internship profile from Zigex",
   [S.CLONE_C]: "Clone curriculum repo",
-  [S.INSTALL_C]: "Curriculum dependencies",
-  [S.CLONE_A]: "Clone assistant repo",
-  [S.INSTALL_A]: "Assistant dependencies",
+  [S.INSTALL_C]: "Python dependencies",
+  [S.INSTALL_NPM]: "Node.js dependencies",
 };
-
-const STEP_COUNT = Object.keys(STEP_LABELS).length;
 
 interface Step {
   status: StatusType;
@@ -66,17 +101,17 @@ const ProgressBar: React.FC<{ steps: Step[] }> = ({ steps }) => {
   const done = steps.filter(
     (s) => s.status === "success" || s.status === "skipped",
   ).length;
-  const total = steps.length;
-  const pct = Math.round((done / total) * 100);
-  const filled = Math.round((done / total) * 32);
-  const bar = "█".repeat(filled) + "░".repeat(32 - filled);
-
+  const pct = Math.round((done / STEP_COUNT) * 100);
+  const filled = Math.round((done / STEP_COUNT) * 32);
   return (
     <Box flexDirection="row" gap={2} marginBottom={1}>
-      <Text color={theme.colors.primary}>{bar}</Text>
+      <Text color={theme.colors.primary}>
+        {"█".repeat(filled)}
+        {"░".repeat(32 - filled)}
+      </Text>
       <Text color={theme.colors.muted}>{pct}%</Text>
       <Text color={theme.colors.dim}>
-        {done}/{total} steps
+        {done}/{STEP_COUNT}
       </Text>
     </Box>
   );
@@ -84,7 +119,10 @@ const ProgressBar: React.FC<{ steps: Step[] }> = ({ steps }) => {
 
 // Main
 
-export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory }) => {
+export const InitScreen: React.FC<InitScreenProps> = ({
+  onComplete,
+  clearHistory,
+}) => {
   const [phase, setPhase] = useState<InitPhase>(
     isAuthenticated() ? "running" : "auth",
   );
@@ -97,6 +135,11 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
   const [userEmail, setUserEmail] = useState<string | null>(
     loadAuth()?.email ?? null,
   );
+  const [workspaceInfo, setWorkspaceInfo] = useState<{
+    department: string;
+    level: string;
+    path: string;
+  } | null>(null);
 
   const setStep = useCallback(
     (index: number, status: StatusType, detail = "") => {
@@ -141,7 +184,22 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
       }
       setStep(S.NODE, "success", node.version);
 
-      // 3. network
+      // 3. python
+      setStep(S.PYTHON, "loading", "Checking…");
+      const python = await checkPython();
+      if (cancelled) return;
+      // Python is non-fatal for non-ML/data departments — warn and continue
+      if (!python.passed) {
+        setStep(
+          S.PYTHON,
+          "skipped",
+          "Not found — Python exercises may not work",
+        );
+      } else {
+        setStep(S.PYTHON, "success", python.version);
+      }
+
+      // 4. network
       setStep(S.NETWORK, "loading", "Probing github.com…");
       try {
         await probeNetwork();
@@ -157,21 +215,50 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
         throw err;
       }
 
-      // 4. clone curriculum
-      setStep(S.CLONE_C, "loading", "Cloning from GitHub…");
+      // 5. fetch internship profile from Zigex
+      setStep(
+        S.PROFILE,
+        "loading",
+        "Fetching your internship details from Zigex…",
+      );
+      let internshipProfile: InternshipProfile;
+      try {
+        internshipProfile = await fetchInternshipProfile();
+        if (cancelled) return;
+        setStep(
+          S.PROFILE,
+          "success",
+          `${internshipProfile.department} · ${internshipProfile.level}`,
+        );
+      } catch (err) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setStep(S.PROFILE, "error", msg);
+        setFatalMsg(msg);
+        return;
+      }
+
+      // Resolve curriculum URL from Zigex profile, falling back to a sensible default
+      const curriculumUrl =
+        internshipProfile.curriculum_repo_url ??
+        "https://github.com/rawlingsnsame/evaluation_internship.git";
+
+      const workspaceName = `${internshipProfile.department}-${internshipProfile.level}`;
+      const workspaceTarget = `./internship/curriculum`;
+
+      // 6. clone curriculum (URL from Zigex)
+      setStep(S.CLONE_C, "loading", `Cloning ${workspaceName} curriculum…`);
       try {
         const { cloned } = await cloneRepo(
-          CURRICULUM_URL,
-          "./internship/curriculum",
+          curriculumUrl,
+          workspaceTarget,
           (attempt) => setStep(S.CLONE_C, "warning", `Retry ${attempt}/3…`),
         );
         if (cancelled) return;
         setStep(
           S.CLONE_C,
           "success",
-          cloned
-            ? "Cloned → ./internship/curriculum/"
-            : "Already exists — skipped",
+          cloned ? `Cloned → ${workspaceTarget}/` : "Already exists — skipped",
         );
       } catch (err) {
         if (cancelled) return;
@@ -181,11 +268,11 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
         return;
       }
 
-      // 5. curriculum deps
+      // 7. Python deps
       setStep(S.INSTALL_C, "loading", "Setting up Python environment…");
       try {
         const installed = await installPythonDependencies(
-          "./internship/curriculum",
+          workspaceTarget,
           (attempt) => setStep(S.INSTALL_C, "warning", `Retry ${attempt}/3…`),
         );
         if (cancelled) return;
@@ -205,8 +292,41 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
         );
       }
 
+      // 8. Node deps
+      setStep(S.INSTALL_NPM, "loading", "Installing Node.js dependencies…");
+      try {
+        const installed = await installNpmDependencies(
+          workspaceTarget,
+          (attempt) => setStep(S.INSTALL_NPM, "warning", `Retry ${attempt}/3…`),
+        );
+        if (cancelled) return;
+        setStep(
+          S.INSTALL_NPM,
+          installed ? "success" : "skipped",
+          installed ? "npm packages installed" : "No package.json — skipped",
+        );
+      } catch (err) {
+        if (cancelled) return;
+        setStep(
+          S.INSTALL_NPM,
+          "warning",
+          `npm install failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       if (!cancelled) {
-        await saveWorkspace(process.cwd());
+        const studentName = resolveStudentName(internshipProfile);
+        // BUG FIX: pass all required profile fields to saveWorkspace — previously called with only workspaceRoot
+        await saveWorkspace(process.cwd(), {
+          department: internshipProfile.department,
+          level: internshipProfile.level,
+          studentName,
+        });
+        setWorkspaceInfo({
+          department: internshipProfile.department,
+          level: internshipProfile.level,
+          path: workspaceTarget,
+        });
         setPhase("done");
       }
     }
@@ -225,16 +345,11 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
   useInput((char, key) => {
     if (phase === "auth") return;
 
-    if (clearHistory && char === "c" && key.ctrl) {
-      clearHistory();
-      return;
-    }
-
-    // Network error prompt
     if (hasNetworkError && networkChoice === "waiting") {
       if (char === "r") {
         setNetworkChoice("retrying");
         setRetryTrigger((n) => n + 1);
+        setNetworkChoice("waiting");
         setPhase("running");
       } else if (char === "s") {
         setNetworkChoice("skipping");
@@ -255,7 +370,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
     if (phase === "done" || fatalMsg) onComplete();
   });
 
-  // auth
+  // Auth gate
   if (phase === "auth") {
     return (
       <AuthScreen
@@ -263,19 +378,13 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
           if (success) {
             setUserEmail(loadAuth()?.email ?? null);
             setPhase("running");
-          } else {
-            onComplete();
-          }
+          } else onComplete();
         }}
       />
     );
   }
 
-  // running / done / fatal
-  const completedSteps = steps.filter(
-    (s) => s.status === "success" || s.status === "skipped",
-  ).length;
-
+  // Running / done / fatal
   return (
     <Box flexDirection="column" paddingY={1}>
       {/* Header */}
@@ -290,7 +399,7 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
             <>
               <Text color={theme.colors.border}> │ </Text>
               <Text color={theme.colors.successDim}>{theme.symbols.tick}</Text>
-              <Text color={theme.colors.dim}>{userEmail}</Text>
+              <Text color={theme.colors.dim}> {userEmail}</Text>
             </>
           )}
         </Box>
@@ -299,17 +408,14 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
         </Box>
       </Box>
 
-      {/* Progress bar */}
       <ProgressBar steps={steps} />
 
-      {/* Step groups */}
+      {/* Steps */}
       <Box flexDirection="column" marginBottom={1}>
-        <Box marginBottom={0}>
-          <Text color={theme.colors.dim} bold>
-            {" "}
-            ENVIRONMENT
-          </Text>
-        </Box>
+        <Text color={theme.colors.dim} bold>
+          {" "}
+          ENVIRONMENT
+        </Text>
         <StatusLine
           status={steps[S.GIT]?.status ?? "pending"}
           label={`  ${STEP_LABELS[S.GIT]}`}
@@ -321,12 +427,29 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
           detail={steps[S.NODE]?.detail ?? ""}
         />
         <StatusLine
+          status={steps[S.PYTHON]?.status ?? "pending"}
+          label={`  ${STEP_LABELS[S.PYTHON]}`}
+          detail={steps[S.PYTHON]?.detail ?? ""}
+        />
+        <StatusLine
           status={steps[S.NETWORK]?.status ?? "pending"}
           label={`  ${STEP_LABELS[S.NETWORK]}`}
           detail={steps[S.NETWORK]?.detail ?? ""}
         />
 
-        <Box marginTop={1} marginBottom={0}>
+        <Box marginTop={1}>
+          <Text color={theme.colors.dim} bold>
+            {" "}
+            ZIGEX PROFILE
+          </Text>
+        </Box>
+        <StatusLine
+          status={steps[S.PROFILE]?.status ?? "pending"}
+          label={`  ${STEP_LABELS[S.PROFILE]}`}
+          detail={steps[S.PROFILE]?.detail ?? ""}
+        />
+
+        <Box marginTop={1}>
           <Text color={theme.colors.dim} bold>
             {" "}
             CURRICULUM
@@ -342,22 +465,10 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
           label={`  ${STEP_LABELS[S.INSTALL_C]}`}
           detail={steps[S.INSTALL_C]?.detail ?? ""}
         />
-
-        <Box marginTop={1} marginBottom={0}>
-          <Text color={theme.colors.dim} bold>
-            {" "}
-            ASSISTANT
-          </Text>
-        </Box>
         <StatusLine
-          status={steps[S.CLONE_A]?.status ?? "pending"}
-          label={`  ${STEP_LABELS[S.CLONE_A]}`}
-          detail={steps[S.CLONE_A]?.detail ?? ""}
-        />
-        <StatusLine
-          status={steps[S.INSTALL_A]?.status ?? "pending"}
-          label={`  ${STEP_LABELS[S.INSTALL_A]}`}
-          detail={steps[S.INSTALL_A]?.detail ?? ""}
+          status={steps[S.INSTALL_NPM]?.status ?? "pending"}
+          label={`  ${STEP_LABELS[S.INSTALL_NPM]}`}
+          detail={steps[S.INSTALL_NPM]?.detail ?? ""}
         />
       </Box>
 
@@ -367,30 +478,25 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
           <Text color={theme.colors.text}>
             ZILA needs internet access to clone its components.
           </Text>
-          <Box marginTop={1} flexDirection="column">
-            <Text color={theme.colors.muted}>
-              Check your connection, then press:
+          <Box marginTop={1} flexDirection="column" marginLeft={2}>
+            <Text>
+              <Text color={theme.colors.primary} bold>
+                r
+              </Text>{" "}
+              Retry now
             </Text>
-            <Box marginTop={1} flexDirection="column" marginLeft={2}>
-              <Text>
-                <Text color={theme.colors.primary} bold>
-                  r
-                </Text>{" "}
-                Retry now
-              </Text>
-              <Text>
-                <Text color={theme.colors.warning} bold>
-                  s
-                </Text>{" "}
-                Skip cloning (checks only)
-              </Text>
-              <Text>
-                <Text color={theme.colors.muted} bold>
-                  q
-                </Text>{" "}
-                Return to shell
-              </Text>
-            </Box>
+            <Text>
+              <Text color={theme.colors.warning} bold>
+                s
+              </Text>{" "}
+              Skip cloning (checks only)
+            </Text>
+            <Text>
+              <Text color={theme.colors.muted} bold>
+                q
+              </Text>{" "}
+              Return to shell
+            </Text>
           </Box>
         </Banner>
       )}
@@ -417,53 +523,53 @@ export const InitScreen: React.FC<InitScreenProps> = ({ onComplete, clearHistory
       {/* Success */}
       {phase === "done" && !fatalMsg && (
         <Banner type="success" title="ZILA workspace ready">
-          <Box flexDirection="column" gap={0}>
-            <Text color={theme.colors.text}>
-              Everything is set up. Here is what was created:
-            </Text>
+          <Text color={theme.colors.text}>Everything is set up.</Text>
+          {workspaceInfo && (
             <Box marginTop={1} flexDirection="column">
               <Box flexDirection="row" gap={1}>
+                <Text color={theme.colors.muted}>Department:</Text>
+                <Text color={theme.colors.secondary} bold>
+                  {workspaceInfo.department}
+                </Text>
+                <Text color={theme.colors.muted}> Level:</Text>
+                <Text color={theme.colors.secondary} bold>
+                  {workspaceInfo.level}
+                </Text>
+              </Box>
+              <Box flexDirection="row" gap={1} marginTop={1}>
                 <Text color={theme.colors.primary} bold>
-                  ./internship/curriculum/
+                  {workspaceInfo.path}/
                 </Text>
-                <Text color={theme.colors.muted}>
-                  ML & AI beginner track content
-                </Text>
-              </Box>
-              <Box flexDirection="row" gap={1}>
-                <Text color={theme.colors.primary} bold>
-                  ./internship/assistant/
-                </Text>
-                <Text color={theme.colors.muted}>Your AI repo companion</Text>
+                <Text color={theme.colors.muted}>your workspace</Text>
               </Box>
             </Box>
-            <Box marginTop={1} flexDirection="column">
-              <Text color={theme.colors.text}>What you can do now:</Text>
-              <Box marginLeft={2} flexDirection="column">
-                <Text color={theme.colors.dim}>
-                  <Text color={theme.colors.secondary}>assistant</Text> — ask
-                  questions about your repo
-                </Text>
-                <Text color={theme.colors.dim}>
-                  <Text color={theme.colors.secondary}>info</Text> — view your
-                  internship status
-                </Text>
-                <Text color={theme.colors.dim}>
-                  <Text color={theme.colors.secondary}>about-me</Text> — view
-                  your Zigex profile
-                </Text>
-              </Box>
+          )}
+          <Box marginTop={1} flexDirection="column">
+            <Text color={theme.colors.text}>Next steps:</Text>
+            <Box marginLeft={2} flexDirection="column">
+              <Text color={theme.colors.dim}>
+                <Text color={theme.colors.secondary}>monitor start</Text> begin
+                tracking your work
+              </Text>
+              <Text color={theme.colors.dim}>
+                <Text color={theme.colors.secondary}>assistant</Text> ask
+                questions about your curriculum
+              </Text>
+              <Text color={theme.colors.dim}>
+                <Text color={theme.colors.secondary}>info</Text> view internship
+                status
+              </Text>
+              <Text color={theme.colors.dim}>
+                <Text color={theme.colors.secondary}>about-me</Text> view your
+                Zigex profile
+              </Text>
             </Box>
-            <Box marginTop={1}>
-              <Text color={theme.colors.dim}>Press any key to return…</Text>
-            </Box>
+          </Box>
+          <Box marginTop={1}>
+            <Text color={theme.colors.dim}>Press any key to return…</Text>
           </Box>
         </Banner>
       )}
     </Box>
   );
 };
-function clearHistory() {
-  throw new Error("Function not implemented.");
-}
-

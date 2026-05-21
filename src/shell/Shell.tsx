@@ -46,7 +46,11 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
 
   const pushLine = useCallback(
     (text: string, type: OutputLine["type"] = "default") => {
-      setHistory((prev) => [...prev, { id: nextId(), text, type }]);
+      setHistory((prev) => {
+        const updated = [...prev, { id: nextId(), text, type }];
+        // Keep max 500 lines to prevent heap exhaustion
+        return updated.length > 500 ? updated.slice(-500) : updated;
+      });
     },
     [],
   );

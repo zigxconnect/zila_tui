@@ -25,7 +25,7 @@ export interface ZilaCommand {
   aliases?: string[];
   description: string;
   usage: string;
-  category: "setup" | "search" | "agent" | "info";
+  category: "setup" | "search" | "agent" | "info" | "workflow" 
   handler: CommandHandler;
   available: boolean;
 }
