@@ -1,8 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import dotenv from "dotenv";
 
-export const API_BASE = "https://zila-api.onrender.com/api";
+dotenv.config();
+
+export const API_BASE = process.env.API_BASE || "https://zila-api.onrender.com/api";
 const ZILA_DIR = path.join(os.homedir(), ".zila");
 const AUTH_PATH = path.join(ZILA_DIR, "auth.json");
 const TOKEN_EXPIRY_DAYS = 30;
