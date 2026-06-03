@@ -1,18 +1,23 @@
 import React, { useState, useMemo } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
-import { Divider } from "../ui/Divider.js";
 import {
   getRegisteredCommands,
   type ZilaCommand,
 } from "../commands/registry.js";
 
-const CATEGORIES: Array<{ key: ZilaCommand["category"]; label: string }> = [
-  { key: "setup", label: "Setup" },
-  { key: "info", label: "Info" },
-  { key: "search", label: "Search" },
-  { key: "agent", label: "Agent" },
-  { key: "workflow", label: "Workflow" },
+// Category definitions
+
+const CATEGORIES: Array<{
+  key: ZilaCommand["category"];
+  label: string;
+  icon: string;
+}> = [
+  { key: "setup", label: "Setup", icon: "⚙" },
+  { key: "workflow", label: "Workflow", icon: "◈" },
+  { key: "info", label: "Info", icon: "ℹ" },
+  { key: "search", label: "Search", icon: "⌕" },
+  { key: "agent", label: "Agent", icon: "✦" },
 ];
 
 interface HelpScreenProps {
@@ -30,7 +35,6 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
     () => allCommands.filter((c) => c.available),
     [allCommands],
   );
-
   const [activeIdx, setActiveIdx] = useState(0);
 
   useInput((char, key) => {
@@ -44,11 +48,11 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
       return;
     }
     if (key.upArrow) {
-      setActiveIdx((prev) => (prev > 0 ? prev - 1 : selectableCmds.length - 1));
+      setActiveIdx((p) => (p > 0 ? p - 1 : selectableCmds.length - 1));
       return;
     }
     if (key.downArrow) {
-      setActiveIdx((prev) => (prev < selectableCmds.length - 1 ? prev + 1 : 0));
+      setActiveIdx((p) => (p < selectableCmds.length - 1 ? p + 1 : 0));
       return;
     }
   });
@@ -62,6 +66,7 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
       paddingY={1}
       marginTop={1}
     >
+      {/* Title */}
       <Box marginBottom={1} flexDirection="row" gap={2}>
         <Text bold color={theme.colors.primary}>
           ZILA
@@ -69,25 +74,21 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
         <Text color={theme.colors.muted}>Command Reference</Text>
       </Box>
 
-      <Divider width={40} />
+      <Text color={theme.colors.border}>{"─".repeat(58)}</Text>
 
-      {CATEGORIES.map(({ key, label }) => {
+      {/* Command groups */}
+      {CATEGORIES.map(({ key, label, icon }) => {
         const cmds = allCommands.filter((c) => c.category === key);
         if (cmds.length === 0) return null;
 
-        const allUnavailable = cmds.every((c) => !c.available);
-
         return (
           <Box flexDirection="column" marginTop={1} key={key}>
+            {/* Category header */}
             <Box flexDirection="row" gap={1} marginBottom={1}>
+              <Text color={theme.colors.muted}>{icon}</Text>
               <Text bold color={theme.colors.muted}>
                 {label.toUpperCase()}
               </Text>
-              {allUnavailable && (
-                <Text color={theme.colors.accent} dimColor>
-                  (coming soon)
-                </Text>
-              )}
             </Box>
 
             {cmds.map((cmd) => {
@@ -96,6 +97,7 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
 
               return (
                 <Box flexDirection="row" key={cmd.name} paddingLeft={1}>
+                  {/* Selection indicator */}
                   <Box width={3} flexShrink={0}>
                     {cmd.available ? (
                       <Text
@@ -110,7 +112,8 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
                     )}
                   </Box>
 
-                  <Box width={16} flexShrink={0}>
+                  {/* Command name */}
+                  <Box width={18} flexShrink={0}>
                     <Text
                       color={
                         !cmd.available
@@ -125,7 +128,8 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
                     </Text>
                   </Box>
 
-                  <Box width={24} flexShrink={0}>
+                  {/* Usage */}
+                  <Box width={26} flexShrink={0}>
                     <Text
                       color={isSelected ? theme.colors.text : theme.colors.dim}
                     >
@@ -133,19 +137,19 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
                     </Text>
                   </Box>
 
-                  <Box flexShrink={1}>
-                    <Text
-                      color={
-                        cmd.available
-                          ? isSelected
-                            ? theme.colors.text
-                            : theme.colors.muted
-                          : theme.colors.border
-                      }
-                    >
-                      {cmd.description}
-                    </Text>
-                  </Box>
+                  {/* Description */}
+                  <Text
+                    color={
+                      cmd.available
+                        ? isSelected
+                          ? theme.colors.text
+                          : theme.colors.muted
+                        : theme.colors.border
+                    }
+                  >
+                    {cmd.description}
+                    {!cmd.available ? "  (coming soon)" : ""}
+                  </Text>
                 </Box>
               );
             })}
@@ -153,20 +157,15 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({
         );
       })}
 
-      <Box
-        marginTop={2}
-        paddingTop={1}
-        borderStyle="single"
-        borderTop
-        borderColor={theme.colors.border}
-        borderBottom={false}
-        borderLeft={false}
-        borderRight={false}
-      >
+      {/* Footer */}
+      <Box marginTop={1}>
+        <Text color={theme.colors.border}>{"─".repeat(58)}</Text>
+      </Box>
+      <Box marginTop={0}>
         <Text color={theme.colors.dim}>
-          <Text color={theme.colors.text}>↑/↓</Text> navigate{" "}
-          <Text color={theme.colors.text}>Enter</Text> select{" "}
-          <Text color={theme.colors.text}>Esc/Q</Text> close
+          <Text color={theme.colors.text}>↑/↓</Text> navigate{"   "}
+          <Text color={theme.colors.text}>Enter</Text> run command{"   "}
+          <Text color={theme.colors.text}>Esc / Q</Text> close
         </Text>
       </Box>
     </Box>

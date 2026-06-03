@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { Box, useInput, Text } from "ink";
+import React, { useState, useCallback } from "react";
+import { Box, useInput } from "ink";
 import { SplashScreen } from "../screens/SplashScreen.js";
 import { ExitScreen } from "../screens/ExitScreen.js";
 import { HelpScreen } from "../screens/HelpScreen.js";
@@ -17,9 +17,6 @@ import {
 } from "../commands/registry.js";
 import { registerAllCommands } from "../commands/index.js";
 import { levenshtein } from "../utils/string.js";
-import { theme } from "../ui/theme.js";
-import { loadWorkspace } from "../utils/workspace.js";
-import { isMonitorRunning } from "../utils/monitor.js";
 
 registerAllCommands();
 
@@ -42,29 +39,6 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [showAssistant, setShowAssistant] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const [monitorActive, setMonitorActive] = useState(false);
-  const [hasWs, setHasWs] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    async function checkStatus() {
-      const ws = await loadWorkspace();
-      if (!active) return;
-      if (ws) {
-        setHasWs(true);
-        setMonitorActive(isMonitorRunning(ws.workspacePath));
-      } else {
-        setHasWs(false);
-        setMonitorActive(false);
-      }
-    }
-    checkStatus();
-    const interval = setInterval(checkStatus, 2000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [running]);
 
   const pushLine = useCallback(
     (text: string, type: OutputLine["type"] = "default") => {
@@ -77,12 +51,12 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   );
 
   const shellContext: ShellContext = {
-    exit: (msg?: string) => {
+    exit: (msg?) => {
       setExitMessage(msg);
       setIsExiting(true);
     },
-    executeCommand: async (command: string) => {
-      await handleCommand(command, false);
+    executeCommand: async (cmd) => {
+      await handleCommand(cmd, false);
     },
     showHelp: () => setShowHelp(true),
     startInit: () => setShowInit(true),
@@ -95,7 +69,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
 
   async function handleCommand(rawInput: string, echo: boolean) {
     if (!rawInput) return;
-    if (echo) pushLine(`zila❯ ${rawInput}`, "dim");
+    if (echo) pushLine(`zila ❯ ${rawInput}`, "dim");
 
     setRunning(true);
     const [cmdName = "", ...args] = rawInput.trim().split(/\s+/);
@@ -109,8 +83,10 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
         try {
           await cmd.handler(args, pushLine, shellContext);
         } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          pushLine(`Error running "${cmdName}": ${msg}`, "error");
+          pushLine(
+            `Error running "${cmdName}": ${err instanceof Error ? err.message : String(err)}`,
+            "error",
+          );
         }
       }
     } else {
@@ -181,12 +157,10 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
         />
       ) : showInit ? (
         <InitScreen
-          onComplete={() => {
+          onComplete={() => setShowInit(false)}
+          // After init succeeds, open help so the user sees all commands
+          onShowHelp={() => {
             setShowInit(false);
-            pushLine(
-              "Workspace ready. Type  monitor start  to begin tracking.",
-              "success",
-            );
             setShowHelp(true);
           }}
           clearHistory={() => setHistory([])}
@@ -224,27 +198,10 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
           }}
         />
       ) : (
-        <Box flexDirection="column" gap={0}>
-          {hasWs && (
-            <Box marginBottom={1}>
-              {monitorActive ? (
-                <Text color={theme.colors.success} bold>
-                  {theme.symbols.tick} TRACKING ACTIVE · Monitoring workspace
-                  changes. Run 'monitor stop' to end session and save data.
-                </Text>
-              ) : (
-                <Text color={theme.colors.warning} bold>
-                  {theme.symbols.warning} TRACKING INACTIVE · Run 'monitor
-                  start' before you begin coding to track progress.
-                </Text>
-              )}
-            </Box>
-          )}
-          <InputPrompt
-            running={running}
-            onSubmit={(input) => handleCommand(input, true)}
-          />
-        </Box>
+        <InputPrompt
+          running={running}
+          onSubmit={(input) => handleCommand(input, true)}
+        />
       )}
     </Box>
   );

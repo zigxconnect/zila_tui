@@ -22,21 +22,16 @@ async function fetchStudentName(fallback: string): Promise<string> {
     const data = await zilaApi<{ profile?: ZigexProfile }>("/profile/me");
     const p = data.profile;
     if (!p) return fallback;
-
     if (p.full_name?.trim()) return p.full_name.trim();
-
     const composed = [p.first_name, p.last_name]
       .map((s) => s?.trim())
       .filter(Boolean)
       .join(" ");
-    if (composed) return composed;
+    return composed || fallback;
   } catch {
-    // API unreachable or session expired
+    return fallback;
   }
-  return fallback;
 }
-
-// Formatting helpers
 
 function formatDate(d: Date): string {
   return d.toLocaleDateString("en-US", {
@@ -54,9 +49,9 @@ function groupByDay<T extends { ts: string }>(events: T[]): Map<string, T[]> {
   const map = new Map<string, T[]>();
   for (const ev of events) {
     const day = shortDate(new Date(ev.ts));
-    const existing = map.get(day) ?? [];
-    existing.push(ev);
-    map.set(day, existing);
+    const arr = map.get(day) ?? [];
+    arr.push(ev);
+    map.set(day, arr);
   }
   return map;
 }
@@ -71,12 +66,10 @@ function estimateTime(fileEvents: FileEvent[]): string {
   const mins = Math.round((times[times.length - 1]! - times[0]!) / 60_000);
   if (mins < 5) return "< 5 min";
   if (mins < 60) return `~${mins} min`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+  const h = Math.floor(mins / 60),
+    m = mins % 60;
   return m > 0 ? `~${h}h ${m}min` : `~${h}h`;
 }
-
-// Skill inference
 
 const SKILL_KEYWORDS = new Map([
   ["html", "HTML"],
@@ -96,7 +89,7 @@ const SKILL_KEYWORDS = new Map([
   ["data", "Data handling"],
 ]);
 
-function extractSkillsFromCommits(commits: CommitEvent[]): string[] {
+function extractSkills(commits: CommitEvent[]): string[] {
   const found = new Set<string>();
   for (const c of commits) {
     const lower = c.msg.toLowerCase();
@@ -106,8 +99,6 @@ function extractSkillsFromCommits(commits: CommitEvent[]): string[] {
   }
   return [...found];
 }
-
-// Core generator
 
 async function generateLogbook(
   workspacePath: string,
@@ -119,30 +110,26 @@ async function generateLogbook(
 ): Promise<string> {
   const { from, to } = getWeekRange(weekNumber, createdAt);
   const events = readEventsInRange(workspacePath, from, to);
-
   const commits = events.filter((e): e is CommitEvent => e.type === "commit");
   const files = events.filter((e): e is FileEvent => e.type !== "commit");
 
-  // Attempt to refresh the name from the API; fall back to whatever was saved
   const resolvedName = await fetchStudentName(studentName);
-
-  const commitsByDay = groupByDay(commits);
-  const filesByDay = groupByDay(files);
-
-  const capitalize = (s: string) =>
-    s.charAt(0).toUpperCase() + s.slice(1);
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
   const lines: string[] = [
     `# Internship Logbook — Week ${weekNumber}`,
     `**Student:** ${resolvedName}`,
-    `**Department:** ${capitalize(department)}`,
-    `**Level:** ${capitalize(level)}`,
+    `**Department:** ${cap(department)}`,
+    `**Level:** ${cap(level)}`,
     `**Period:** ${shortDate(from)} to ${shortDate(to)}`,
     `**Generated:** ${new Date().toISOString()}`,
     "",
     "---",
     "",
   ];
+
+  const commitsByDay = groupByDay(commits);
+  const filesByDay = groupByDay(files);
 
   const dayRange: string[] = [];
   for (let d = 0; d < 7; d++) {
@@ -156,13 +143,10 @@ async function generateLogbook(
   for (const day of dayRange) {
     const dayCommits = commitsByDay.get(day) ?? [];
     const dayFiles = filesByDay.get(day) ?? [];
-
     if (dayCommits.length === 0 && dayFiles.length === 0) continue;
     hasAnyActivity = true;
 
-    // Use noon so timezone shifts don't flip the date
-    const dayDate = new Date(day + "T12:00:00");
-    lines.push(`## ${formatDate(dayDate)}`);
+    lines.push(`## ${formatDate(new Date(day + "T12:00:00"))}`);
     lines.push("");
 
     if (dayCommits.length > 0) {
@@ -170,8 +154,8 @@ async function generateLogbook(
       for (const c of dayCommits) {
         lines.push(`- \`${c.hash.slice(0, 7)}\` ${c.msg}`);
         if (c.diff_stat) {
-          const statLines = c.diff_stat.split("\n").filter(Boolean).slice(0, 3);
-          for (const s of statLines) lines.push(`  ${s.trim()}`);
+          for (const s of c.diff_stat.split("\n").filter(Boolean).slice(0, 3))
+            lines.push(`  ${s.trim()}`);
         }
       }
       lines.push("");
@@ -182,8 +166,8 @@ async function generateLogbook(
       lines.push(
         `**Activity:** ${dayFiles.length} file event${dayFiles.length !== 1 ? "s" : ""} — estimated time: ${est}`,
       );
-      const uniqueFiles = [...new Set(dayFiles.map((f) => f.path))].slice(0, 10);
-      for (const f of uniqueFiles) lines.push(`- ${f}`);
+      for (const f of [...new Set(dayFiles.map((f) => f.path))].slice(0, 10))
+        lines.push(`- ${f}`);
       lines.push("");
     }
   }
@@ -191,23 +175,16 @@ async function generateLogbook(
   if (!hasAnyActivity) {
     lines.push("_No activity recorded this week._");
     lines.push("");
-    lines.push(
-      "> If you worked this week, make sure to run  zila monitor start  before starting.",
-    );
+    lines.push("> Run  zila monitor start  before working to enable tracking.");
     lines.push("");
   }
 
-  // Summary
-  const uniqueSkills = extractSkillsFromCommits(commits);
-  lines.push("---");
-  lines.push("");
-  lines.push("## Summary");
-  lines.push("");
+  const skills = extractSkills(commits);
+  lines.push("---", "", "## Summary", "");
   lines.push(`- **Total commits this week:** ${commits.length}`);
   lines.push(`- **Files touched:** ${new Set(files.map((f) => f.path)).size}`);
-  if (uniqueSkills.length > 0) {
-    lines.push(`- **Topics/skills inferred:** ${uniqueSkills.join(", ")}`);
-  }
+  if (skills.length > 0)
+    lines.push(`- **Topics/skills inferred:** ${skills.join(", ")}`);
   lines.push(
     `- **Monitor active:** ${files.length > 0 ? "Yes" : "No (no file events recorded)"}`,
   );
@@ -215,8 +192,6 @@ async function generateLogbook(
 
   return lines.join("\n");
 }
-
-// Command
 
 export const logbookCommand: ZilaCommand = {
   name: "logbook",
@@ -233,11 +208,10 @@ export const logbookCommand: ZilaCommand = {
       return;
     }
 
-    // Parse --week flag
     let weekNumber: number | null = null;
-    const weekFlagIdx = args.indexOf("--week");
-    if (weekFlagIdx !== -1) {
-      const val = parseInt(args[weekFlagIdx + 1] ?? "", 10);
+    const wIdx = args.indexOf("--week");
+    if (wIdx !== -1) {
+      const val = parseInt(args[wIdx + 1] ?? "", 10);
       if (isNaN(val) || val < 1) {
         output("Invalid week number. Usage:  logbook --week 3", "error");
         return;
@@ -254,9 +228,9 @@ export const logbookCommand: ZilaCommand = {
     try {
       content = await generateLogbook(
         ws.workspacePath,
-        ws.department,   
-        ws.level,        
-        ws.studentName,  
+        ws.department,
+        ws.level,
+        ws.studentName,
         targetWeek,
         ws.createdAt,
       );
@@ -268,10 +242,8 @@ export const logbookCommand: ZilaCommand = {
       return;
     }
 
-    // Save to .zila/logbooks/week-NN.md
     const dir = getLogbookDir(ws.workspacePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
     const filename = `week-${String(targetWeek).padStart(2, "0")}.md`;
     const outPath = path.join(dir, filename);
     fs.writeFileSync(outPath, content, "utf-8");
@@ -281,9 +253,7 @@ export const logbookCommand: ZilaCommand = {
       `Week ${targetWeek} · ${content.split("\n").filter((l) => l.startsWith("- `")).length} commits recorded`,
       "dim",
     );
-
-    if (targetWeek === currentWeek) {
+    if (targetWeek === currentWeek)
       output("Tip: run  logbook --week N  to generate a past week.", "dim");
-    }
   },
 };

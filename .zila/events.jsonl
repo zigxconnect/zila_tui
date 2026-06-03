@@ -1,3 +1,4 @@
 {"type":"unlink","path":"src\\commands\\monitor\\jargon.ts","ts":"2026-05-21T15:47:52.407Z"}
 {"type":"add","path":"src\\commands\\some.ts","ts":"2026-05-21T15:54:32.056Z"}
 {"type":"change","path":"src\\commands\\some.ts","ts":"2026-05-21T15:54:36.955Z"}
+{"type":"commit","hash":"d7d0732ebfdb593a6dc42fba07095a2f5bbc3f30","msg":"some type shit","diff_stat":".zila/events.jsonl             |  3 ++\n .zila/logbooks/week-01.md      | 21 ++++++++++\n .zila/monitor.pid              |  1 +\n src/commands/logbook.ts        |  7 +---\n src/commands/monitor/jargon.ts |  1 -\n src/commands/some.ts           |  1 +\n src/screens/InitScreen.tsx     | 95 ++++++++++++++++++++++--------------------\n 7 files changed, 78 insertions(+), 51 deletions(-)","ts":"2026-05-21T16:55:02+01:00"}

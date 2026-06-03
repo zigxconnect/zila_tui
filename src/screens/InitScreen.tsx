@@ -1,8 +1,5 @@
-// src/screens/InitScreen.tsx
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text, useInput } from "ink";
-import path from "node:path";
 import { theme } from "../ui/theme.js";
 import { StatusLine, type StatusType } from "../ui/StatusLine.js";
 import { Banner } from "../ui/Banner.js";
@@ -26,51 +23,30 @@ interface InternshipProfile {
   curriculum_repo_url?: string;
 }
 
-async function fetchInternshipProfile(): Promise<{
-  profile: InternshipProfile;
-  source: "Zigex API" | "Default Fallback";
-}> {
-  let profile: InternshipProfile | null = null;
-  let source: "Zigex API" | "Default Fallback" = "Zigex API";
-
-  // 1. Query the correct authenticated endpoint: `/profile/me`
-  try {
-    const data = await zilaApi<{
-      profile?: InternshipProfile;
-      internship?: InternshipProfile;
-    }>("/profile/me");
-    profile = data.profile ?? data.internship ?? null;
-  } catch {
-    // Fall through on error
-  }
-
-  // 2. Fallback to default Web (Beginner) track if profile is empty or API fails
-  if (!profile) {
-    profile = {
-      department: "web",
-      level: "beginner",
-    };
-    source = "Default Fallback";
-  }
-
-  if (!profile.department) {
-    profile.department = "web";
-    source = "Default Fallback";
-  }
-  if (!profile.level) {
-    profile.level = "beginner";
-    source = "Default Fallback";
-  }
-
-  profile.department = profile.department.toLowerCase().trim();
-  profile.level = profile.level.toLowerCase().trim();
-
-  return { profile, source };
+async function fetchInternshipProfile(): Promise<InternshipProfile> {
+  const data = await zilaApi<{
+    profile?: InternshipProfile;
+    internship?: InternshipProfile;
+  }>("/auth/profile");
+  const profile = data.profile ?? data.internship;
+  if (!profile)
+    throw new Error(
+      "No internship profile returned. Make sure you have an active internship on Zigex.",
+    );
+  if (!profile.department)
+    throw new Error(
+      "Zigex profile is missing 'department'. Complete your registration on the Zigex platform.",
+    );
+  if (!profile.level)
+    throw new Error(
+      "Zigex profile is missing 'level'. Complete your registration on the Zigex platform.",
+    );
+  return profile;
 }
 
-function resolveStudentName(profile: InternshipProfile): string {
-  if (profile.full_name?.trim()) return profile.full_name.trim();
-  const parts = [profile.first_name, profile.last_name]
+function resolveStudentName(p: InternshipProfile): string {
+  if (p.full_name?.trim()) return p.full_name.trim();
+  const parts = [p.first_name, p.last_name]
     .map((s) => s?.trim())
     .filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : "Student";
@@ -87,7 +63,6 @@ const S = {
   INSTALL_NPM: 7,
 } as const;
 const STEP_COUNT = 8;
-
 const STEP_LABELS: Record<number, string> = {
   [S.GIT]: "git installed",
   [S.NODE]: "Node.js ≥ 18",
@@ -114,6 +89,8 @@ type InitPhase = "auth" | "running" | "done" | "fatal";
 
 interface InitScreenProps {
   onComplete: () => void;
+  /** Called when init succeeds — Shell.tsx wires this to showHelp() */
+  onShowHelp?: () => void;
   clearHistory?: () => void;
 }
 
@@ -139,6 +116,7 @@ const ProgressBar: React.FC<{ steps: Step[] }> = ({ steps }) => {
 
 export const InitScreen: React.FC<InitScreenProps> = ({
   onComplete,
+  onShowHelp,
   clearHistory,
 }) => {
   const [phase, setPhase] = useState<InitPhase>(
@@ -179,7 +157,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       setFatalMsg(null);
       setHasNetworkError(false);
 
-      // 1. git
       setStep(S.GIT, "loading", "Checking…");
       const git = await checkGit();
       if (cancelled) return;
@@ -190,7 +167,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       }
       setStep(S.GIT, "success", git.version);
 
-      // 2. node
       setStep(S.NODE, "loading", "Checking…");
       const node = await checkNode();
       if (cancelled) return;
@@ -201,21 +177,17 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       }
       setStep(S.NODE, "success", node.version);
 
-      // 3. python
       setStep(S.PYTHON, "loading", "Checking…");
       const python = await checkPython();
       if (cancelled) return;
-      if (!python.passed) {
-        setStep(
-          S.PYTHON,
-          "skipped",
-          "Not found — Python exercises may not work",
-        );
-      } else {
-        setStep(S.PYTHON, "success", python.version);
-      }
+      setStep(
+        S.PYTHON,
+        python.passed ? "success" : "skipped",
+        python.passed
+          ? python.version!
+          : "Not found — Python exercises may not work",
+      );
 
-      // 4. network
       setStep(S.NETWORK, "loading", "Probing github.com…");
       try {
         await probeNetwork();
@@ -231,7 +203,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         throw err;
       }
 
-      // 5. fetch internship profile from Zigex
       setStep(
         S.PROFILE,
         "loading",
@@ -239,34 +210,36 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       );
       let internshipProfile: InternshipProfile;
       try {
-        const { profile, source } = await fetchInternshipProfile();
-        internshipProfile = profile;
+        internshipProfile = await fetchInternshipProfile();
         if (cancelled) return;
         setStep(
           S.PROFILE,
           "success",
-          `${internshipProfile.department} · ${internshipProfile.level} (${source})`,
+          `${internshipProfile.department} · ${internshipProfile.level}`,
         );
       } catch (err) {
-        internshipProfile = { department: "web", level: "beginner" };
         if (cancelled) return;
-        setStep(S.PROFILE, "success", "web · beginner (Default Fallback)");
+        const msg = err instanceof Error ? err.message : String(err);
+        setStep(S.PROFILE, "error", msg);
+        setFatalMsg(msg);
+        return;
       }
 
       const curriculumUrl =
         internshipProfile.curriculum_repo_url ??
         "https://github.com/rawlingsnsame/evaluation_internship.git";
+      const workspaceTarget = "./internship/curriculum";
 
-      const workspaceName = `${internshipProfile.department}-${internshipProfile.level}`;
-      const workspaceTarget = `./internship/curriculum`;
-
-      // 6. clone curriculum
-      setStep(S.CLONE_C, "loading", `Cloning ${workspaceName} curriculum…`);
+      setStep(
+        S.CLONE_C,
+        "loading",
+        `Cloning ${internshipProfile.department}-${internshipProfile.level} curriculum…`,
+      );
       try {
         const { cloned } = await cloneRepo(
           curriculumUrl,
           workspaceTarget,
-          (attempt) => setStep(S.CLONE_C, "warning", `Retry ${attempt}/3…`),
+          (a) => setStep(S.CLONE_C, "warning", `Retry ${a}/3…`),
         );
         if (cancelled) return;
         setStep(
@@ -282,12 +255,11 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         return;
       }
 
-      // 7. Python deps
       setStep(S.INSTALL_C, "loading", "Setting up Python environment…");
       try {
         const installed = await installPythonDependencies(
           workspaceTarget,
-          (attempt) => setStep(S.INSTALL_C, "warning", `Retry ${attempt}/3…`),
+          (a) => setStep(S.INSTALL_C, "warning", `Retry ${a}/3…`),
         );
         if (cancelled) return;
         setStep(
@@ -306,12 +278,10 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         );
       }
 
-      // 8. Node deps
       setStep(S.INSTALL_NPM, "loading", "Installing Node.js dependencies…");
       try {
-        const installed = await installNpmDependencies(
-          workspaceTarget,
-          (attempt) => setStep(S.INSTALL_NPM, "warning", `Retry ${attempt}/3…`),
+        const installed = await installNpmDependencies(workspaceTarget, (a) =>
+          setStep(S.INSTALL_NPM, "warning", `Retry ${a}/3…`),
         );
         if (cancelled) return;
         setStep(
@@ -329,16 +299,15 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       }
 
       if (!cancelled) {
-        const studentName = resolveStudentName(internshipProfile);
         await saveWorkspace(process.cwd(), {
           department: internshipProfile.department,
           level: internshipProfile.level,
-          studentName,
+          studentName: resolveStudentName(internshipProfile),
         });
         setWorkspaceInfo({
           department: internshipProfile.department,
           level: internshipProfile.level,
-          path: path.resolve(workspaceTarget),
+          path: workspaceTarget,
         });
         setPhase("done");
       }
@@ -348,7 +317,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
       if (!cancelled)
         setFatalMsg(err instanceof Error ? err.message : String(err));
     });
-
     return () => {
       cancelled = true;
     };
@@ -356,7 +324,6 @@ export const InitScreen: React.FC<InitScreenProps> = ({
 
   useInput((char, key) => {
     if (phase === "auth") return;
-
     if (hasNetworkError && networkChoice === "waiting") {
       if (char === "r") {
         setNetworkChoice("retrying");
@@ -373,13 +340,16 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         });
         setHasNetworkError(false);
         setPhase("done");
-      } else if (char === "q" || key.escape) {
-        onComplete();
-      }
+      } else if (char === "q" || key.escape) onComplete();
       return;
     }
-
-    if (phase === "done" || fatalMsg) onComplete();
+    if (phase === "done" || fatalMsg) {
+      // On success: close init screen AND open help so user sees all commands
+      if (phase === "done" && !fatalMsg) {
+        onComplete();
+        onShowHelp?.();
+      } else onComplete();
+    }
   });
 
   if (phase === "auth") {
@@ -545,33 +515,33 @@ export const InitScreen: React.FC<InitScreenProps> = ({
                 <Text color={theme.colors.primary} bold>
                   {workspaceInfo.path}/
                 </Text>
-                <Text color={theme.colors.muted}>your workspace</Text>
+                <Text color={theme.colors.muted}>your curriculum</Text>
               </Box>
             </Box>
           )}
           <Box marginTop={1} flexDirection="column">
-            <Text color={theme.colors.text}>Next steps:</Text>
-            <Box marginLeft={2} flexDirection="column">
-              <Text color={theme.colors.dim}>
-                <Text color={theme.colors.secondary}>monitor start</Text> begin
-                tracking your work
+            <Text color={theme.colors.warning} bold>
+              Important first step:
+            </Text>
+            <Box marginLeft={2} marginTop={1}>
+              <Text color={theme.colors.white}>
+                Run{" "}
+                <Text color={theme.colors.secondary} bold>
+                  monitor start
+                </Text>{" "}
+                before you begin working.
               </Text>
+            </Box>
+            <Box marginLeft={2}>
               <Text color={theme.colors.dim}>
-                <Text color={theme.colors.secondary}>assistant</Text> ask
-                questions about your curriculum
-              </Text>
-              <Text color={theme.colors.dim}>
-                <Text color={theme.colors.secondary}>info</Text> view internship
-                status
-              </Text>
-              <Text color={theme.colors.dim}>
-                <Text color={theme.colors.secondary}>about-me</Text> view your
-                Zigex profile
+                This tracks your file changes and commits for your logbook.
               </Text>
             </Box>
           </Box>
           <Box marginTop={1}>
-            <Text color={theme.colors.dim}>Press any key to return…</Text>
+            <Text color={theme.colors.dim}>
+              Press any key to see all commands…
+            </Text>
           </Box>
         </Banner>
       )}
