@@ -17,6 +17,27 @@ import {
   submitTaskCommand,
   complainCommand,
 } from "./zask.js";
+import {
+  groupCommand,
+  cohortsCommand,
+  joinCohortCommand,
+} from "./group.js";
+import {
+  tasksCommand,
+  taskDetailsCommand,
+  submitTaskCommand2,
+} from "./tasks.js";
+import {
+  statsCommand,
+  leaderboardCommand,
+  achievementsCommand,
+} from "./gamification.js";
+import {
+  docsCommand,
+  searchCommand2,
+  githubReposCommand,
+} from "./docs.js";
+import { statsScreenCommand } from "./stats-screen.js";
 
 export function registerAllCommands(): void {
   registerCommand(exitCommand);
@@ -35,4 +56,19 @@ export function registerAllCommands(): void {
   registerCommand(submitReportCommand);
   registerCommand(submitTaskCommand);
   registerCommand(complainCommand);
+
+  // New commands for enhanced functionality
+  registerCommand(groupCommand);
+  registerCommand(cohortsCommand);
+  registerCommand(joinCohortCommand);
+  registerCommand(tasksCommand);
+  registerCommand(taskDetailsCommand);
+  registerCommand(submitTaskCommand2);
+  registerCommand(statsCommand);
+  registerCommand(leaderboardCommand);
+  registerCommand(achievementsCommand);
+  registerCommand(docsCommand);
+  registerCommand(searchCommand2);
+  registerCommand(githubReposCommand);
+  registerCommand(statsScreenCommand);
 }
