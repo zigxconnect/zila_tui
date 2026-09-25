@@ -37,7 +37,7 @@ function renderIcon(status: StatusType): React.ReactElement {
 function labelColor(status: StatusType): string {
   switch (status) {
     case "success":
-      return theme.colors.white;
+      return theme.colors.textBright;
     case "loading":
       return theme.colors.primary;
     case "error":
