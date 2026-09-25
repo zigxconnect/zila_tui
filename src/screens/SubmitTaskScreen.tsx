@@ -101,10 +101,10 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     <Box flexDirection="column" borderStyle="single" borderColor={active ? theme.colors.primary : theme.colors.border} paddingX={1} paddingY={1} marginBottom={1}>
       <Box flexDirection="row" alignItems="center" gap={1}>
         <Text color={active ? theme.colors.primary : theme.colors.dim}>{active ? theme.symbols.pointer : " "}</Text>
-        <Text color={active ? theme.colors.white : theme.colors.muted} bold>{title}</Text>
+        <Text color={active ? theme.colors.textBright : theme.colors.muted} bold>{title}</Text>
       </Box>
       <Box marginTop={1}>
-        <Text color={active ? theme.colors.white : theme.colors.text}>{value || hint}</Text>
+        <Text color={active ? theme.colors.textBright : theme.colors.text}>{value || hint}</Text>
       </Box>
       {active && <Text color={theme.colors.dim}>{hint}</Text>}
     </Box>
@@ -123,7 +123,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
         <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.success} paddingX={2} paddingY={1}>
           <Text color={theme.colors.success} bold>Task update recorded.</Text>
           <Box marginTop={1}>
-            <Text color={theme.colors.text}>Task {taskId} is now <Text color={theme.colors.white} bold>{state}</Text>.</Text>
+            <Text color={theme.colors.text}>Task {taskId} is now <Text color={theme.colors.textBright} bold>{state}</Text>.</Text>
           </Box>
           <Box marginTop={1}>
             <Text color={theme.colors.text}>{description || "No further details provided."}</Text>
@@ -151,7 +151,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
           </Box>
 
           <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.border} paddingX={1} paddingY={1}>
-            <Text color={theme.colors.secondary} bold>Live Task Preview</Text>
+            <Text color={theme.colors.accent} bold>Live Task Preview</Text>
             <Box marginTop={1}>
               <Text color={theme.colors.info}>Task</Text> <Text color={theme.colors.white}>{taskId || "<empty>"}</Text>
             </Box>
