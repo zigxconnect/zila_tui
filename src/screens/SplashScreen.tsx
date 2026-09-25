@@ -1,79 +1,125 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
 import { theme } from "../ui/theme.js";
-import { Divider } from "../ui/Divider.js";
-
-const LOGO_LINES = [
-  "  ███████╗██╗██╗      █████╗ ",
-  "     ███╔╝██║██║     ██╔══██╗",
-  "    ███╔╝ ██║██║     ███████║",
-  "   ███╔╝  ██║██║     ██╔══██║",
-  "  ███████╗██║███████╗██║  ██║",
-  "  ╚══════╝╚═╝╚══════╝╚═╝  ╚═╝",
-];
-
-const TOTAL_LINES   = LOGO_LINES.length;
-const STAGGER_MS    = theme.timing.splashStaggerMs;
-const NAME_DELAY_MS = STAGGER_MS * TOTAL_LINES + 30;
-const TAG_DELAY_MS  = NAME_DELAY_MS + 100;
-const DONE_DELAY_MS = TAG_DELAY_MS + 170;
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
-  const [visibleLines, setVisibleLines] = useState(0);
-  const [showName,     setShowName]     = useState(false);
-  const [showTagline,  setShowTagline]  = useState(false);
-  const [showDivider,  setShowDivider]  = useState(false);
+  const [frame, setFrame] = useState(0);
+
+  // Full-width logo design
+  const logo = [
+    "════════════════════════════════════════════════════════════════════════════════════════════════════════════════",
+    "                                                                                                                ",
+    "                ███████╗ ██╗ ██╗      █████╗          █████╗   ██████╗  ███████╗ ███╗   ██╗ ████████╗        ",
+    "                ╚══███╔╝ ██║ ██║     ██╔══██╗        ██╔══██╗ ██╔════╝  ██╔════╝ ████╗  ██║ ╚══██╔══╝        ",
+    "                  ███╔╝  ██║ ██║     ███████║ █████╗ ███████║ ██║  ███╗ █████╗   ██╔██╗ ██║    ██║           ",
+    "                 ███╔╝   ██║ ██║     ██╔══██║ ╚════╝ ██╔══██║ ██║   ██║ ██╔══╝   ██║╚██╗██║    ██║           ",
+    "                ███████╗ ██║ ███████╗██║  ██║        ██║  ██║ ╚██████╔╝ ███████╗ ██║ ╚████║    ██║           ",
+    "                ╚══════╝ ╚═╝ ╚══════╝╚═╝  ╚═╝        ╚═╝  ╚═╝  ╚═════╝  ╚══════╝ ╚═╝  ╚═══╝    ╚═╝           ",
+    "                                                                                                                ",
+    "                              Zigex Intelligent Layer for Agents                                               ",
+    "                         Terminal-First Internship & Program Management                                        ",
+    "                                                                                                                ",
+    "════════════════════════════════════════════════════════════════════════════════════════════════════════════════",
+  ];
+
+  const taglines = [
+    "🚀 Empowering your internship journey...",
+    "✨ Connecting you with opportunities...",
+    "🎯 Building your future, one task at a time...",
+  ];
+
+  const randomTagline = taglines[Math.floor(Math.random() * taglines.length)];
+
+  const totalFrames = logo.length + 8;
 
   useEffect(() => {
-    // Stagger each logo line
-    const lineTimers = LOGO_LINES.map((_, i) =>
-      setTimeout(() => setVisibleLines(i + 1), STAGGER_MS * i),
-    );
-    const nameTimer    = setTimeout(() => setShowName(true),    NAME_DELAY_MS);
-    const taglineTimer = setTimeout(() => setShowTagline(true), TAG_DELAY_MS);
-    const doneTimer    = setTimeout(() => {
-      setShowDivider(true);
-      onComplete();
-    }, DONE_DELAY_MS);
+    if (frame >= totalFrames) {
+      const timer = setTimeout(onComplete, 400);
+      return () => clearTimeout(timer);
+    }
 
-    return () => {
-      lineTimers.forEach(clearTimeout);
-      clearTimeout(nameTimer);
-      clearTimeout(taglineTimer);
-      clearTimeout(doneTimer);
-    };
-  }, [onComplete]);
+    const timer = setTimeout(() => {
+      setFrame(frame + 1);
+    }, theme.timing.splashStaggerMs);
+
+    return () => clearTimeout(timer);
+  }, [frame, onComplete, totalFrames]);
+
+  const getColor = (lineIndex: number) => {
+    // Color scheme for different parts of the logo
+    if (lineIndex === 0 || lineIndex === 12) {
+      return theme.colors.primary; // Top and bottom borders
+    }
+    if (lineIndex >= 2 && lineIndex <= 7) {
+      // Main logo text with gradient
+      const colors = [
+        theme.colors.primaryBright,
+        theme.colors.primary,
+        theme.colors.accent,
+        theme.colors.accentBright,
+        theme.colors.primary,
+        theme.colors.primaryBright,
+      ];
+      return colors[(lineIndex - 2) % colors.length];
+    }
+    if (lineIndex === 9 || lineIndex === 10) {
+      return theme.colors.accent; // Subtitle text
+    }
+    return theme.colors.border;
+  };
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      {/* Logo — visible lines render in colour, hidden lines are spaces */}
-      {LOGO_LINES.map((line, i) => (
-        <Text key={i} color={theme.colors.primary} bold>
-          {i < visibleLines ? line : " "}
-        </Text>
-      ))}
+    <Box flexDirection="column" alignItems="center" justifyContent="center" paddingY={2}>
+      {/* Logo with animated reveal */}
+      <Box flexDirection="column">
+        {logo.slice(0, Math.min(frame, logo.length)).map((line, index) => {
+          const isTitle = index >= 2 && index <= 7;
+          const isSubtitle = index === 9 || index === 10;
 
-      {/* Name + version */}
-      <Box marginTop={1} flexDirection="row" gap={1}>
-        <Text color={showName ? theme.colors.white : ""} bold>
-          {showName ? "ZILA" : " "}
-        </Text>
-        <Text color={showName ? theme.colors.muted : ""}>
-          {showName ? "v0.2.0" : ""}
-        </Text>
+          return (
+            <Box key={index}>
+              <Text
+                bold={isTitle || isSubtitle}
+                color={getColor(index)}
+              >
+                {line}
+              </Text>
+            </Box>
+          );
+        })}
       </Box>
 
-      {/* Tagline */}
-      <Text color={showTagline ? theme.colors.dim : ""}>
-        {showTagline ? "Zigex Intelligent Layer for Agents" : " "}
-      </Text>
+      {/* Tagline with fade in */}
+      {frame > logo.length && (
+        <Box marginTop={1}>
+          <Text color={theme.colors.muted} italic>
+            {randomTagline}
+          </Text>
+        </Box>
+      )}
 
-      {/* Divider — appears last, signals the shell to show the prompt */}
-      {showDivider && <Divider />}
+      {/* Loading indicator */}
+      {frame > logo.length + 2 && (
+        <Box marginTop={2}>
+          <Text color={theme.colors.primary}>
+            {theme.spinners.pulse.frames[frame % theme.spinners.pulse.frames.length]}{" "}
+            Loading your workspace...
+          </Text>
+        </Box>
+      )}
+
+      {/* Version info */}
+      {frame > logo.length + 4 && (
+        <Box marginTop={2} flexDirection="column" alignItems="center">
+          <Text color={theme.colors.dimmer} dimColor>
+            v0.2.0 • Powered by Zigex Open Source Initiative
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 };
