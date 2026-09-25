@@ -10,6 +10,7 @@ import { AboutScreen } from "../screens/AboutScreen.js";
 import { InfoScreen } from "../screens/InfoScreen.js";
 import { SubmitReportScreen } from "../screens/SubmitReportScreen.js";
 import { SubmitTaskScreen } from "../screens/SubmitTaskScreen.js";
+import { StatsScreen } from "../screens/StatsScreen.js";
 import { OutputHistory, type OutputLine } from "./OutputHistory.js";
 import { InputPrompt } from "./InputPrompt.js";
 import {
@@ -43,6 +44,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [showSubmitReport, setShowSubmitReport] = useState(false);
   const [showSubmitTask, setShowSubmitTask] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   const pushLine = useCallback(
     (text: string, type: OutputLine["type"] = "default") => {
@@ -70,6 +72,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
     startInfo: () => setShowInfo(true),
     startSubmitReport: () => setShowSubmitReport(true),
     startSubmitTask: () => setShowSubmitTask(true),
+    startStats: () => setShowStats(true),
     clearHistory: () => setHistory([]),
   };
 
@@ -130,7 +133,8 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
         !showAbout &&
         !showInfo &&
         !showSubmitReport &&
-        !showSubmitTask,
+        !showSubmitTask &&
+        !showStats,
     },
   );
 
@@ -206,6 +210,13 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
         <InfoScreen
           onComplete={() => {
             setShowInfo(false);
+            pushLine("Welcome back to ZILA.", "success");
+          }}
+        />
+      ) : showStats ? (
+        <StatsScreen
+          onClose={() => {
+            setShowStats(false);
             pushLine("Welcome back to ZILA.", "success");
           }}
         />
