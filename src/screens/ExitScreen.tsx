@@ -1,38 +1,93 @@
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
 import { theme } from "../ui/theme.js";
-import { Divider } from "../ui/Divider.js";
 
 interface ExitScreenProps {
   message?: string;
   onExited: () => void;
 }
 
-export const ExitScreen: React.FC<ExitScreenProps> = ({
-  message,
-  onExited,
-}) => {
-  useEffect(() => {
-    const id = setTimeout(onExited, theme.timing.exitDelayMs);
-    return () => clearTimeout(id);
-  }, [onExited]);
+export const ExitScreen: React.FC<ExitScreenProps> = ({ message, onExited }) => {
+  const [frame, setFrame] = useState(0);
 
-  const goodbye = message ?? "Goodbye. Come back and build something great.";
+  const farewell = [
+    "",
+    "   ╔════════════════════════════════════════════╗",
+    "   ║                                            ║",
+    "   ║          Thanks for using ZILA!            ║",
+    "   ║                                            ║",
+    "   ║     Keep building amazing things 🚀        ║",
+    "   ║                                            ║",
+    "   ╚════════════════════════════════════════════╝",
+    "",
+  ];
+
+  useEffect(() => {
+    if (frame >= farewell.length + 2) {
+      const timer = setTimeout(onExited, theme.timing.exitDelayMs);
+      return () => clearTimeout(timer);
+    }
+
+    const timer = setTimeout(() => {
+      setFrame(frame + 1);
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [frame, onExited]);
 
   return (
-    <Box flexDirection="column" marginY={1} paddingX={1}>
-      <Divider width={44} />
-
-      <Box marginTop={1} marginBottom={1} flexDirection="column" gap={0}>
-        <Text color={theme.colors.white}>{goodbye}</Text>
-
-        <Box marginTop={1} flexDirection="row">
-          <Text color={theme.colors.primary}>ZILA v0.2.0</Text>
-          <Text color={theme.colors.dim}> · Zigex Open Source Initiative</Text>
+    <Box flexDirection="column" alignItems="center" paddingY={2}>
+      {/* Custom exit message */}
+      {message && frame > 0 && (
+        <Box marginBottom={2}>
+          <Text color={theme.colors.warning} italic>
+            {message}
+          </Text>
         </Box>
+      )}
+
+      {/* Animated farewell message */}
+      <Box flexDirection="column">
+        {farewell.slice(0, Math.min(frame, farewell.length)).map((line, index) => {
+          const isBorder = index === 1 || index === 7;
+          const isTitle = index === 3;
+
+          return (
+            <Box key={index}>
+              <Text
+                bold={isTitle}
+                color={
+                  isBorder
+                    ? theme.colors.primary
+                    : isTitle
+                    ? theme.colors.primaryBright
+                    : theme.colors.text
+                }
+              >
+                {line}
+              </Text>
+            </Box>
+          );
+        })}
       </Box>
 
-      <Divider width={44} />
+      {/* Loading indicator */}
+      {frame > farewell.length && (
+        <Box marginTop={2}>
+          <Text color={theme.colors.muted} dimColor>
+            {theme.spinners.dots.frames[frame % theme.spinners.dots.frames.length]} Closing...
+          </Text>
+        </Box>
+      )}
+
+      {/* Version & link */}
+      {frame > farewell.length && (
+        <Box marginTop={2} flexDirection="column" alignItems="center">
+          <Text color={theme.colors.dimmer} dimColor>
+            Zila v0.2.0 • zigex.com
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 };
