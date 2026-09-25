@@ -137,10 +137,10 @@ export const SubmitReportScreen: React.FC<SubmitReportScreenProps> = ({ onComple
             <Text color={theme.colors.text}>Saved to the task log.</Text>
           </Box>
           <Box flexDirection="column" marginTop={1} gap={1}>
-            <Text color={theme.colors.white}>Title: {title}</Text>
-            <Text color={theme.colors.white}>Status: {status}</Text>
-            <Text color={theme.colors.white}>Summary: {summary || "(no summary provided)"}</Text>
-            <Text color={theme.colors.white}>Notes: {notes || "(none)"}</Text>
+            <Text color={theme.colors.textBright}>Title: {title}</Text>
+            <Text color={theme.colors.textBright}>Status: {status}</Text>
+            <Text color={theme.colors.textBright}>Summary: {summary || "(no summary provided)"}</Text>
+            <Text color={theme.colors.textBright}>Notes: {notes || "(none)"}</Text>
           </Box>
           <Box marginTop={1}>
             <Text color={theme.colors.dim}>Press any key to return to the hub.</Text>
@@ -155,10 +155,10 @@ export const SubmitReportScreen: React.FC<SubmitReportScreenProps> = ({ onComple
             <Box flexDirection="column" borderStyle="single" borderColor={activeField === 3 ? theme.colors.primary : theme.colors.border} paddingX={1} paddingY={1} marginBottom={1}>
               <Box flexDirection="row" alignItems="center" gap={1}>
                 <Text color={activeField === 3 ? theme.colors.primary : theme.colors.dim}>{activeField === 3 ? theme.symbols.pointer : " "}</Text>
-                <Text color={activeField === 3 ? theme.colors.white : theme.colors.muted} bold>Status</Text>
+                <Text color={activeField === 3 ? theme.colors.textBright : theme.colors.muted} bold>Status</Text>
               </Box>
               <Box flexDirection="row" alignItems="center" gap={1} marginTop={1}>
-                <Text color={theme.colors.white}>{status}</Text>
+                <Text color={theme.colors.text}>{status}</Text>
                 {activeField === 3 && <Cursor on={cursorOn} />}
               </Box>
               {activeField === 3 && <Text color={theme.colors.dim}>Use ←/→ to change state.</Text>}
@@ -166,15 +166,15 @@ export const SubmitReportScreen: React.FC<SubmitReportScreenProps> = ({ onComple
           </Box>
 
           <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.border} paddingX={1} paddingY={1}>
-            <Text color={theme.colors.secondary} bold>Preview</Text>
+            <Text color={theme.colors.accent} bold>Preview</Text>
             <Box flexDirection="column" marginTop={1} gap={1}>
               <Box>
                 <Text color={theme.colors.info}>Title:</Text>
-                <Text color={theme.colors.white}> {title || "(waiting for title)"}</Text>
+                <Text color={theme.colors.textBright}> {title || "(waiting for title)"}</Text>
               </Box>
               <Box>
                 <Text color={theme.colors.info}>Summary:</Text>
-                <Text color={theme.colors.white}> {summary || "(waiting for summary)"}</Text>
+                <Text color={theme.colors.textBright}> {summary || "(waiting for summary)"}</Text>
               </Box>
               <Box>
                 <Text color={theme.colors.info}>Notes:</Text>
