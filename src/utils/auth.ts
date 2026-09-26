@@ -5,7 +5,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export const API_BASE = process.env.API_BASE || "https://zila-api.onrender.com/api";
+const rawUrl = process.env.ZILA_API_URL || "http://localhost:5000";
+export const API_BASE = process.env.API_BASE || (rawUrl.endsWith("/api") ? rawUrl : `${rawUrl}/api`);
 const ZILA_DIR = path.join(os.homedir(), ".zila");
 const AUTH_PATH = path.join(ZILA_DIR, "auth.json");
 const TOKEN_EXPIRY_DAYS = 30;
