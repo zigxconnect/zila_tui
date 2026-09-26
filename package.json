@@ -9,6 +9,7 @@
   "preferGlobal": true,
   "scripts": {
     "build": "tsc",
+    "test": "npm run build && node --test tests/*.test.ts",
     "dev": "tsc -w",
     "start": "node ./dist/cli.js"
   },
