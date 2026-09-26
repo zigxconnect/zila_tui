@@ -82,29 +82,29 @@ export const theme = {
     star: "★",
     starHollow: "☆",
 
-    // Icons
-    rocket: "🚀",
-    fire: "🔥",
-    trophy: "🏆",
-    medal: "🎖️",
-    target: "🎯",
-    sparkles: "✨",
-    checkmark: "✅",
-    xmark: "❌",
+    // Clean Terminal Indicators (No emojis)
+    rocket: ">",
+    fire: "!",
+    trophy: "[TOP]",
+    medal: "*",
+    target: "->",
+    sparkles: "*",
+    checkmark: "[OK]",
+    xmark: "[FAIL]",
 
     // Ranks
-    rank1: "🥇",
-    rank2: "🥈",
-    rank3: "🥉",
+    rank1: "1.",
+    rank2: "2.",
+    rank3: "3.",
 
     // Categories
-    folder: "📁",
-    file: "📄",
-    code: "💻",
-    book: "📚",
-    link: "🔗",
-    lock: "🔒",
-    unlock: "🔓",
+    folder: "[DIR]",
+    file: "[FILE]",
+    code: "[CODE]",
+    book: "[DOC]",
+    link: "->",
+    lock: "[LOCKED]",
+    unlock: "[UNLOCKED]",
   },
 
   spinner: {
