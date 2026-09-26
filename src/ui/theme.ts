@@ -2,56 +2,57 @@ import figures from "figures";
 
 export const theme = {
   colors: {
-    // Primary brand colors - inspired by Claude Code
-    primary: "#9b87f5",      // Soft purple
-    primaryBright: "#b8a7ff",
-    primaryDim: "#7c6bbd",
+    // Primary Zigex brand colors
+    primary: "#155DFC",        // Zigex Brand Blue
+    primaryBright: "#3B82F6",  // Electric Blue
+    primaryDim: "#1D4ED8",     // Deep Blue
+    logoColor: "#818CF8",      // lil-zila periwinkle/blue from brand screenshot
 
     // Accent colors
-    accent: "#06b6d4",       // Cyan
-    accentBright: "#22d3ee",
-    success: "#10b981",      // Emerald
-    successBright: "#34d399",
+    accent: "#38BDF8",         // Sky Blue / Cyan
+    accentBright: "#7DD3FC",   // Bright Cyan
+    success: "#10B981",        // Emerald
+    successBright: "#34D399",
     successDim: "#059669",
-    warning: "#f59e0b",      // Amber
-    warningBright: "#fbbf24",
-    error: "#ef4444",        // Red
-    errorBright: "#f87171",
-    info: "#3b82f6",         // Blue
-    infoBright: "#60a5fa",
+    warning: "#F59E0B",        // Amber
+    warningBright: "#FBBF24",
+    error: "#EF4444",          // Red
+    errorBright: "#F87171",
+    info: "#38BDF8",           // Sky Blue
+    infoBright: "#60A5FA",
 
-    // Text colors
-    text: "#e5e7eb",         // Light gray
-    textBright: "#f9fafb",   // Almost white
-    muted: "#9ca3af",        // Gray
-    dim: "#6b7280",          // Darker gray
-    dimmer: "#4b5563",       // Even darker
+    // Text colors (Zigex White & Slate)
+    text: "#F8FAFC",           // Clean White
+    textBright: "#FFFFFF",     // Pure White
+    muted: "#94A3B8",          // Slate Gray
+    dim: "#64748B",            // Muted Slate
+    dimmer: "#475569",         // Dark Slate
 
     // UI colors
-    border: "#374151",       // Border gray
-    borderActive: "#9b87f5", // Active border (primary)
-    borderFocus: "#06b6d4",  // Focus border (accent)
-    background: "#111827",   // Dark background
-    backgroundLight: "#1f2937",
-    panel: "#0f172a",        // Darker panel
+    border: "#1E293B",         // Deep slate border
+    borderActive: "#155DFC",   // Active border (Zigex Blue)
+    borderFocus: "#38BDF8",    // Focus border (Sky Blue)
+    background: "#090D16",     // Dark terminal background
+    backgroundLight: "#0F172A",
+    panel: "#0F172A",
 
     // Semantic colors
-    link: "#60a5fa",
-    linkHover: "#93c5fd",
+    link: "#38BDF8",
+    linkHover: "#60A5FA",
 
     // Gamification colors
-    gold: "#fbbf24",
-    silver: "#d1d5db",
-    bronze: "#f97316",
+    gold: "#FBBF24",
+    silver: "#E2E8F0",
+    bronze: "#F97316",
 
     // Status colors
-    active: "#10b981",
-    inactive: "#6b7280",
-    pending: "#f59e0b",
+    active: "#10B981",
+    inactive: "#64748B",
+    pending: "#F59E0B",
 
     // Aliases for compatibility
-    white: "#f9fafb",
-    secondary: "#FFB454",
+    white: "#FFFFFF",
+    secondary: "#38BDF8",
   },
 
   symbols: {

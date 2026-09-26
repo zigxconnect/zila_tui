@@ -35,16 +35,16 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
   return (
     <Box flexDirection="column" paddingY={1}>
       <Header
-        title="Zila System Information"
+        title="lil-zila System Information"
         subtitle="Terminal-first developer productivity for Zigex"
-        icon="ℹ️"
+        icon="[INFO]"
       />
 
       {/* App info */}
       <Card title="Application" borderColor="primary">
         <Box flexDirection="column">
-          <StatItem label="Name" value="Zila Agent" icon="🚀" />
-          <StatItem label="Version" value="v0.2.0" icon="📦" />
+          <StatItem label="Name" value="lil-zila Agent" icon="[APP]" />
+          <StatItem label="Version" value="v0.3.0" icon="[VER]" />
           <StatItem label="Description" value="Zigex Intelligent Layer for Agents" />
           <StatItem label="Status" value="Active" icon={theme.spinners.pulse.frames[animationFrame]} color="success" />
         </Box>
@@ -53,11 +53,11 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
       {/* System info */}
       <Card title="System" borderColor="info" marginTop={1}>
         <Box flexDirection="column">
-          <StatItem label="Node.js" value={nodeVersion} icon="⚡" />
-          <StatItem label="Platform" value={platform} icon="💻" />
-          <StatItem label="Architecture" value={arch} icon="🔧" />
-          <StatItem label="Memory Usage" value={`${memoryMB} MB`} icon="🧠" />
-          <StatItem label="Uptime" value={`${uptimeMinutes} minutes`} icon="⏱️" />
+          <StatItem label="Node.js" value={nodeVersion} icon="[NODE]" />
+          <StatItem label="Platform" value={platform} icon="[OS]" />
+          <StatItem label="Architecture" value={arch} icon="[ARCH]" />
+          <StatItem label="Memory Usage" value={`${memoryMB} MB`} icon="[MEM]" />
+          <StatItem label="Uptime" value={`${uptimeMinutes} minutes`} icon="[TIME]" />
         </Box>
       </Card>
 
@@ -99,20 +99,20 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
       <Card title="Resources" borderColor="accent" marginTop={1}>
         <Box flexDirection="column">
           <Box marginY={0}>
-            <Text color={theme.colors.link}>🌐 Website:    </Text>
+            <Text color={theme.colors.link}>Website:    </Text>
             <Text color={theme.colors.muted}>https://zigex.com</Text>
           </Box>
           <Box marginY={0}>
-            <Text color={theme.colors.link}>📚 Docs:       </Text>
+            <Text color={theme.colors.link}>Docs:       </Text>
             <Text color={theme.colors.muted}>https://docs.zigex.com</Text>
           </Box>
           <Box marginY={0}>
-            <Text color={theme.colors.link}>💬 Support:    </Text>
+            <Text color={theme.colors.link}>Support:    </Text>
             <Text color={theme.colors.muted}>support@zigex.com</Text>
           </Box>
           <Box marginY={0}>
-            <Text color={theme.colors.link}>🐙 GitHub:     </Text>
-            <Text color={theme.colors.muted}>github.com/zigex/zila-agent</Text>
+            <Text color={theme.colors.link}>GitHub:     </Text>
+            <Text color={theme.colors.muted}>github.com/zigxconnect</Text>
           </Box>
         </Box>
       </Card>
@@ -126,7 +126,7 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
         </Text>
         <Box marginTop={1}>
           <Text color={theme.colors.dimmer} dimColor>
-            Built with ❤️ by the Zigex Team
+            Built by the Zigex Team
           </Text>
         </Box>
       </Box>

@@ -14,9 +14,9 @@ export const ExitScreen: React.FC<ExitScreenProps> = ({ message, onExited }) => 
     "",
     "   ╔════════════════════════════════════════════╗",
     "   ║                                            ║",
-    "   ║          Thanks for using ZILA!            ║",
+    "   ║        Thanks for using lil-zila!          ║",
     "   ║                                            ║",
-    "   ║     Keep building amazing things 🚀        ║",
+    "   ║      Keep building amazing things          ║",
     "   ║                                            ║",
     "   ╚════════════════════════════════════════════╝",
     "",
@@ -84,7 +84,7 @@ export const ExitScreen: React.FC<ExitScreenProps> = ({ message, onExited }) => 
       {frame > farewell.length && (
         <Box marginTop={2} flexDirection="column" alignItems="center">
           <Text color={theme.colors.dimmer} dimColor>
-            Zila v0.2.0 • zigex.com
+            lil-zila v0.3.0 • zigex.com
           </Text>
         </Box>
       )}

@@ -41,12 +41,15 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
 
   if (running) {
     return (
-      <Box marginTop={1}>
-        <Text color={theme.colors.primary} bold>
-          {theme.symbols.pointerFancy}{" "}
+      <Box marginTop={1} flexDirection="row">
+        <Text color={theme.colors.logoColor} bold>
+          lil-zila
+        </Text>
+        <Text color={theme.colors.accent} bold>
+          {" > "}
         </Text>
         <Text color={theme.colors.accent}>
-          {theme.spinners.pulse.frames[0]} Processing...
+          Processing...
         </Text>
       </Box>
     );
@@ -54,27 +57,27 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
 
   return (
     <Box marginTop={1} flexDirection="column">
-      {/* Input line */}
-      <Box>
-        <Text color={theme.colors.primaryBright} bold>
-          {theme.symbols.pointerFancy}{" "}
+      {/* Input line matching brand screenshot */}
+      <Box flexDirection="row">
+        <Text color={theme.colors.logoColor} bold>
+          lil-zila
         </Text>
-        <Text color={theme.colors.primary} dimColor>
-          zila{" "}
+        <Text color={theme.colors.accent} bold>
+          {" > "}
         </Text>
-        <Text color={theme.colors.text}>{input}</Text>
+        <Text color={theme.colors.textBright}>{input}</Text>
         {cursorVisible && (
-          <Text color={theme.colors.textBright} backgroundColor={theme.colors.primary}>
-            {" "}
+          <Text color={theme.colors.accent} bold>
+            |
           </Text>
         )}
       </Box>
 
-      {/* Hint text */}
+      {/* Clean hint line without tab or emoji */}
       {!input && (
         <Box marginTop={1}>
-          <Text color={theme.colors.dimmer} dimColor>
-            Type a command or "help" to get started • Press <Text bold>Tab</Text> for suggestions
+          <Text color={theme.colors.dim} dimColor>
+            Type a command like <Text color={theme.colors.accent}>group</Text>, <Text color={theme.colors.accent}>cohorts</Text>, or <Text color={theme.colors.accent}>help</Text> to get started
           </Text>
         </Box>
       )}

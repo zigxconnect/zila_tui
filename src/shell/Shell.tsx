@@ -11,6 +11,7 @@ import { InfoScreen } from "../screens/InfoScreen.js";
 import { SubmitReportScreen } from "../screens/SubmitReportScreen.js";
 import { SubmitTaskScreen } from "../screens/SubmitTaskScreen.js";
 import { StatsScreen } from "../screens/StatsScreen.js";
+import { LilZilaBanner } from "../ui/LilZilaBanner.js";
 import { OutputHistory, type OutputLine } from "./OutputHistory.js";
 import { InputPrompt } from "./InputPrompt.js";
 import {
@@ -78,7 +79,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
 
   async function handleCommand(rawInput: string, echo: boolean) {
     if (!rawInput) return;
-    if (echo) pushLine(`zila ❯ ${rawInput}`, "dim");
+    if (echo) pushLine(`lil-zila > ${rawInput}`, "dim");
 
     setRunning(true);
     const [cmdName = "", ...args] = rawInput.trim().split(/\s+/);
@@ -210,21 +211,24 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
         <InfoScreen
           onComplete={() => {
             setShowInfo(false);
-            pushLine("Welcome back to ZILA.", "success");
+            pushLine("Welcome back to lil-zila.", "success");
           }}
         />
       ) : showStats ? (
         <StatsScreen
           onClose={() => {
             setShowStats(false);
-            pushLine("Welcome back to ZILA.", "success");
+            pushLine("Welcome back to lil-zila.", "success");
           }}
         />
       ) : (
-        <InputPrompt
-          running={running}
-          onSubmit={(input) => handleCommand(input, true)}
-        />
+        <>
+          {history.length === 0 && <LilZilaBanner />}
+          <InputPrompt
+            running={running}
+            onSubmit={(input) => handleCommand(input, true)}
+          />
+        </>
       )}
     </Box>
   );
