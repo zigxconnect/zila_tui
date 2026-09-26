@@ -32,12 +32,10 @@ import {
   leaderboardCommand,
   achievementsCommand,
 } from "./gamification.js";
-import {
-  docsCommand,
-  searchCommand2,
-  githubReposCommand,
-} from "./docs.js";
+import { docsCommand, searchCommand2, githubReposCommand } from "./docs.js";
 import { statsScreenCommand } from "./stats-screen.js";
+import { downloadsCommand } from "./downloads.js";
+import { githubAuthCommand, githubStatusCommand, githubLogoutCommand } from "./githubAuth.js";
 
 export function registerAllCommands(): void {
   registerCommand(exitCommand);
@@ -71,4 +69,8 @@ export function registerAllCommands(): void {
   registerCommand(searchCommand2);
   registerCommand(githubReposCommand);
   registerCommand(statsScreenCommand);
+  registerCommand(downloadsCommand);
+  registerCommand(githubAuthCommand);
+  registerCommand(githubStatusCommand);
+  registerCommand(githubLogoutCommand);
 }
