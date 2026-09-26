@@ -7,100 +7,94 @@ const API_BASE_URL = env.ZILA_API_URL || "http://localhost:5000";
 export const groupCommand: ZilaCommand = {
   name: "group",
   aliases: ["peers", "colleagues", "cohort-members"],
-  description: "View your peers/colleagues in the same cohort",
+  description: "View your fellow accepted interns and supervisor in your cohort",
   usage: "group [cohort-id]",
   category: "cohort",
   available: true,
   handler: async (args, output) => {
     const authRecord = loadAuth();
     if (!authRecord?.token) {
-      output("⚠️  Not authenticated. Run  zila auth  first.", "error");
+      output("[AUTH] Not authenticated. Run 'zila auth' to login.", "error");
       return;
     }
 
     try {
-      output("🔍 Fetching your cohorts...", "info");
+      output("[FETCH] Loading your cohort members and placements...", "info");
 
-      // First, get user's cohorts
-      const cohortsResponse = await fetch(`${API_BASE_URL}/api/cohorts/my-cohorts`, {
+      // Use unified group endpoint
+      const cohortIdParam = args[0] ? `/${args[0]}/peers` : "/group";
+      const targetUrl = args[0]
+        ? `${API_BASE_URL}/api/cohorts/${args[0]}/chat-group`
+        : `${API_BASE_URL}/api/cohorts/group`;
+
+      const res = await fetch(targetUrl, {
         headers: {
           Authorization: `Bearer ${authRecord.token}`,
         },
       });
 
-      if (!cohortsResponse.ok) {
-        output("❌ Failed to fetch your cohorts", "error");
+      if (!res.ok) {
+        output(`[ERROR] Server responded with status ${res.status}`, "error");
         return;
       }
 
-      const cohortsData = await cohortsResponse.json() as { cohorts: any[] };
-      const { cohorts } = cohortsData;
+      const data = await res.json() as any;
 
-      if (cohorts.length === 0) {
-        output("📭 You are not enrolled in any cohorts yet.", "warning");
-        output("Use  zila cohorts  to browse and join available cohorts.", "dim");
+      if (!data.cohort && !data.chatContext) {
+        output("\n[NOTICE] No active cohort placement found.", "warning");
+        output("Apply or complete acceptance in your student workspace to view your group.\n", "dim");
         return;
       }
 
-      // If cohort-id provided, show peers for that cohort
-      const cohortId = args[0] || cohorts[0].id;
+      const cohort = data.cohort || {
+        id: data.chatContext?.cohortId,
+        name: data.chatContext?.cohortName,
+        department: data.chatContext?.department,
+      };
 
-      const selectedCohort = cohorts.find((c: any) => c.id === cohortId) || cohorts[0];
+      const supervisor = data.supervisor || data.chatContext?.supervisorAdmin;
+      const peers = data.peers || data.chatContext?.members || [];
 
-      output(``, "default");
-      output(`╭─────────────────────────────────────────────────────────╮`, "info");
-      output(`│  📚 ${selectedCohort.name.padEnd(50)} │`, "success");
-      output(`│  ${selectedCohort.department} • ${selectedCohort.level.padEnd(46)} │`, "dim");
-      output(`╰─────────────────────────────────────────────────────────╯`, "info");
-      output(``, "default");
-
-      // Fetch peers
-      const peersResponse = await fetch(`${API_BASE_URL}/api/cohorts/${selectedCohort.id}/peers`, {
-        headers: {
-          Authorization: `Bearer ${authRecord.token}`,
-        },
-      });
-
-      if (!peersResponse.ok) {
-        output("❌ Failed to fetch peers", "error");
-        return;
+      output("", "default");
+      output("================================================================================", "info");
+      output(`COHORT:      ${cohort.name}`, "success");
+      output(`DEPARTMENT:  ${cohort.department || 'General'}`, "dim");
+      if (supervisor) {
+        output(`SUPERVISOR:  ${supervisor.name} <${supervisor.email}> [Admin]`, "info");
+      } else {
+        output(`SUPERVISOR:  [Pending Assignment]`, "dim");
       }
-
-      const peersData = await peersResponse.json() as { peers: any[]; totalPeers: number };
-      const { peers, totalPeers } = peersData;
+      output(`GROUP ID:    ${cohort.id}`, "dim");
+      output("================================================================================", "info");
+      output("", "default");
 
       if (peers.length === 0) {
-        output("", "default");
-        output("   👤 You're the only one in this cohort so far!", "info");
-        output("   💡 More students will join soon!", "dim");
+        output("  No other accepted interns in this track yet.", "dim");
+        output("  New group members will appear here as applications are accepted.\n", "dim");
         return;
       }
 
-      output(`👥 Your Colleagues (${totalPeers} total)`, "success");
-      output(`${"─".repeat(60)}`, "dim");
-      output(``, "default");
+      output(`ACCEPTED INTERNS (${peers.length} active peers):`, "success");
+      output("--------------------------------------------------------------------------------", "dim");
+      output(` #  NAME                             EMAIL                         POINTS  STATUS`, "dim");
+      output("--------------------------------------------------------------------------------", "dim");
 
-      // Display peers in a nice format with better styling
-      peers.forEach((peer: any, index: number) => {
-        const rank = index + 1;
-        const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "   ";
+      peers.forEach((peer: any, idx: number) => {
+        const num = String(idx + 1).padEnd(2);
+        const name = String(peer.studentName || peer.name || 'Intern').padEnd(32).slice(0, 32);
+        const email = String(peer.studentEmail || peer.email || 'N/A').padEnd(28).slice(0, 28);
+        const points = String(peer.totalPoints || 0).padStart(6);
+        const status = (peer.status || 'Active').padEnd(7);
 
-        output(`${medal} ${peer.studentName}`, "success");
-        output(`     📧 ${peer.studentEmail}`, "dim");
-        output(`     ⭐ ${peer.totalPoints} points`, "info");
-
-        const joinDate = new Date(peer.joinedAt).toLocaleDateString();
-        output(`     📅 Joined ${joinDate}`, "dim");
-        output(``, "default");
+        output(` ${num} ${name} ${email} ${points}  ${status}`, "default");
       });
 
-      // Show other cohorts if multiple
-      if (cohorts.length > 1) {
-        output("\n💡 You're in multiple cohorts. Use  zila group <cohort-id>  to switch.", "dim");
-      }
+      output("--------------------------------------------------------------------------------", "dim");
+      output(`[INFO] Bluetooth Chat: Ready for peer-to-peer connection with supervisor admin`, "dim");
+      output("", "default");
 
     } catch (error: any) {
-      output(`❌ Error: ${error.message}`, "error");
+      output(`[ERROR] ${error.message}`, "error");
     }
   },
 };
@@ -108,91 +102,58 @@ export const groupCommand: ZilaCommand = {
 export const cohortsCommand: ZilaCommand = {
   name: "cohorts",
   aliases: ["sessions", "programs-list"],
-  description: "Browse and manage your cohorts",
-  usage: "cohorts [--active | --all]",
+  description: "Browse and manage your enrolled cohorts",
+  usage: "cohorts [--all]",
   category: "cohort",
   available: true,
   handler: async (args, output) => {
     const authRecord = loadAuth();
     if (!authRecord?.token) {
-      output("⚠️  Not authenticated. Run  zila auth  first.", "error");
+      output("[AUTH] Not authenticated. Run 'zila auth' to login.", "error");
       return;
     }
 
     try {
-      const showAll = args.includes("--all");
+      output("[FETCH] Loading cohorts...", "info");
 
-      // Fetch user's cohorts
-      output("🔍 Fetching your cohorts...", "info");
-
-      const myCohortsResponse = await fetch(`${API_BASE_URL}/api/cohorts/my-cohorts`, {
+      const res = await fetch(`${API_BASE_URL}/api/cohorts/my-cohorts`, {
         headers: {
           Authorization: `Bearer ${authRecord.token}`,
         },
       });
 
-      if (!myCohortsResponse.ok) {
-        output("❌ Failed to fetch cohorts", "error");
+      if (!res.ok) {
+        output(`[ERROR] Failed to fetch cohorts (HTTP ${res.status})`, "error");
         return;
       }
 
-      const myCohortsData = await myCohortsResponse.json() as { cohorts: any[] };
-      const { cohorts: myCohorts } = myCohortsData;
+      const { cohorts } = await res.json() as { cohorts: any[] };
 
-      if (myCohorts.length === 0) {
-        output("\n📭 You are not enrolled in any cohorts yet.", "warning");
+      if (!cohorts || cohorts.length === 0) {
+        output("\n[NOTICE] You have not been placed in an active cohort yet.", "warning");
+        output("Check your accepted applications on the Zigex web dashboard.\n", "dim");
+        return;
+      }
 
-        // Show available cohorts
-        if (showAll) {
-          output("\n🌟 Available Cohorts:\n", "info");
+      output("", "default");
+      output("YOUR ENROLLED COHORTS:", "success");
+      output("--------------------------------------------------------------------------------", "dim");
 
-          const allCohortsResponse = await fetch(`${API_BASE_URL}/api/cohorts?active=true`, {
-            headers: {
-              Authorization: `Bearer ${authRecord.token}`,
-            },
-          });
-
-          if (allCohortsResponse.ok) {
-            const data = await allCohortsResponse.json() as { cohorts: any[] };
-            const { cohorts: availableCohorts } = data;
-
-            availableCohorts.forEach((cohort: any) => {
-              output(`📚 ${cohort.name}`, "success");
-              output(`   ${cohort.department} • ${cohort.level}`, "dim");
-              output(`   👥 ${cohort._count.students} students`, "dim");
-              output(`   📝 ${cohort._count.tasks} tasks`, "dim");
-              output(`   🆔 ${cohort.id}\n`, "dim");
-            });
-
-            output("💡 Use  zila join <cohort-id>  to enroll in a cohort.", "info");
-          }
+      cohorts.forEach((cohort: any, idx: number) => {
+        const supInfo = cohort.supervisorName ? `Supervisor: ${cohort.supervisorName}` : "Supervisor: Unassigned";
+        output(`[${idx + 1}] ${cohort.name}`, "info");
+        output(`    Track: ${cohort.department} | ${supInfo}`, "dim");
+        output(`    ID: ${cohort.id} | Status: ${cohort.enrollmentStatus || 'Active'}`, "dim");
+        if (cohort.githubRepoUrl) {
+          output(`    Repository: ${cohort.githubRepoUrl}`, "dim");
         }
-
-        return;
-      }
-
-      output("\n📚 Your Cohorts:\n", "success");
-
-      myCohorts.forEach((cohort: any) => {
-        const statusEmoji = cohort.isActive ? "✅" : "⏸️";
-        const enrollmentEmoji = cohort.enrollmentStatus === "active" ? "🎓" : "📝";
-
-        output(`${statusEmoji} ${enrollmentEmoji} ${cohort.name}`, "success");
-        output(`   ${cohort.department} • ${cohort.level}`, "dim");
-        output(`   👥 ${cohort._count.students} students • 📝 ${cohort._count.tasks} tasks`, "dim");
-
-        const startDate = new Date(cohort.startDate).toLocaleDateString();
-        const endDate = new Date(cohort.endDate).toLocaleDateString();
-        output(`   📅 ${startDate} → ${endDate}`, "dim");
-        output(`   🆔 ${cohort.id}\n`, "dim");
+        output("", "default");
       });
 
-      output("\n💡 Commands:", "info");
-      output("   zila group [cohort-id]  - View peers in a cohort", "dim");
-      output("   zila tasks [cohort-id]  - View tasks for a cohort", "dim");
+      output("[HINT] Type 'zila group' to see your fellow interns.", "dim");
 
     } catch (error: any) {
-      output(`❌ Error: ${error.message}`, "error");
+      output(`[ERROR] ${error.message}`, "error");
     }
   },
 };
@@ -200,27 +161,27 @@ export const cohortsCommand: ZilaCommand = {
 export const joinCohortCommand: ZilaCommand = {
   name: "join",
   aliases: ["enroll", "register-cohort"],
-  description: "Join a cohort",
+  description: "Join an open cohort by ID",
   usage: "join <cohort-id>",
   category: "cohort",
   available: true,
   handler: async (args, output) => {
     if (args.length === 0) {
       output("Usage: zila join <cohort-id>", "warning");
-      output("Find cohort IDs with:  zila cohorts --all", "dim");
+      output("Find cohort IDs with: zila cohorts --all", "dim");
       return;
     }
 
     const authRecord = loadAuth();
     if (!authRecord?.token) {
-      output("⚠️  Not authenticated. Run  zila auth  first.", "error");
+      output("[AUTH] Not authenticated. Run 'zila auth' first.", "error");
       return;
     }
 
     const cohortId = args[0];
 
     try {
-      output(`🔄 Joining cohort...`, "info");
+      output(`[JOIN] Enrolling in cohort ${cohortId}...`, "info");
 
       const response = await fetch(`${API_BASE_URL}/api/cohorts/${cohortId}/join`, {
         method: "POST",
@@ -233,18 +194,16 @@ export const joinCohortCommand: ZilaCommand = {
       const data = await response.json() as { error?: string; message?: string };
 
       if (!response.ok) {
-        output(`❌ ${data.error || "Failed to join cohort"}`, "error");
+        output(`[ERROR] ${data.error || "Failed to join cohort"}`, "error");
         return;
       }
 
-      output(`✅ ${data.message}`, "success");
-      output("\n💡 Next steps:", "info");
-      output("   zila group       - See your peers", "dim");
-      output("   zila tasks       - View assigned tasks", "dim");
-      output("   zila docs        - Browse learning materials", "dim");
+      output(`[SUCCESS] ${data.message || 'Successfully joined cohort!'}`, "success");
+      output("Type 'zila group' to view your fellow interns.", "dim");
 
     } catch (error: any) {
-      output(`❌ Error: ${error.message}`, "error");
+      output(`[ERROR] ${error.message}`, "error");
     }
   },
 };
+
