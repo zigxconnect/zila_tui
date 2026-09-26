@@ -125,8 +125,8 @@ export const SubmitReportScreen: React.FC<SubmitReportScreenProps> = ({ onComple
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1} borderStyle="round" borderColor={theme.colors.accent}>
-      <Box flexDirection="column" marginBottom={1}>
-        <Text color={theme.colors.primary} bold>ZILA</Text>
+      <Box flexDirection="row" marginBottom={1}>
+        <Text color={theme.colors.logoColor} bold>lil-zila </Text>
         <Text color={theme.colors.muted}>submit-report</Text>
       </Box>
 

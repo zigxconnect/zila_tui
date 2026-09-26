@@ -115,7 +115,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1} borderStyle="round" borderColor={theme.colors.accent}>
       <Box marginBottom={1}>
-        <Text color={theme.colors.primary} bold>ZILA</Text>
+        <Text color={theme.colors.logoColor} bold>lil-zila </Text>
         <Text color={theme.colors.muted}>submit-task</Text>
       </Box>
 
@@ -153,13 +153,16 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
           <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.border} paddingX={1} paddingY={1}>
             <Text color={theme.colors.accent} bold>Live Task Preview</Text>
             <Box marginTop={1}>
-              <Text color={theme.colors.info}>Task</Text> <Text color={theme.colors.white}>{taskId || "<empty>"}</Text>
+              <Text color={theme.colors.info}>Task: </Text>
+              <Text color={theme.colors.white}>{taskId || "<empty>"}</Text>
             </Box>
             <Box marginTop={1}>
-              <Text color={theme.colors.info}>State</Text> <Text color={theme.colors.white}>{state}</Text>
+              <Text color={theme.colors.info}>State: </Text>
+              <Text color={theme.colors.white}>{state}</Text>
             </Box>
             <Box marginTop={1}>
-              <Text color={theme.colors.info}>Details</Text> <Text color={theme.colors.white}>{description || "No description yet."}</Text>
+              <Text color={theme.colors.info}>Details: </Text>
+              <Text color={theme.colors.white}>{description || "No description yet."}</Text>
             </Box>
           </Box>
 

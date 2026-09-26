@@ -42,3 +42,16 @@ test('ClientCache - in-memory and wrapped execution', async () => {
   assert.equal(res3.cached, false);
   assert.equal(calls, 2);
 });
+
+test('SubmitTaskScreen - renders without Text string outside <Text> error', async () => {
+  const React = await import('react');
+  const { render } = await import('ink');
+  const { SubmitTaskScreen } = await import('../dist/screens/SubmitTaskScreen.js');
+  const { SubmitReportScreen } = await import('../dist/screens/SubmitReportScreen.js');
+  
+  const instance1 = render(React.createElement(SubmitTaskScreen, { onComplete: () => {} }));
+  instance1.unmount();
+
+  const instance2 = render(React.createElement(SubmitReportScreen, { onComplete: () => {} }));
+  instance2.unmount();
+});
