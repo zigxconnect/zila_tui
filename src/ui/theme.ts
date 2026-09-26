@@ -176,6 +176,58 @@ export const theme = {
     cross: "┼",
   },
 
+  // 90s Workstation Double-line Box Characters (CP437 / IBM PC / Turbo Vision)
+  boxDouble: {
+    topLeft: "╔",
+    topRight: "╗",
+    bottomLeft: "╚",
+    bottomRight: "╝",
+    horizontal: "═",
+    vertical: "║",
+    verticalRight: "╠",
+    verticalLeft: "╣",
+    horizontalDown: "╦",
+    horizontalUp: "╩",
+    cross: "╬",
+  },
+
+  // 90s Classic Single-line Sharp Box Characters (DEC VT220 / Unix)
+  boxSingle: {
+    topLeft: "┌",
+    topRight: "┐",
+    bottomLeft: "└",
+    bottomRight: "┘",
+    horizontal: "─",
+    vertical: "│",
+    verticalRight: "├",
+    verticalLeft: "┤",
+    horizontalDown: "┬",
+    horizontalUp: "┴",
+    cross: "┼",
+  },
+
+  // Pure Vintage 7-bit ASCII Box
+  boxAscii: {
+    topLeft: "+",
+    topRight: "+",
+    bottomLeft: "+",
+    bottomRight: "+",
+    horizontal: "-",
+    vertical: "|",
+    verticalRight: "+",
+    verticalLeft: "+",
+    horizontalDown: "+",
+    horizontalUp: "+",
+    cross: "+",
+  },
+
+  // 90s Dotted/Leader Line Characters
+  dots: {
+    leader: "·",
+    dense: "…",
+    heavy: "•",
+  },
+
   // Typography
   typography: {
     heading1: {
