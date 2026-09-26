@@ -53,6 +53,21 @@ export const theme = {
     // Aliases for compatibility
     white: "#FFFFFF",
     secondary: "#38BDF8",
+
+    // 90s Silicon Graphics / NeXT / DEC workstation palette
+    retroNavy: "#090D16",
+    retroPanel: "#0D1527",
+    retroHeader: "#1E293B",
+    retroCyan: "#38BDF8",
+    retroCyanBright: "#7DD3FC",
+    retroGreen: "#34D399",
+    retroGreenBright: "#6EE7B7",
+    retroAmber: "#FBBF24",
+    retroAmberBright: "#FDE68A",
+    retroMagenta: "#C084FC",
+    retroSlate: "#94A3B8",
+    retroSlateDark: "#334155",
+    retroWhite: "#F8FAFC",
   },
 
   symbols: {
