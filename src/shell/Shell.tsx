@@ -12,6 +12,7 @@ import { SubmitReportScreen } from "../screens/SubmitReportScreen.js";
 import { SubmitTaskScreen } from "../screens/SubmitTaskScreen.js";
 import { StatsScreen } from "../screens/StatsScreen.js";
 import { LilZilaBanner } from "../ui/LilZilaBanner.js";
+import { RetroStatusBar } from "../ui/RetroStatusBar.js";
 import { OutputHistory, type OutputLine } from "./OutputHistory.js";
 import { InputPrompt } from "./InputPrompt.js";
 import {
@@ -157,7 +158,14 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <OutputHistory history={history} />
+      <RetroStatusBar
+        version="v0.3.0"
+        currentScreen={running ? "BUSY" : "READY"}
+        network="online"
+      />
+      <Box marginTop={1} flexDirection="column">
+        <OutputHistory history={history} />
+      </Box>
 
       {showHelp ? (
         <HelpScreen
