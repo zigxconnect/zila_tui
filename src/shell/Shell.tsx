@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
-import { Box, useInput } from "ink";
+import { Box, Text, useInput } from "ink";
+import { theme } from "../ui/theme.js";
 import { SplashScreen } from "../screens/SplashScreen.js";
 import { ExitScreen } from "../screens/ExitScreen.js";
 import { HelpScreen } from "../screens/HelpScreen.js";
@@ -236,6 +237,27 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             running={running}
             onSubmit={(input) => handleCommand(input, true)}
           />
+          <Box marginTop={1} flexDirection="row" justifyContent="space-between">
+            <Box flexDirection="row">
+              <Text color={theme.colors.retroSlateDark}>[</Text>
+              <Text color={theme.colors.retroCyanBright} bold>F1</Text>
+              <Text color={theme.colors.dim}>:HELP </Text>
+              <Text color={theme.colors.retroCyanBright} bold>F2</Text>
+              <Text color={theme.colors.dim}>:GROUP </Text>
+              <Text color={theme.colors.retroCyanBright} bold>^L</Text>
+              <Text color={theme.colors.dim}>:CLEAR </Text>
+              <Text color={theme.colors.retroCyanBright} bold>^C</Text>
+              <Text color={theme.colors.dim}>:EXIT</Text>
+              <Text color={theme.colors.retroSlateDark}>]</Text>
+            </Box>
+            <Box flexDirection="row">
+              <Text color={theme.colors.dim}>SESSION: </Text>
+              <Text color={theme.colors.retroGreen} bold>ACTIVE</Text>
+              <Text color={theme.colors.retroSlateDark}> │ </Text>
+              <Text color={theme.colors.dim}>TTY: </Text>
+              <Text color={theme.colors.textBright}>pts/0</Text>
+            </Box>
+          </Box>
         </>
       )}
     </Box>
