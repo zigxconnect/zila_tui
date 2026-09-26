@@ -20,43 +20,50 @@ export const OutputHistory: React.FC<OutputHistoryProps> = ({ history }) => {
       case "success":
         return {
           color: theme.colors.success,
-          icon: theme.symbols.tick,
+          tag: "[OK] ",
+          tagColor: theme.colors.retroGreenBright,
           bold: false,
         };
       case "error":
         return {
           color: theme.colors.error,
-          icon: theme.symbols.cross,
+          tag: "[FAIL] ",
+          tagColor: theme.colors.errorBright,
           bold: true,
         };
       case "warning":
         return {
           color: theme.colors.warning,
-          icon: theme.symbols.warning,
+          tag: "[WARN] ",
+          tagColor: theme.colors.retroAmberBright,
           bold: false,
         };
       case "info":
         return {
           color: theme.colors.info,
-          icon: theme.symbols.info,
+          tag: "[INFO] ",
+          tagColor: theme.colors.retroCyanBright,
           bold: false,
         };
       case "dim":
         return {
           color: theme.colors.dim,
-          icon: null,
+          tag: "",
+          tagColor: theme.colors.dim,
           bold: false,
         };
       case "command":
         return {
-          color: theme.colors.primary,
-          icon: theme.symbols.pointerFancy,
+          color: theme.colors.accentBright,
+          tag: "› ",
+          tagColor: theme.colors.retroCyan,
           bold: true,
         };
       default:
         return {
           color: theme.colors.text,
-          icon: null,
+          tag: "",
+          tagColor: theme.colors.muted,
           bold: false,
         };
     }
@@ -68,13 +75,17 @@ export const OutputHistory: React.FC<OutputHistoryProps> = ({ history }) => {
         const style = getLineStyle(line.type);
 
         return (
-          <Box key={line.id}>
-            {style.icon && (
-              <Text color={style.color} bold={style.bold}>
-                {style.icon}{" "}
+          <Box key={line.id} flexDirection="row">
+            {style.tag ? (
+              <Text color={style.tagColor} bold={style.bold}>
+                {style.tag}
               </Text>
-            )}
-            <Text color={style.color} bold={style.bold} dimColor={line.type === "dim"}>
+            ) : null}
+            <Text
+              color={style.color}
+              bold={style.bold}
+              dimColor={line.type === "dim"}
+            >
               {line.text}
             </Text>
           </Box>
