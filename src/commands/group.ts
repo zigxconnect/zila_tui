@@ -1,5 +1,6 @@
 import type { ZilaCommand } from "./registry.js";
 import { loadAuth } from "../utils/auth.js";
+import { ClientCache } from "../utils/cache.js";
 import { env } from "process";
 
 const API_BASE_URL = env.ZILA_API_URL || "http://localhost:5000";
@@ -8,37 +9,49 @@ export const groupCommand: ZilaCommand = {
   name: "group",
   aliases: ["peers", "colleagues", "cohort-members"],
   description: "View your fellow accepted interns and supervisor in your cohort",
-  usage: "group [cohort-id]",
+  usage: "group [cohort-id] [--refresh]",
   category: "cohort",
   available: true,
   handler: async (args, output) => {
     const authRecord = loadAuth();
     if (!authRecord?.token) {
-      output("[AUTH] Not authenticated. Run 'zila auth' to login.", "error");
+      output("[AUTH] Not authenticated. Run 'auth' to login.", "error");
       return;
     }
 
+    const refresh = args.includes("--refresh") || args.includes("-r");
+    const targetCohortId = args.find((a) => !a.startsWith("-"));
+    const cacheKey = `group:${authRecord.email || "me"}:${targetCohortId || "default"}`;
+
     try {
-      output("[FETCH] Loading your cohort members and placements...", "info");
-
-      // Use unified group endpoint
-      const cohortIdParam = args[0] ? `/${args[0]}/peers` : "/group";
-      const targetUrl = args[0]
-        ? `${API_BASE_URL}/api/cohorts/${args[0]}/chat-group`
-        : `${API_BASE_URL}/api/cohorts/group`;
-
-      const res = await fetch(targetUrl, {
-        headers: {
-          Authorization: `Bearer ${authRecord.token}`,
-        },
-      });
-
-      if (!res.ok) {
-        output(`[ERROR] Server responded with status ${res.status}`, "error");
-        return;
+      let data: any = null;
+      if (!refresh) {
+        data = ClientCache.get<any>(cacheKey);
       }
 
-      const data = await res.json() as any;
+      if (data) {
+        output("[CACHE • instant] Loaded cohort from local fast cache", "dim");
+      } else {
+        output("[FETCH] Loading your cohort members and placements...", "info");
+
+        const targetUrl = targetCohortId
+          ? `${API_BASE_URL}/api/cohorts/${targetCohortId}/chat-group`
+          : `${API_BASE_URL}/api/cohorts/group`;
+
+        const res = await fetch(targetUrl, {
+          headers: {
+            Authorization: `Bearer ${authRecord.token}`,
+          },
+        });
+
+        if (!res.ok) {
+          output(`[ERROR] Server responded with status ${res.status}`, "error");
+          return;
+        }
+
+        data = await res.json() as any;
+        ClientCache.set(cacheKey, data, 120);
+      }
 
       if (!data.cohort && !data.chatContext) {
         output("\n[NOTICE] No active cohort placement found.", "warning");
@@ -109,25 +122,39 @@ export const cohortsCommand: ZilaCommand = {
   handler: async (args, output) => {
     const authRecord = loadAuth();
     if (!authRecord?.token) {
-      output("[AUTH] Not authenticated. Run 'zila auth' to login.", "error");
+      output("[AUTH] Not authenticated. Run 'auth' to login.", "error");
       return;
     }
 
+    const refresh = args.includes("--refresh") || args.includes("-r");
+    const cacheKey = `my-cohorts:${authRecord.email || "me"}`;
+
     try {
-      output("[FETCH] Loading cohorts...", "info");
-
-      const res = await fetch(`${API_BASE_URL}/api/cohorts/my-cohorts`, {
-        headers: {
-          Authorization: `Bearer ${authRecord.token}`,
-        },
-      });
-
-      if (!res.ok) {
-        output(`[ERROR] Failed to fetch cohorts (HTTP ${res.status})`, "error");
-        return;
+      let cohorts: any[] | null = null;
+      if (!refresh) {
+        cohorts = ClientCache.get<any[]>(cacheKey);
       }
 
-      const { cohorts } = await res.json() as { cohorts: any[] };
+      if (cohorts) {
+        output("[CACHE • instant] Loaded cohorts from local fast cache", "dim");
+      } else {
+        output("[FETCH] Loading cohorts...", "info");
+
+        const res = await fetch(`${API_BASE_URL}/api/cohorts/my-cohorts`, {
+          headers: {
+            Authorization: `Bearer ${authRecord.token}`,
+          },
+        });
+
+        if (!res.ok) {
+          output(`[ERROR] Failed to fetch cohorts (HTTP ${res.status})`, "error");
+          return;
+        }
+
+        const json = (await res.json()) as { cohorts: any[] };
+        cohorts = json.cohorts || [];
+        ClientCache.set(cacheKey, cohorts, 120);
+      }
 
       if (!cohorts || cohorts.length === 0) {
         output("\n[NOTICE] You have not been placed in an active cohort yet.", "warning");
@@ -150,7 +177,7 @@ export const cohortsCommand: ZilaCommand = {
         output("", "default");
       });
 
-      output("[HINT] Type 'zila group' to see your fellow interns.", "dim");
+      output("[HINT] Type 'group' to see your fellow interns and supervisor.", "dim");
 
     } catch (error: any) {
       output(`[ERROR] ${error.message}`, "error");
