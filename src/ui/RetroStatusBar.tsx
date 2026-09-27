@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { theme } from "./theme.js";
+import { RetroClock } from "./RetroClock.js";
 
 export interface RetroStatusBarProps {
   version?: string;
@@ -39,9 +40,12 @@ export const RetroStatusBar: React.FC<RetroStatusBarProps> = ({
           <Text color={theme.colors.retroPanel}>{"║"}</Text>
           <Text color={theme.colors.retroSlateDark}>{"STATE:"}</Text>
           <Text color={theme.colors.retroAmberBright} bold>{currentScreen}</Text>
+          <Text color={theme.colors.retroPanel}>{"║"}</Text>
+          {/* Live clock */}
+          <RetroClock color="retroCyan" showSeconds />
         </Box>
 
-        {/* Center: network */}
+        {/* Center: network status */}
         <Box flexDirection="row" gap={1} alignItems="center">
           <Text color={theme.colors.retroSlateDark}>{"NET:"}</Text>
           <Text color={theme.colors.retroPanel}>{"["}</Text>

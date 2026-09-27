@@ -28,6 +28,9 @@ export type { RetroLogLineProps, LogLevel } from "./RetroLogLine.js";
 export { RetroTypingText }     from "./RetroTypingText.js";
 export type { RetroTypingTextProps } from "./RetroTypingText.js";
 
+export { RetroClock }          from "./RetroClock.js";
+export type { RetroClockProps }  from "./RetroClock.js";
+
 // ─── Primitive Components ─────────────────────────────────────────────────────
 export { Spinner }             from "./Spinner.js";
 export type { RetroSpinnerStyle } from "./Spinner.js";
