@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { theme } from "../ui/theme.js";
+import { RetroLogLine, type LogLevel } from "../ui/RetroLogLine.js";
 
 export type OutputLine = {
   id: string;
@@ -12,78 +13,54 @@ interface OutputHistoryProps {
   history: OutputLine[];
 }
 
+function typeToLevel(type: OutputLine["type"]): LogLevel | null {
+  switch (type) {
+    case "success": return "ok";
+    case "error":   return "fail";
+    case "warning": return "warn";
+    case "info":    return "info";
+    case "dim":     return "debug";
+    default:        return null; // "default" and "command" rendered inline
+  }
+}
+
 export const OutputHistory: React.FC<OutputHistoryProps> = ({ history }) => {
   if (history.length === 0) return null;
-
-  const getLineStyle = (type: OutputLine["type"]) => {
-    switch (type) {
-      case "success":
-        return {
-          color: theme.colors.success,
-          tag: "[OK] ",
-          tagColor: theme.colors.retroGreenBright,
-          bold: false,
-        };
-      case "error":
-        return {
-          color: theme.colors.error,
-          tag: "[FAIL] ",
-          tagColor: theme.colors.errorBright,
-          bold: true,
-        };
-      case "warning":
-        return {
-          color: theme.colors.warning,
-          tag: "[WARN] ",
-          tagColor: theme.colors.retroAmberBright,
-          bold: false,
-        };
-      case "info":
-        return {
-          color: theme.colors.info,
-          tag: "[INFO] ",
-          tagColor: theme.colors.retroCyanBright,
-          bold: false,
-        };
-      case "dim":
-        return {
-          color: theme.colors.dim,
-          tag: "",
-          tagColor: theme.colors.dim,
-          bold: false,
-        };
-      case "command":
-        return {
-          color: theme.colors.accentBright,
-          tag: "› ",
-          tagColor: theme.colors.retroCyan,
-          bold: true,
-        };
-      default:
-        return {
-          color: theme.colors.text,
-          tag: "",
-          tagColor: theme.colors.muted,
-          bold: false,
-        };
-    }
-  };
 
   return (
     <Box flexDirection="column" marginBottom={1}>
       {history.map((line) => {
-        const style = getLineStyle(line.type);
+        const level = typeToLevel(line.type);
 
+        // Structured log types — use RetroLogLine
+        if (level) {
+          return (
+            <RetroLogLine
+              key={line.id}
+              level={level}
+              message={line.text}
+            />
+          );
+        }
+
+        // Command echo line — styled as prompt echo
+        if (line.type === "command") {
+          return (
+            <Box key={line.id} flexDirection="row" gap={1}>
+              <Text color={theme.colors.retroCyan} bold>{"══["}</Text>
+              <Text color={theme.colors.retroAmberBright} bold>{"CMD"}</Text>
+              <Text color={theme.colors.retroCyan} bold>{"]▸"}</Text>
+              <Text color={theme.colors.white} bold>{line.text}</Text>
+            </Box>
+          );
+        }
+
+        // Default / dim — plain text, dimmed
         return (
-          <Box key={line.id} flexDirection="row">
-            {style.tag ? (
-              <Text color={style.tagColor} bold={style.bold}>
-                {style.tag}
-              </Text>
-            ) : null}
+          <Box key={line.id} flexDirection="row" gap={1}>
+            <Text color={theme.colors.retroSlateDark}>{"  ·"}</Text>
             <Text
-              color={style.color}
-              bold={style.bold}
+              color={line.type === "dim" ? theme.colors.retroSlateDark : theme.colors.retroSlate}
               dimColor={line.type === "dim"}
             >
               {line.text}
