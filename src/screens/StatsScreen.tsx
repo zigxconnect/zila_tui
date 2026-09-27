@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
+import { RetroMeter } from "../ui/RetroMeter.js";
 
 interface StatsScreenProps {
   onClose: () => void;
@@ -12,11 +13,6 @@ interface StatsData {
   totalStudents: number;
   pointsBreakdown: Record<string, number>;
   weeklyScores: Array<{ week: number; score: number }>;
-  achievements: Array<{
-    id: string;
-    name: string;
-    earnedAt: string;
-  }>;
 }
 
 export const StatsScreen: React.FC<StatsScreenProps> = ({ onClose }) => {
@@ -28,19 +24,14 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ onClose }) => {
       "Task Completion": 750,
       "Early Submission": 200,
       "Code Quality": 180,
-      "Peer Help": 80,
-      "Streak Bonus": 40,
+      "Peer Assistance": 80,
+      "Daily Streak": 40,
     },
     weeklyScores: [
       { week: 1, score: 75 },
       { week: 2, score: 82 },
       { week: 3, score: 90 },
       { week: 4, score: 88 },
-    ],
-    achievements: [
-      { id: "1", name: "First Task Complete", earnedAt: "2024-01-15" },
-      { id: "2", name: "PR Champion", earnedAt: "2024-01-20" },
-      { id: "3", name: "Clean Code Vanguard", earnedAt: "2024-01-28" },
     ],
   });
 
@@ -52,78 +43,78 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ onClose }) => {
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <Box flexDirection="column" marginBottom={1}>
-        <Text bold color={theme.colors.primaryBright}>
-          ================================================================================
-        </Text>
-        <Text bold color={theme.colors.primaryBright}>
-          STUDENT PROGRESS & PERFORMANCE METRICS
-        </Text>
-        <Text bold color={theme.colors.primaryBright}>
-          ================================================================================
-        </Text>
-      </Box>
-
-      {/* Overview Cards */}
-      <Box flexDirection="row" marginBottom={1}>
-        <Box borderStyle="round" borderColor={theme.colors.primary} paddingX={2} marginRight={2}>
-          <Box flexDirection="column">
-            <Text color={theme.colors.muted}>Total Points</Text>
-            <Text bold color={theme.colors.primaryBright}>{data.totalPoints} pts</Text>
-          </Box>
-        </Box>
-
-        <Box borderStyle="round" borderColor={theme.colors.accent} paddingX={2} marginRight={2}>
-          <Box flexDirection="column">
-            <Text color={theme.colors.muted}>Cohort Rank</Text>
-            <Text bold color={theme.colors.accentBright}>#{data.rank} of {data.totalStudents}</Text>
-          </Box>
-        </Box>
-
-        <Box borderStyle="round" borderColor={theme.colors.success} paddingX={2}>
-          <Box flexDirection="column">
-            <Text color={theme.colors.muted}>Latest Score</Text>
-            <Text bold color={theme.colors.successBright}>
-              {data.weeklyScores[data.weeklyScores.length - 1]?.score || 0}%
+      {/* 90s Performance Diagnostics Frame */}
+      <Box
+        flexDirection="column"
+        borderStyle="single"
+        borderColor={theme.colors.accent}
+        paddingX={2}
+        paddingY={1}
+      >
+        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroCyanBright} bold>
+              [ INTERN PERFORMANCE & WORKSTATION METRICS ]
             </Text>
           </Box>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroGreen} bold>[RANK #{data.rank} OF {data.totalStudents}]</Text>
+          </Box>
         </Box>
-      </Box>
 
-      {/* Points breakdown */}
-      <Box flexDirection="column" marginBottom={1}>
-        <Text bold color={theme.colors.accentBright}>
-          POINTS BREAKDOWN:
-        </Text>
-        {Object.entries(data.pointsBreakdown).map(([category, pts]) => (
-          <Box key={category} paddingLeft={2}>
-            <Text color={theme.colors.textBright}>{category.padEnd(25)}</Text>
-            <Text color={theme.colors.muted}>: {pts} pts</Text>
+        {/* Overview Row */}
+        <Box flexDirection="row" marginBottom={1}>
+          <Box borderStyle="single" borderColor={theme.colors.border} paddingX={1} marginRight={2}>
+            <Text color={theme.colors.muted}>TOTAL POINTS: </Text>
+            <Text color={theme.colors.retroAmberBright} bold>{data.totalPoints} PTS</Text>
           </Box>
-        ))}
-      </Box>
-
-      {/* Unlocked Badges */}
-      <Box flexDirection="column" marginBottom={1}>
-        <Text bold color={theme.colors.accentBright}>
-          UNLOCKED ACHIEVEMENTS:
-        </Text>
-        {data.achievements.map((ach) => (
-          <Box key={ach.id} paddingLeft={2}>
-            <Text color={theme.colors.success}>[UNLOCKED] </Text>
-            <Text bold color={theme.colors.textBright}>{ach.name.padEnd(25)}</Text>
-            <Text color={theme.colors.dim}>Earned: {ach.earnedAt}</Text>
+          <Box borderStyle="single" borderColor={theme.colors.border} paddingX={1} marginRight={2}>
+            <Text color={theme.colors.muted}>COHORT STANDING: </Text>
+            <Text color={theme.colors.retroCyanBright} bold>TOP 7%</Text>
           </Box>
-        ))}
-      </Box>
+          <Box borderStyle="single" borderColor={theme.colors.border} paddingX={1}>
+            <Text color={theme.colors.muted}>LATEST SCORE: </Text>
+            <Text color={theme.colors.retroGreenBright} bold>88%</Text>
+          </Box>
+        </Box>
 
-      <Box marginTop={1} flexDirection="column">
-        <Text color={theme.colors.dim}>
-          --------------------------------------------------------------------------------
-        </Text>
-        <Text color={theme.colors.dim}>
-          Press [ESC], [ENTER], or [q] to return to the interactive prompt.
-        </Text>
+        {/* Weekly Progression ASCII Histogram */}
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={theme.colors.accent} bold>WEEKLY PERFORMANCE HISTOGRAM:</Text>
+          {data.weeklyScores.map((ws) => (
+            <Box key={ws.week} marginY={0}>
+              <RetroMeter
+                label={`Sprint Week 0${ws.week}`}
+                value={ws.score}
+                max={100}
+                width={26}
+                style="blocks"
+                color={ws.score >= 85 ? "retroGreen" : "retroCyan"}
+              />
+            </Box>
+          ))}
+        </Box>
+
+        {/* Points Breakdown with Dotted Leaders */}
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={theme.colors.accent} bold>CREDIT ALLOCATION BREAKDOWN:</Text>
+          {Object.entries(data.pointsBreakdown).map(([category, pts]) => {
+            const dots = Math.max(2, 45 - category.length - String(pts).length);
+            return (
+              <Box key={category} flexDirection="row" alignItems="center">
+                <Text color={theme.colors.muted}>{category}</Text>
+                <Text color={theme.colors.retroSlateDark}> {"·".repeat(dots)} </Text>
+                <Text color={theme.colors.textBright} bold>{pts} PTS</Text>
+              </Box>
+            );
+          })}
+        </Box>
+
+        {/* Footer */}
+        <Box marginTop={1} flexDirection="row" justifyContent="space-between">
+          <Text color={theme.colors.dim}>[ESC / ENTER / q: RETURN]</Text>
+          <Text color={theme.colors.retroSlateDark}>ZIGEX EVALUATION MATRIX v1.2</Text>
+        </Box>
       </Box>
     </Box>
   );
