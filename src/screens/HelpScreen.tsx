@@ -10,45 +10,27 @@ interface HelpScreenProps {
 
 interface CommandItem {
   cmd: string;
+  category: string;
   desc: string;
 }
 
-const COMMAND_GROUPS: { group: string; items: CommandItem[] }[] = [
-  {
-    group: "AUTHENTICATION & SETUP",
-    items: [
-      { cmd: "auth", desc: "Log in with your Zigex student account" },
-      { cmd: "gh-auth <token>", desc: "Connect GitHub account using Personal Access Token" },
-      { cmd: "gh-status", desc: "Check GitHub connection status" },
-      { cmd: "gh-logout", desc: "Disconnect GitHub credentials" },
-    ],
-  },
-  {
-    group: "COHORT & TEAM COLLABORATION",
-    items: [
-      { cmd: "group", desc: "View fellow interns and supervisor (admin) in your cohort" },
-      { cmd: "cohorts", desc: "List all your active placements and cohorts" },
-      { cmd: "downloads", desc: "Clone/sync course repository and materials for git collaboration" },
-      { cmd: "leaderboard", desc: "View rankings and standings in your cohort" },
-    ],
-  },
-  {
-    group: "ASSIGNMENTS & TASKS",
-    items: [
-      { cmd: "tasks", desc: "View all tasks assigned by your supervisor" },
-      { cmd: "task-details <id>", desc: "Inspect requirements, deadlines, and points for a task" },
-      { cmd: "submit-task <id>", desc: "Submit assignment with GitHub repository & PR link" },
-      { cmd: "docs", desc: "Search and read learning documents and guides" },
-    ],
-  },
-  {
-    group: "SYSTEM",
-    items: [
-      { cmd: "clear", desc: "Clear terminal history" },
-      { cmd: "info", desc: "Display system version and configuration" },
-      { cmd: "exit", desc: "Quit ZILA agent" },
-    ],
-  },
+const COMMAND_CATALOG: CommandItem[] = [
+  { cmd: "group", category: "COHORT", desc: "View fellow interns & supervisor admin" },
+  { cmd: "cohorts", category: "COHORT", desc: "List all active cohorts & tracks" },
+  { cmd: "downloads", category: "COHORT", desc: "Clone course materials & repo" },
+  { cmd: "leaderboard", category: "COHORT", desc: "Cohort ranking & intern points" },
+  { cmd: "tasks", category: "WORK", desc: "List assigned tasks & deadlines" },
+  { cmd: "submit-task", category: "WORK", desc: "Interactive task PR submission" },
+  { cmd: "submit-report", category: "WORK", desc: "Draft & submit daily progress report" },
+  { cmd: "docs [query]", category: "LIBRARY", desc: "Search Zigex engineering documentation" },
+  { cmd: "auth", category: "SECURITY", desc: "Authenticate with Zigex credentials" },
+  { cmd: "gh-auth <tok>", category: "GITHUB", desc: "Connect GitHub Personal Access Token" },
+  { cmd: "gh-status", category: "GITHUB", desc: "Check GitHub connection & identity" },
+  { cmd: "stats", category: "DIAG", desc: "Workstation activity telemetry" },
+  { cmd: "info", category: "SYSTEM", desc: "System runtime & cache diagnosis" },
+  { cmd: "about", category: "SYSTEM", desc: "Workstation credits & architecture" },
+  { cmd: "clear", category: "SYSTEM", desc: "Clear terminal scrollback buffer" },
+  { cmd: "exit", category: "SYSTEM", desc: "Terminate terminal session" },
 ];
 
 export const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
@@ -60,44 +42,73 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <Box flexDirection="column" marginBottom={1}>
-        <Text bold color={theme.colors.primaryBright}>
-          ================================================================================
-        </Text>
-        <Text bold color={theme.colors.primaryBright}>
-          ZILA AGENT - COMMAND REFERENCE
-        </Text>
-        <Text color={theme.colors.muted}>
-          Terminal-first workflow for Zigex interns and developers
-        </Text>
-        <Text bold color={theme.colors.primaryBright}>
-          ================================================================================
-        </Text>
-      </Box>
-
-      {COMMAND_GROUPS.map((sec) => (
-        <Box key={sec.group} flexDirection="column" marginBottom={1}>
-          <Text bold color={theme.colors.accentBright}>
-            {sec.group}:
-          </Text>
-          {sec.items.map((it) => (
-            <Box key={it.cmd} paddingLeft={2}>
-              <Text bold color={theme.colors.textBright}>
-                {it.cmd.padEnd(24)}
-              </Text>
-              <Text color={theme.colors.muted}>- {it.desc}</Text>
-            </Box>
-          ))}
+      {/* 90s Turbo Vision Style Help Window */}
+      <Box
+        flexDirection="column"
+        borderStyle="single"
+        borderColor={theme.colors.accent}
+        paddingX={1}
+      >
+        {/* Window Header */}
+        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroCyanBright} bold>
+              [ ZILA WORKSTATION COMMAND REFERENCE MANUAL ]
+            </Text>
+          </Box>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroGreen} bold>[16 COMMANDS]</Text>
+          </Box>
         </Box>
-      ))}
 
-      <Box marginTop={1} flexDirection="column">
-        <Text color={theme.colors.dim}>
-          --------------------------------------------------------------------------------
-        </Text>
-        <Text color={theme.colors.dim}>
-          Press [ESC], [ENTER], or [q] to return to the interactive prompt.
-        </Text>
+        {/* Table Column Titles */}
+        <Box flexDirection="row" borderStyle="single" borderColor={theme.colors.border} paddingX={1}>
+          <Box width={18}>
+            <Text color={theme.colors.muted} bold>COMMAND</Text>
+          </Box>
+          <Box width={12}>
+            <Text color={theme.colors.muted} bold>SUBSYSTEM</Text>
+          </Box>
+          <Box>
+            <Text color={theme.colors.muted} bold>DESCRIPTION</Text>
+          </Box>
+        </Box>
+
+        {/* Commands List */}
+        {COMMAND_CATALOG.map((item, idx) => (
+          <Box
+            key={item.cmd}
+            flexDirection="row"
+            paddingX={1}
+            paddingY={0}
+          >
+            <Box width={18}>
+              <Text color={theme.colors.textBright} bold>
+                {item.cmd}
+              </Text>
+            </Box>
+            <Box width={12}>
+              <Text color={theme.colors.retroCyan}>
+                {item.category}
+              </Text>
+            </Box>
+            <Box>
+              <Text color={theme.colors.text}>
+                {item.desc}
+              </Text>
+            </Box>
+          </Box>
+        ))}
+
+        {/* Footer Hotkey Legend */}
+        <Box marginTop={1} flexDirection="row" justifyContent="space-between">
+          <Box flexDirection="row">
+            <Text color={theme.colors.dim}>[ESC / ENTER / q: CLOSE HELP]  [^C: QUIT]</Text>
+          </Box>
+          <Box flexDirection="row">
+            <Text color={theme.colors.accent}>Type any command at the prompt</Text>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );
