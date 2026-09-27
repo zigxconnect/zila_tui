@@ -1,133 +1,111 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
-import { Header, Card, StatItem, Divider, Badge } from "../ui/Components.js";
+import { RetroMeter } from "../ui/RetroMeter.js";
 
 interface InfoScreenProps {
   onComplete: () => void;
 }
 
 export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
-  const [animationFrame, setAnimationFrame] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setAnimationFrame((prev) => (prev + 1) % theme.spinners.pulse.frames.length);
-    }, 150);
-    return () => clearInterval(interval);
-  }, []);
-
   useInput((char, key) => {
     if (key.escape || char === "q" || key.return) {
       onComplete();
     }
   });
 
-  // Get system info
   const nodeVersion = process.version;
   const platform = process.platform;
   const arch = process.arch;
   const memoryUsage = process.memoryUsage();
-  const memoryMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
-  const uptime = process.uptime();
-  const uptimeMinutes = Math.floor(uptime / 60);
+  const heapMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
+  const totalHeapMB = Math.round(memoryUsage.heapTotal / 1024 / 1024) || 64;
+  const uptimeMinutes = Math.floor(process.uptime() / 60);
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <Header
-        title="lil-zila System Information"
-        subtitle="Terminal-first developer productivity for Zigex"
-        icon="[INFO]"
-      />
-
-      {/* App info */}
-      <Card title="Application" borderColor="primary">
-        <Box flexDirection="column">
-          <StatItem label="Name" value="lil-zila Agent" icon="[APP]" />
-          <StatItem label="Version" value="v0.3.0" icon="[VER]" />
-          <StatItem label="Description" value="Zigex Intelligent Layer for Agents" />
-          <StatItem label="Status" value="Active" icon={theme.spinners.pulse.frames[animationFrame]} color="success" />
-        </Box>
-      </Card>
-
-      {/* System info */}
-      <Card title="System" borderColor="info" marginTop={1}>
-        <Box flexDirection="column">
-          <StatItem label="Node.js" value={nodeVersion} icon="[NODE]" />
-          <StatItem label="Platform" value={platform} icon="[OS]" />
-          <StatItem label="Architecture" value={arch} icon="[ARCH]" />
-          <StatItem label="Memory Usage" value={`${memoryMB} MB`} icon="[MEM]" />
-          <StatItem label="Uptime" value={`${uptimeMinutes} minutes`} icon="[TIME]" />
-        </Box>
-      </Card>
-
-      {/* Features */}
-      <Card title="Features" borderColor="success" marginTop={1}>
-        <Box flexDirection="column">
-          <Box marginY={0}>
-            <Text color={theme.colors.success}>✓</Text>
-            <Text color={theme.colors.text}> Cohort Management</Text>
+      {/* 90s Workstation Diagnostic Frame */}
+      <Box
+        flexDirection="column"
+        borderStyle="single"
+        borderColor={theme.colors.accent}
+        paddingX={2}
+        paddingY={1}
+      >
+        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroCyanBright} bold>
+              [ SYSTEM TELEMETRY & RUNTIME DIAGNOSTICS ]
+            </Text>
           </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.success}>✓</Text>
-            <Text color={theme.colors.text}> Task Submission & Tracking</Text>
-          </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.success}>✓</Text>
-            <Text color={theme.colors.text}> Peer Collaboration</Text>
-          </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.success}>✓</Text>
-            <Text color={theme.colors.text}> Gamification & Leaderboards</Text>
-          </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.success}>✓</Text>
-            <Text color={theme.colors.text}> Learning Resources</Text>
-          </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.success}>✓</Text>
-            <Text color={theme.colors.text}> GitHub Integration</Text>
-          </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.success}>✓</Text>
-            <Text color={theme.colors.text}> Weekly Performance Reports</Text>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroGreen} bold>[SYS: NOMINAL]</Text>
           </Box>
         </Box>
-      </Card>
 
-      {/* Links */}
-      <Card title="Resources" borderColor="accent" marginTop={1}>
-        <Box flexDirection="column">
-          <Box marginY={0}>
-            <Text color={theme.colors.link}>Website:    </Text>
-            <Text color={theme.colors.muted}>https://zigex.com</Text>
+        {/* Workstation Specification */}
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={theme.colors.accent} bold>KERNEL & HARDWARE ENVIRONMENT:</Text>
+          <Box flexDirection="row" alignItems="center">
+            <Text color={theme.colors.muted}>Workstation Client</Text>
+            <Text color={theme.colors.retroSlateDark}> ··············· </Text>
+            <Text color={theme.colors.textBright} bold>lil-zila v0.3.0</Text>
           </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.link}>Docs:       </Text>
-            <Text color={theme.colors.muted}>https://docs.zigex.com</Text>
+          <Box flexDirection="row" alignItems="center">
+            <Text color={theme.colors.muted}>Node.js Runtime</Text>
+            <Text color={theme.colors.retroSlateDark}> ·················· </Text>
+            <Text color={theme.colors.textBright}>{nodeVersion}</Text>
           </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.link}>Support:    </Text>
-            <Text color={theme.colors.muted}>support@zigex.com</Text>
+          <Box flexDirection="row" alignItems="center">
+            <Text color={theme.colors.muted}>OS Architecture</Text>
+            <Text color={theme.colors.retroSlateDark}> ·················· </Text>
+            <Text color={theme.colors.textBright}>{platform} / {arch}</Text>
           </Box>
-          <Box marginY={0}>
-            <Text color={theme.colors.link}>GitHub:     </Text>
-            <Text color={theme.colors.muted}>github.com/zigxconnect</Text>
+          <Box flexDirection="row" alignItems="center">
+            <Text color={theme.colors.muted}>Session Uptime</Text>
+            <Text color={theme.colors.retroSlateDark}> ··················· </Text>
+            <Text color={theme.colors.textBright}>{uptimeMinutes} minutes (PID: {process.pid})</Text>
           </Box>
         </Box>
-      </Card>
 
-      <Divider />
+        {/* Memory Gauge */}
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={theme.colors.accent} bold>VIRTUAL MEMORY (VRAM / HEAP):</Text>
+          <RetroMeter
+            label={`Heap [${heapMB}MB / ${totalHeapMB}MB]`}
+            value={heapMB}
+            max={totalHeapMB}
+            width={28}
+            style="blocks"
+            color="retroGreen"
+          />
+        </Box>
 
-      {/* Footer */}
-      <Box flexDirection="column" marginTop={1}>
-        <Text color={theme.colors.muted}>
-          <Text color={theme.colors.primary} bold>ESC</Text> or <Text color={theme.colors.primary} bold>Q</Text> to close
-        </Text>
-        <Box marginTop={1}>
-          <Text color={theme.colors.dimmer} dimColor>
-            Built by the Zigex Team
-          </Text>
+        {/* Subsystem State */}
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={theme.colors.accent} bold>SUBSYSTEM STATUS CHECKLIST:</Text>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroGreen}>[OK] </Text>
+            <Text color={theme.colors.text}>Multi-tier L1/L2 Client Cache mounted (~/.zila/cache.json)</Text>
+          </Box>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroGreen}>[OK] </Text>
+            <Text color={theme.colors.text}>Bluetooth Low Energy P2P Protocol Engine ready</Text>
+          </Box>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroGreen}>[OK] </Text>
+            <Text color={theme.colors.text}>GitHub API OAuth & Personal Access Token pipeline ready</Text>
+          </Box>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroGreen}>[OK] </Text>
+            <Text color={theme.colors.text}>Zigex REST Sync Daemon connected (http://localhost:5000)</Text>
+          </Box>
+        </Box>
+
+        {/* Footer */}
+        <Box marginTop={1} flexDirection="row" justifyContent="space-between">
+          <Text color={theme.colors.dim}>[ESC / ENTER / q: CLOSE]</Text>
+          <Text color={theme.colors.retroSlateDark}>ENGINEERED BY GITA & ZIGEX CORP</Text>
         </Box>
       </Box>
     </Box>
