@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
 import { StatusLine, type StatusType } from "../ui/StatusLine.js";
+import { RetroMeter } from "../ui/RetroMeter.js";
 import { Banner } from "../ui/Banner.js";
 import { AuthScreen } from "./AuthScreen.js";
 import { checkGit, checkNode, checkPython } from "../commands/init/checks.js";
@@ -98,18 +99,16 @@ const ProgressBar: React.FC<{ steps: Step[] }> = ({ steps }) => {
   const done = steps.filter(
     (s) => s.status === "success" || s.status === "skipped",
   ).length;
-  const pct = Math.round((done / STEP_COUNT) * 100);
-  const filled = Math.round((done / STEP_COUNT) * 32);
   return (
-    <Box flexDirection="row" gap={2} marginBottom={1}>
-      <Text color={theme.colors.primary}>
-        {"█".repeat(filled)}
-        {"░".repeat(32 - filled)}
-      </Text>
-      <Text color={theme.colors.muted}>{pct}%</Text>
-      <Text color={theme.colors.dim}>
-        {done}/{STEP_COUNT}
-      </Text>
+    <Box marginY={1}>
+      <RetroMeter
+        label="SETUP PROGRESS"
+        value={done}
+        max={STEP_COUNT}
+        width={32}
+        style="blocks"
+        color="retroCyan"
+      />
     </Box>
   );
 };
@@ -367,23 +366,14 @@ export const InitScreen: React.FC<InitScreenProps> = ({
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <Box flexDirection="column" marginBottom={1}>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.primary} bold>
-            ZILA
+      <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
+        <Box flexDirection="row">
+          <Text color={theme.colors.retroCyanBright} bold>
+            [ WORKSPACE INITIALIZATION & ENVIRONMENT SETUP ]
           </Text>
-          <Text color={theme.colors.dim}>›</Text>
-          <Text color={theme.colors.muted}>init</Text>
-          {userEmail && (
-            <>
-              <Text color={theme.colors.border}> │ </Text>
-              <Text color={theme.colors.successDim}>{theme.symbols.tick}</Text>
-              <Text color={theme.colors.dim}> {userEmail}</Text>
-            </>
-          )}
         </Box>
-        <Box marginTop={1}>
-          <Text color={theme.colors.border}>{"─".repeat(52)}</Text>
+        <Box flexDirection="row">
+          <Text color={theme.colors.retroGreen} bold>[{userEmail || "AUTHENTICATED"}]</Text>
         </Box>
       </Box>
 
