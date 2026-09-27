@@ -97,81 +97,141 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     }
   });
 
-  const boxFor = (title: string, value: string, active: boolean, hint: string) => (
-    <Box flexDirection="column" borderStyle="single" borderColor={active ? theme.colors.primary : theme.colors.border} paddingX={1} paddingY={1} marginBottom={1}>
-      <Box flexDirection="row" alignItems="center" gap={1}>
-        <Text color={active ? theme.colors.primary : theme.colors.dim}>{active ? theme.symbols.pointer : " "}</Text>
-        <Text color={active ? theme.colors.textBright : theme.colors.muted} bold>{title}</Text>
-      </Box>
-      <Box marginTop={1}>
-        <Text color={active ? theme.colors.textBright : theme.colors.text}>{value || hint}</Text>
-      </Box>
-      {active && <Text color={theme.colors.dim}>{hint}</Text>}
-    </Box>
-  );
-
-  const activeHint = activeField === 2 ? "Use ←/→ to change state, ↑/↓ to move fields." : "Use ↑/↓ to move between fields and type to edit.";
+  const activeHint = activeField === 2 ? "Use ←/→ to toggle status, TAB/ENTER to navigate." : "Type to enter text, TAB to switch fields.";
 
   return (
-    <Box flexDirection="column" paddingX={1} paddingY={1} borderStyle="round" borderColor={theme.colors.accent}>
-      <Box marginBottom={1}>
-        <Text color={theme.colors.logoColor} bold>lil-zila </Text>
-        <Text color={theme.colors.muted}>submit-task</Text>
-      </Box>
-
-      {completed ? (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.success} paddingX={2} paddingY={1}>
-          <Text color={theme.colors.success} bold>Task update recorded.</Text>
-          <Box marginTop={1}>
-            <Text color={theme.colors.text}>Task {taskId} is now <Text color={theme.colors.textBright} bold>{state}</Text>.</Text>
+    <Box flexDirection="column" paddingY={1}>
+      {/* 90s Norton Commander Style Submit Dialog */}
+      <Box
+        flexDirection="column"
+        borderStyle="single"
+        borderColor={theme.colors.accent}
+        paddingX={2}
+        paddingY={1}
+      >
+        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroCyanBright} bold>
+              [ TASK DISPATCH GATEWAY ]
+            </Text>
           </Box>
-          <Box marginTop={1}>
-            <Text color={theme.colors.text}>{description || "No further details provided."}</Text>
-          </Box>
-          <Box marginTop={1}>
-            <Text color={theme.colors.dim}>Press any key to return.</Text>
+          <Box flexDirection="row">
+            <Text color={theme.colors.retroGreen} bold>[FORM: INTERACTIVE]</Text>
           </Box>
         </Box>
-      ) : (
-        <>
-          <Box flexDirection="column" width={80} marginBottom={1}>
-            {boxFor("Task ID", taskId, activeField === 0, "Add the task identifier.")}
-            {boxFor("Description", description, activeField === 1, "Describe the task work or update.")}
-            <Box flexDirection="column" borderStyle="single" borderColor={activeField === 2 ? theme.colors.primary : theme.colors.border} paddingX={1} paddingY={1} marginBottom={1}>
-              <Box flexDirection="row" alignItems="center" gap={1}>
-                <Text color={activeField === 2 ? theme.colors.primary : theme.colors.dim}>{activeField === 2 ? theme.symbols.pointer : " "}</Text>
-                <Text color={activeField === 2 ? theme.colors.white : theme.colors.muted} bold>Status</Text>
-              </Box>
-              <Box flexDirection="row" alignItems="center" marginTop={1} gap={1}>
-                <Text color={theme.colors.white}>{state}</Text>
-                {activeField === 2 && <Cursor on={cursorOn} />}
-              </Box>
-              {activeField === 2 && <Text color={theme.colors.dim}>Use ←/→ to change state.</Text>}
-            </Box>
-          </Box>
 
-          <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.border} paddingX={1} paddingY={1}>
-            <Text color={theme.colors.accent} bold>Live Task Preview</Text>
-            <Box marginTop={1}>
-              <Text color={theme.colors.info}>Task: </Text>
-              <Text color={theme.colors.white}>{taskId || "<empty>"}</Text>
+        {completed ? (
+          <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.success} paddingX={2} paddingY={1}>
+            <Text color={theme.colors.successBright} bold>[OK] Task update recorded successfully.</Text>
+            <Box marginTop={1} flexDirection="row">
+              <Text color={theme.colors.muted}>Task Reference: </Text>
+              <Text color={theme.colors.textBright} bold>{taskId}</Text>
+            </Box>
+            <Box flexDirection="row">
+              <Text color={theme.colors.muted}>New State:      </Text>
+              <Text color={theme.colors.retroGreen} bold>{state}</Text>
+            </Box>
+            <Box flexDirection="row">
+              <Text color={theme.colors.muted}>Log Summary:    </Text>
+              <Text color={theme.colors.text}>{description || "No notes provided."}</Text>
             </Box>
             <Box marginTop={1}>
-              <Text color={theme.colors.info}>State: </Text>
-              <Text color={theme.colors.white}>{state}</Text>
-            </Box>
-            <Box marginTop={1}>
-              <Text color={theme.colors.info}>Details: </Text>
-              <Text color={theme.colors.white}>{description || "No description yet."}</Text>
+              <Text color={theme.colors.dim}>[ Press any key to return to terminal prompt ]</Text>
             </Box>
           </Box>
+        ) : (
+          <>
+            {/* Input fields */}
+            <Box flexDirection="column">
+              {/* Field 0: Task ID */}
+              <Box
+                flexDirection="column"
+                borderStyle="single"
+                borderColor={activeField === 0 ? theme.colors.retroCyanBright : theme.colors.border}
+                paddingX={1}
+                marginBottom={1}
+              >
+                <Box flexDirection="row">
+                  <Text color={activeField === 0 ? theme.colors.retroCyanBright : theme.colors.muted} bold>
+                    {activeField === 0 ? "› " : "  "}TASK IDENTIFIER:
+                  </Text>
+                </Box>
+                <Box flexDirection="row" alignItems="center">
+                  <Text color={theme.colors.textBright}>{taskId || (activeField === 0 ? "" : "(e.g., TASK-101)")}</Text>
+                  {activeField === 0 && <Cursor on={cursorOn} />}
+                </Box>
+              </Box>
 
-          <Box flexDirection="column" marginTop={1}>
-            <Text color={theme.colors.dim}>{activeHint}</Text>
-            <Text color={theme.colors.dim}>Tab: switch fields · Enter: next / submit · Esc: cancel</Text>
-          </Box>
-        </>
-      )}
+              {/* Field 1: Description */}
+              <Box
+                flexDirection="column"
+                borderStyle="single"
+                borderColor={activeField === 1 ? theme.colors.retroCyanBright : theme.colors.border}
+                paddingX={1}
+                marginBottom={1}
+              >
+                <Box flexDirection="row">
+                  <Text color={activeField === 1 ? theme.colors.retroCyanBright : theme.colors.muted} bold>
+                    {activeField === 1 ? "› " : "  "}PR LINK / SUBMISSION SUMMARY:
+                  </Text>
+                </Box>
+                <Box flexDirection="row" alignItems="center">
+                  <Text color={theme.colors.textBright}>{description || (activeField === 1 ? "" : "(e.g., https://github.com/org/repo/pull/1)")}</Text>
+                  {activeField === 1 && <Cursor on={cursorOn} />}
+                </Box>
+              </Box>
+
+              {/* Field 2: State */}
+              <Box
+                flexDirection="column"
+                borderStyle="single"
+                borderColor={activeField === 2 ? theme.colors.retroCyanBright : theme.colors.border}
+                paddingX={1}
+                marginBottom={1}
+              >
+                <Box flexDirection="row">
+                  <Text color={activeField === 2 ? theme.colors.retroCyanBright : theme.colors.muted} bold>
+                    {activeField === 2 ? "› " : "  "}SUBMISSION STATUS:
+                  </Text>
+                </Box>
+                <Box flexDirection="row" alignItems="center">
+                  <Text color={theme.colors.retroGreenBright} bold>{state}</Text>
+                  {activeField === 2 && <Text color={theme.colors.dim}> (Use ← / → to change)</Text>}
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Live Preview Panel */}
+            <Box
+              flexDirection="column"
+              borderStyle="single"
+              borderColor={theme.colors.border}
+              paddingX={1}
+              paddingY={0}
+            >
+              <Text color={theme.colors.accent} bold>LIVE DISPATCH PREVIEW:</Text>
+              <Box flexDirection="row">
+                <Text color={theme.colors.muted}>Task: </Text>
+                <Text color={theme.colors.textBright}>{taskId || "<unspecified>"}</Text>
+              </Box>
+              <Box flexDirection="row">
+                <Text color={theme.colors.muted}>State: </Text>
+                <Text color={theme.colors.retroGreen}>{state}</Text>
+              </Box>
+              <Box flexDirection="row">
+                <Text color={theme.colors.muted}>Notes: </Text>
+                <Text color={theme.colors.text}>{description || "<no description>"}</Text>
+              </Box>
+            </Box>
+
+            {/* Footer */}
+            <Box marginTop={1} flexDirection="row" justifyContent="space-between">
+              <Text color={theme.colors.dim}>[TAB: NEXT FIELD] [ENTER: SUBMIT] [ESC: CANCEL]</Text>
+              <Text color={theme.colors.retroSlateDark}>{activeHint}</Text>
+            </Box>
+          </>
+        )}
+      </Box>
     </Box>
   );
 };
