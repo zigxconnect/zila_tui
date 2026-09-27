@@ -17,48 +17,40 @@ export interface StatusLineProps {
   detail?: string;
 }
 
+// 90s-style bracket status tags
+const STATUS_TAG: Record<StatusType, { tag: string; color: string }> = {
+  pending: { tag: "[    ]",  color: theme.colors.retroSlateDark },
+  loading: { tag: "[ >> ]",  color: theme.colors.retroCyanBright },
+  success: { tag: "[ OK ]",  color: theme.colors.retroGreenBright },
+  error:   { tag: "[FAIL]",  color: theme.colors.error },
+  warning: { tag: "[WARN]",  color: theme.colors.retroAmberBright },
+  skipped: { tag: "[SKIP]",  color: theme.colors.retroSlateDark },
+};
+
 function renderIcon(status: StatusType): React.ReactElement {
-  switch (status) {
-    case "loading":
-      return <Spinner />;
-    case "success":
-      return <Text color={theme.colors.success}>{theme.symbols.tick}</Text>;
-    case "error":
-      return <Text color={theme.colors.error}>{theme.symbols.cross}</Text>;
-    case "warning":
-      return <Text color={theme.colors.warning}>{theme.symbols.warning}</Text>;
-    case "skipped":
-      return <Text color={theme.colors.dim}>{theme.symbols.ellipsis}</Text>;
-    default: // pending
-      return <Text color={theme.colors.dim}>{theme.symbols.bullet}</Text>;
+  if (status === "loading") {
+    return <Spinner style="classic" color={theme.colors.retroCyan} />;
   }
+  const { tag, color } = STATUS_TAG[status];
+  return <Text color={color} bold>{tag}</Text>;
 }
 
 function labelColor(status: StatusType): string {
   switch (status) {
-    case "success":
-      return theme.colors.textBright;
-    case "loading":
-      return theme.colors.primary;
-    case "error":
-      return theme.colors.error;
-    case "warning":
-      return theme.colors.warning;
-    case "skipped":
-      return theme.colors.dim;
-    default:
-      return theme.colors.muted;
+    case "success": return theme.colors.retroGreenBright;
+    case "loading": return theme.colors.retroCyanBright;
+    case "error":   return theme.colors.error;
+    case "warning": return theme.colors.retroAmberBright;
+    case "skipped": return theme.colors.retroSlateDark;
+    default:        return theme.colors.retroSlate;
   }
 }
 
 function detailColor(status: StatusType): string {
   switch (status) {
-    case "error":
-      return theme.colors.error;
-    case "warning":
-      return theme.colors.warning;
-    default:
-      return theme.colors.muted;
+    case "error":   return theme.colors.error;
+    case "warning": return theme.colors.retroAmber;
+    default:        return theme.colors.retroSlateDark;
   }
 }
 
@@ -69,18 +61,18 @@ export const StatusLine: React.FC<StatusLineProps> = ({
 }) => (
   <Box flexDirection="column" marginBottom={0}>
     {/* Primary row */}
-    <Box flexDirection="row">
-      <Box width={3}>{renderIcon(status)}</Box>
-      <Text color={labelColor(status)} bold={status === "loading"}>
+    <Box flexDirection="row" gap={1}>
+      <Box width={7}>{renderIcon(status)}</Box>
+      <Text color={labelColor(status)} bold={status === "loading" || status === "success"}>
         {label}
       </Text>
       {detail && status !== "error" && status !== "warning" && (
-        <Text color={theme.colors.muted}> — {detail}</Text>
+        <Text color={theme.colors.retroSlateDark}>{" — "}{detail}</Text>
       )}
     </Box>
-    {/* Error / warning detail gets its own indented line for readability */}
+    {/* Error / warning detail on its own indented line */}
     {detail && (status === "error" || status === "warning") && (
-      <Box marginLeft={3}>
+      <Box marginLeft={8}>
         <Text color={detailColor(status)}>{detail}</Text>
       </Box>
     )}

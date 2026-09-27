@@ -7,7 +7,7 @@ import { isGitRepo, getRepoName, getRepoStats } from "../assistant/gatherer.js";
 import { initClient } from "../assistant/config.js";
 import { runAgent, type AgentEvent } from "../assistant/agent.js";
 
-// Types 
+// Types
 
 type Phase = "booting" | "ready" | "thinking" | "error";
 
@@ -39,54 +39,98 @@ function buildStepSummary(events: AgentEvent[]): string {
   return `${steps} step${steps !== 1 ? "s" : ""} · ${tools.join(", ") || "no tools"}`;
 }
 
-// Primitives
+// ─── Retro Primitives ──────────────────────────────────────────────────────────
 
-const Rule: React.FC<{ dim?: boolean }> = ({ dim }) => (
-  <Text color={dim ? theme.colors.border : theme.colors.borderActive}>{"".repeat(64)}</Text>
+// Heavy double-line rule for section separators
+const HeavyRule: React.FC<{ dim?: boolean }> = ({ dim }) => (
+  <Text color={dim ? theme.colors.retroPanel : theme.colors.retroCyan}>
+    {"═".repeat(72)}
+  </Text>
 );
 
-// Fixed: render " " not "" when cursor is off — prevents blink-induced layout shift
+// Light single-line rule
+const ThinRule: React.FC = () => (
+  <Text color={theme.colors.retroPanel}>
+    {"─".repeat(72)}
+  </Text>
+);
+
+// Blinking block cursor — renders " " not "" when off to prevent layout shift
 const Cursor: React.FC<{ on: boolean }> = ({ on }) => (
-  <Text color={theme.colors.primary}>{on ? "▊" : " "}</Text>
+  <Text color={theme.colors.retroCyanBright}>{on ? "█" : " "}</Text>
 );
 
-// Header
+// Phase status badge
+const PhaseBadge: React.FC<{ phase: Phase; turnCount: number }> = ({ phase, turnCount }) => {
+  if (phase === "thinking")
+    return (
+      <Box flexDirection="row" gap={1}>
+        <Spinner style="radar" color={theme.colors.retroAmber} />
+        <Text color={theme.colors.retroAmberBright} bold>{"[ PROCESSING ]"}</Text>
+      </Box>
+    );
+  if (phase === "booting")
+    return (
+      <Box flexDirection="row" gap={1}>
+        <Spinner style="classic" color={theme.colors.retroCyan} />
+        <Text color={theme.colors.retroCyan}>{"[ BOOTING ]"}</Text>
+      </Box>
+    );
+  if (phase === "ready" && turnCount === 0)
+    return <Text color={theme.colors.retroGreenBright} bold>{"[ ONLINE ]"}</Text>;
+  if (phase === "ready" && turnCount > 0)
+    return <Text color={theme.colors.retroGreen}>{"[ READY ] "}<Text color={theme.colors.retroCyan}>{turnCount}</Text><Text color={theme.colors.retroSlate}>{" sessions"}</Text></Text>;
+  return <Text color={theme.colors.error}>{"[ ERROR ]"}</Text>;
+};
+
+// ─── Header ────────────────────────────────────────────────────────────────────
 
 const Header: React.FC<{ repo: RepoMeta | null; phase: Phase; turnCount: number }> = ({
   repo, phase, turnCount,
 }) => (
   <Box flexDirection="column" marginBottom={1}>
-    <Box flexDirection="row" justifyContent="space-between">
+    {/* ═══ TOP BAR ═══ */}
+    <HeavyRule />
+    <Box flexDirection="row" justifyContent="space-between" paddingX={1}>
+      {/* Left: identity */}
       <Box flexDirection="row" gap={1}>
-        <Text color={theme.colors.primary} bold>ZILA</Text>
-        <Text color={theme.colors.dim}>›</Text>
-        <Text color={theme.colors.muted}>assistant</Text>
+        <Text color={theme.colors.retroCyanBright} bold>{"▓▓"}</Text>
+        <Text color={theme.colors.retroAmberBright} bold>{"LIL ZILA"}</Text>
+        <Text color={theme.colors.retroCyan}>{"›"}</Text>
+        <Text color={theme.colors.retroCyanBright} bold>{"AI ASSISTANT"}</Text>
         {repo && (
           <>
-            <Text color={theme.colors.border}> │ </Text>
-            <Text color={theme.colors.secondary} bold>{repo.name}</Text>
-            <Text color={theme.colors.dim}> on </Text>
-            <Text color={theme.colors.accent}>{repo.branch}</Text>
+            <Text color={theme.colors.retroPanel}>{"║"}</Text>
+            <Text color={theme.colors.retroGreen}>{"REPO:"}</Text>
+            <Text color={theme.colors.retroGreenBright} bold>{repo.name.toUpperCase()}</Text>
+            <Text color={theme.colors.retroSlate}>{"@"}</Text>
+            <Text color={theme.colors.retroAmber}>{repo.branch}</Text>
           </>
         )}
       </Box>
-      <Box flexDirection="row" gap={1}>
-        {phase === "thinking" && <><Spinner color={theme.colors.accent} /><Text color={theme.colors.accent}>thinking</Text></>}
-        {phase === "ready" && turnCount === 0 && <Text color={theme.colors.successDim}>ready</Text>}
-        {phase === "ready" && turnCount > 0 && <Text color={theme.colors.dim}>{turnCount} answered</Text>}
-        {phase === "booting" && <><Spinner color={theme.colors.dim} /><Text color={theme.colors.dim}>starting</Text></>}
-      </Box>
+      {/* Right: phase badge */}
+      <PhaseBadge phase={phase} turnCount={turnCount} />
     </Box>
+    <HeavyRule />
+
+    {/* Repo telemetry sub-bar */}
     {repo && (
-      <Text color={theme.colors.dim}>
-        {"      "}{repo.commitCount} commits · last {repo.lastCommit} · {repo.path}
-      </Text>
+      <Box flexDirection="row" gap={3} paddingX={1} marginTop={0}>
+        <Text color={theme.colors.retroSlate}>{"COMMITS:"}</Text>
+        <Text color={theme.colors.retroCyan}>{repo.commitCount}</Text>
+        <Text color={theme.colors.retroPanel}>{"·"}</Text>
+        <Text color={theme.colors.retroSlate}>{"LAST:"}</Text>
+        <Text color={theme.colors.retroCyan}>{repo.lastCommit}</Text>
+        <Text color={theme.colors.retroPanel}>{"·"}</Text>
+        <Text color={theme.colors.retroSlate}>{"PATH:"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{repo.path}</Text>
+      </Box>
     )}
-    <Box marginTop={1}><Rule dim /></Box>
+    {repo && <ThinRule />}
   </Box>
 );
 
-// Completed turn (Static — rendered once, never redrawn)
+// ─── Completed Turn ─────────────────────────────────────────────────────────
 
 const CompletedTurn: React.FC<{ turn: Turn }> = ({ turn }) => {
   const answerEvent = [...turn.events].reverse().find((e) => e.type === "answer");
@@ -97,100 +141,184 @@ const CompletedTurn: React.FC<{ turn: Turn }> = ({ turn }) => {
 
   return (
     <Box flexDirection="column" marginBottom={1}>
+      {/* Question row */}
       <Box flexDirection="row" gap={1}>
-        <Text color={theme.colors.secondary} bold>›</Text>
-        <Text color={theme.colors.white} bold wrap="wrap">{turn.question}</Text>
+        <Text color={theme.colors.retroAmberBright} bold>{"[Q]"}</Text>
+        <Text color={theme.colors.retroAmber} bold wrap="wrap">{turn.question}</Text>
       </Box>
-      <Box flexDirection="row" gap={1} marginLeft={2} marginTop={0} marginBottom={1}>
-        <Text color={theme.colors.dim}>{turn.elapsedS}s</Text>
+
+      {/* Meta row */}
+      <Box flexDirection="row" gap={2} marginLeft={4} marginTop={0} marginBottom={1}>
+        <Text color={theme.colors.retroSlateDark}>{"TIME:"}</Text>
+        <Text color={theme.colors.retroSlate}>{turn.elapsedS}s</Text>
         {toolsUsed.length > 0 && (
-          <><Text color={theme.colors.border}>·</Text><Text color={theme.colors.dim}>checked {toolsUsed.join(", ")}</Text></>
+          <>
+            <Text color={theme.colors.retroPanel}>{"·"}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"TOOLS:"}</Text>
+            <Text color={theme.colors.retroSlate}>{toolsUsed.join(", ")}</Text>
+          </>
         )}
       </Box>
 
+      {/* Answer box */}
       {answerEvent?.type === "answer" && (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.primary} paddingX={2} paddingY={1}>
-          <Text color={theme.colors.white} wrap="wrap">{answerEvent.text}</Text>
+        <Box flexDirection="column" marginLeft={0} marginBottom={1}>
+          <Box flexDirection="row" gap={1} marginBottom={0}>
+            <Text color={theme.colors.retroCyanBright} bold>{"[A]"}</Text>
+            <Text color={theme.colors.retroGreen}>{"─────────────────────────────────────────────────────────"}</Text>
+          </Box>
+          <Box
+            flexDirection="column"
+            borderStyle="single"
+            borderColor={theme.colors.retroCyan}
+            paddingX={2}
+            paddingY={1}
+            marginLeft={0}
+          >
+            <Text color={theme.colors.white} wrap="wrap">{answerEvent.text}</Text>
+          </Box>
         </Box>
       )}
+
+      {/* Error box */}
       {!answerEvent && errorEvent?.type === "error" && (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.error} paddingX={2} paddingY={1}>
+        <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.error} paddingX={2} paddingY={1}>
           <Box flexDirection="row" gap={1} marginBottom={1}>
-            <Text color={theme.colors.error} bold>{theme.symbols.cross} Error</Text>
+            <Text color={theme.colors.error} bold>{"[FAIL]"}</Text>
+            <Text color={theme.colors.error} bold>{"AGENT ERROR"}</Text>
           </Box>
           <Text color={theme.colors.text} wrap="wrap">{errorEvent.text}</Text>
         </Box>
       )}
+
+      {/* No answer */}
       {!answerEvent && !errorEvent && (
         <Box paddingX={2}>
-          <Text color={theme.colors.warning}>{theme.symbols.warning} No answer was produced. Try rephrasing.</Text>
+          <Text color={theme.colors.retroAmber}>{"[WARN]"}</Text>
+          <Text color={theme.colors.warning}>{" No answer was produced. Try rephrasing."}</Text>
         </Box>
       )}
 
-      <Box marginTop={1}><Rule dim /></Box>
+      <Box marginTop={1}><ThinRule /></Box>
     </Box>
   );
 };
 
-// Live feed
+// ─── Live Feed ───────────────────────────────────────────────────────────────
 
 const LiveFeed: React.FC<{ question: string; events: AgentEvent[] }> = ({ question, events }) => {
-  const visible = events.slice(-5);
+  const visible = events.slice(-6);
   return (
     <Box flexDirection="column" marginBottom={1}>
+      {/* Question */}
       <Box flexDirection="row" gap={1} marginBottom={1}>
-        <Text color={theme.colors.secondary} bold>›</Text>
-        <Text color={theme.colors.white} bold wrap="wrap">{question}</Text>
+        <Text color={theme.colors.retroAmberBright} bold>{"[Q]"}</Text>
+        <Text color={theme.colors.retroAmber} bold wrap="wrap">{question}</Text>
       </Box>
-      <Box flexDirection="column" marginLeft={2}>
+
+      {/* Event stream */}
+      <Box flexDirection="column" marginLeft={4}>
         {visible.map((ev, i) => {
           if (ev.type === "step") {
-            const dots = Array.from({ length: ev.max }, (_, j) => j < ev.iteration ? "●" : "○").join(" ");
-            return <Box key={i} flexDirection="row" gap={2} marginBottom={1}><Text color={theme.colors.dim}>{dots}</Text><Text color={theme.colors.dim}>step {ev.iteration} of {ev.max}</Text></Box>;
+            const filled = "▪".repeat(ev.iteration);
+            const empty  = "▫".repeat(Math.max(0, ev.max - ev.iteration));
+            return (
+              <Box key={i} flexDirection="row" gap={2} marginBottom={0}>
+                <Text color={theme.colors.retroCyan}>{filled}</Text>
+                <Text color={theme.colors.retroSlateDark}>{empty}</Text>
+                <Text color={theme.colors.retroSlate}>{"step "}{ev.iteration}{" / "}{ev.max}</Text>
+              </Box>
+            );
           }
           if (ev.type === "thought")
-            return <Box key={i} flexDirection="row" gap={1}><Text color={theme.colors.accent}>◈</Text><Text color={theme.colors.muted} wrap="wrap">{ev.text.slice(0, 110)}{ev.text.length > 110 ? "…" : ""}</Text></Box>;
+            return (
+              <Box key={i} flexDirection="row" gap={1}>
+                <Text color={theme.colors.retroMagenta}>{"◈"}</Text>
+                <Text color={theme.colors.retroSlate} wrap="wrap">
+                  {ev.text.slice(0, 110)}{ev.text.length > 110 ? "…" : ""}
+                </Text>
+              </Box>
+            );
           if (ev.type === "action") {
-            const argsStr = Object.entries(ev.args).map(([k, v]) => `${k}=${String(v).slice(0, 30)}`).join(" ");
-            return <Box key={i} flexDirection="row" gap={1} marginLeft={2}><Text color={theme.colors.dim}>↳</Text><Text color={theme.colors.info}>{ev.tool}</Text>{argsStr && <Text color={theme.colors.dim}>{argsStr}</Text>}</Box>;
+            const argsStr = Object.entries(ev.args).map(([k, v]) => `${k}=${String(v).slice(0, 28)}`).join(" ");
+            return (
+              <Box key={i} flexDirection="row" gap={1} marginLeft={2}>
+                <Text color={theme.colors.retroCyan}>{"↳"}</Text>
+                <Text color={theme.colors.retroCyanBright} bold>{ev.tool}</Text>
+                {argsStr && <Text color={theme.colors.retroSlateDark}>{argsStr}</Text>}
+              </Box>
+            );
           }
           if (ev.type === "observation")
-            return <Box key={i} flexDirection="row" gap={1} marginLeft={2}><Text color={theme.colors.successDim}>✦</Text><Text color={theme.colors.dim}>{ev.full.split("\n").length} lines from {ev.tool}</Text></Box>;
+            return (
+              <Box key={i} flexDirection="row" gap={1} marginLeft={2}>
+                <Text color={theme.colors.retroGreen}>{"✦"}</Text>
+                <Text color={theme.colors.retroSlate}>{ev.full.split("\n").length}{" lines ← "}{ev.tool}</Text>
+              </Box>
+            );
           if (ev.type === "warn")
-            return <Box key={i} flexDirection="row" gap={1}><Text color={theme.colors.warning}>{theme.symbols.warning}</Text><Text color={theme.colors.warning} wrap="wrap">{ev.text.slice(0, 90)}</Text></Box>;
+            return (
+              <Box key={i} flexDirection="row" gap={1}>
+                <Text color={theme.colors.retroAmber}>{"[WARN]"}</Text>
+                <Text color={theme.colors.retroAmber} wrap="wrap">{ev.text.slice(0, 90)}</Text>
+              </Box>
+            );
           if (ev.type === "error")
-            return <Box key={i} flexDirection="row" gap={1}><Text color={theme.colors.error}>{theme.symbols.cross}</Text><Text color={theme.colors.error} wrap="wrap">{ev.text.slice(0, 110)}</Text></Box>;
+            return (
+              <Box key={i} flexDirection="row" gap={1}>
+                <Text color={theme.colors.error}>{"[FAIL]"}</Text>
+                <Text color={theme.colors.error} wrap="wrap">{ev.text.slice(0, 110)}</Text>
+              </Box>
+            );
           return null;
         })}
+
+        {/* Thinking animation */}
         <Box flexDirection="row" gap={1} marginTop={1}>
-          <Spinner color={theme.colors.accent} />
-          <Text color={theme.colors.dim}>reasoning…</Text>
+          <Spinner style="braille" color={theme.colors.retroCyan} />
+          <Text color={theme.colors.retroSlate}>{"REASONING"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"· · ·"}</Text>
         </Box>
       </Box>
     </Box>
   );
 };
 
-// Empty state
+// ─── Empty State ─────────────────────────────────────────────────────────────
 
 const EmptyState: React.FC = () => (
   <Box flexDirection="column" gap={1} paddingY={1} marginBottom={1}>
-    <Text color={theme.colors.muted}>Ask anything about this repository:</Text>
-    <Box flexDirection="column" marginLeft={2}>
+    {/* Prompt examples panel */}
+    <Box flexDirection="row" gap={2}>
+      <Text color={theme.colors.retroCyan} bold>{"┌─"}</Text>
+      <Text color={theme.colors.retroCyanBright} bold>{"QUERY EXAMPLES"}</Text>
+      <Text color={theme.colors.retroCyan} bold>{"──────────────────────────────────────────"}</Text>
+    </Box>
+    <Box flexDirection="column" marginLeft={4} gap={0}>
       {[
-        "What has been worked on recently?",
-        "What does this project do?",
-        "Who contributed the most?",
-        "What did the last commit change?",
-        "Find all uses of the authenticate function",
-      ].map((ex) => (
-        <Text key={ex} color={theme.colors.dim}><Text color={theme.colors.border}>› </Text>{ex}</Text>
+        { q: "What has been worked on recently?",       cat: "GIT  " },
+        { q: "What does this project do?",              cat: "REPO " },
+        { q: "Who contributed the most?",               cat: "STATS" },
+        { q: "What did the last commit change?",        cat: "GIT  " },
+        { q: "Find all uses of the authenticate fn",    cat: "CODE " },
+        { q: "List all TODO comments in this codebase", cat: "SCAN " },
+      ].map(({ q, cat }) => (
+        <Box key={q} flexDirection="row" gap={2}>
+          <Text color={theme.colors.retroPanel}>{"["}</Text>
+          <Text color={theme.colors.retroGreen}>{cat}</Text>
+          <Text color={theme.colors.retroPanel}>{"]"}</Text>
+          <Text color={theme.colors.retroSlate}>{q}</Text>
+        </Box>
       ))}
+    </Box>
+    <Box flexDirection="row" gap={2} marginTop={1}>
+      <Text color={theme.colors.retroCyan} bold>{"└─"}</Text>
+      <Text color={theme.colors.retroSlateDark}>{"Type a question and press ENTER to query the AI agent"}</Text>
     </Box>
   </Box>
 );
 
-// Input bar
+// ─── Input Bar ────────────────────────────────────────────────────────────────
 
 const InputBar: React.FC<{
   input: string; cursorOn: boolean; phase: Phase; inputError: string;
@@ -198,28 +326,39 @@ const InputBar: React.FC<{
   const disabled = phase === "thinking" || phase === "booting";
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Rule dim={disabled} />
+      <HeavyRule dim={disabled} />
+
       {inputError && (
-        <Box marginTop={1}>
-          <Text color={theme.colors.warning}>{theme.symbols.warning} {inputError}</Text>
+        <Box marginTop={0} flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroAmber} bold>{"[WARN]"}</Text>
+          <Text color={theme.colors.retroAmber}>{inputError}</Text>
         </Box>
       )}
-      <Box flexDirection="row" gap={1} marginTop={1}>
+
+      <Box flexDirection="row" gap={1} marginTop={0}>
         {disabled
-          ? <Text color={theme.colors.dim}>…</Text>
-          : <Text color={theme.colors.primary} bold>{theme.symbols.pointer}</Text>
+          ? <Text color={theme.colors.retroSlateDark}>{"……"}</Text>
+          : <Text color={theme.colors.retroCyanBright} bold>{"›"}</Text>
         }
-        <Text color={disabled ? theme.colors.dim : theme.colors.white}>
-          {disabled ? (phase === "thinking" ? "thinking…" : "starting…") : input}
+        <Text color={theme.colors.retroCyan} bold>{"QUERY"}</Text>
+        <Text color={theme.colors.retroPanel}>{"▸"}</Text>
+        <Text color={disabled ? theme.colors.retroSlateDark : theme.colors.white}>
+          {disabled ? (phase === "thinking" ? "AGENT PROCESSING — PLEASE WAIT…" : "INITIALIZING…") : input}
         </Text>
         {!disabled && <Cursor on={cursorOn} />}
       </Box>
+
       {!disabled && (
-        <Box marginTop={1}>
-          <Text color={theme.colors.dim}>
-            <Text color={theme.colors.border}>back</Text>{" return  ·  "}
-            <Text color={theme.colors.border}>clear</Text>{" reset  ·  "}
-            <Text color={theme.colors.border}>↵</Text>{" ask"}
+        <Box flexDirection="row" gap={3} marginTop={0}>
+          <Text color={theme.colors.retroSlateDark}>
+            <Text color={theme.colors.retroCyan} bold>{"[ENTER]"}</Text>
+            <Text color={theme.colors.retroSlate}>{" ask  "}</Text>
+            <Text color={theme.colors.retroCyan} bold>{"[BSP]"}</Text>
+            <Text color={theme.colors.retroSlate}>{" del  "}</Text>
+            <Text color={theme.colors.retroCyan} bold>{"[back]"}</Text>
+            <Text color={theme.colors.retroSlate}>{" exit  "}</Text>
+            <Text color={theme.colors.retroCyan} bold>{"[clear]"}</Text>
+            <Text color={theme.colors.retroSlate}>{" reset"}</Text>
           </Text>
         </Box>
       )}
@@ -227,7 +366,7 @@ const InputBar: React.FC<{
   );
 };
 
-// Main screen
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 interface AssistantScreenProps {
   onComplete: () => void;
@@ -250,7 +389,7 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({
 
   const repoPathRef = useRef<string>("");
 
-  //  Boot 
+  //  Boot
   useEffect(() => {
     async function boot() {
       try {
@@ -287,7 +426,6 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({
   }, [phase]);
 
   //  Submit
-  // Fixed: clearHistory passed as param, not captured from outer scope
   const submit = useCallback(async (question: string, onClearHistory?: () => void) => {
     const q = question.trim();
     if (!q) return;
@@ -326,7 +464,6 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({
 
   //  Keyboard
   useInput((char, key) => {
-    // Error screen: any key exits
     if (phase === "error") { onComplete(); return; }
     if (phase === "booting" || phase === "thinking") return;
 
@@ -348,13 +485,14 @@ export const AssistantScreen: React.FC<AssistantScreenProps> = ({
     return (
       <Box flexDirection="column" paddingY={1}>
         <Header repo={null} phase="error" turnCount={0} />
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.error} paddingX={2} paddingY={1}>
+        <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.error} paddingX={2} paddingY={1}>
           <Box flexDirection="row" gap={1} marginBottom={1}>
-            <Text color={theme.colors.error} bold>{theme.symbols.cross} Could not start</Text>
+            <Text color={theme.colors.error} bold>{"[FATAL]"}</Text>
+            <Text color={theme.colors.error} bold>{"COULD NOT START ASSISTANT"}</Text>
           </Box>
           <Text color={theme.colors.text} wrap="wrap">{errorMsg}</Text>
           <Box marginTop={1}>
-            <Text color={theme.colors.dim}>Press any key to return…</Text>
+            <Text color={theme.colors.retroSlateDark}>{"Press any key to return to shell…"}</Text>
           </Box>
         </Box>
       </Box>
