@@ -14,7 +14,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
-  // Blinking block cursor effect (authentic 90s CRT cursor)
+  // Blinking block cursor — authentic 90s CRT feel
   React.useEffect(() => {
     const interval = setInterval(() => {
       setCursorVisible((v) => !v);
@@ -62,46 +62,54 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
     { isActive: !running }
   );
 
+  // ─── Running state ────────────────────────────────────────────────────────
   if (running) {
     return (
-      <Box marginTop={1} flexDirection="row" alignItems="center">
-        <Text color={theme.colors.logoColor} bold>
-          lil-zila
-        </Text>
-        <Text color={theme.colors.accent} bold>
-          {" > "}
-        </Text>
-        <Spinner style="classic" color={theme.colors.accentBright} label="executing command..." />
+      <Box marginTop={1} flexDirection="column">
+        <Box flexDirection="row" alignItems="center" gap={1}>
+          <Text color={theme.colors.retroCyan}>{"═".repeat(4)}</Text>
+          <Text color={theme.colors.retroCyanBright} bold>{"LIL-ZILA"}</Text>
+          <Text color={theme.colors.retroAmberBright} bold>{"▸"}</Text>
+          <Spinner style="radar" color={theme.colors.retroAmber} label="executing…" />
+        </Box>
       </Box>
     );
   }
 
+  // ─── Ready state ──────────────────────────────────────────────────────────
   return (
     <Box marginTop={1} flexDirection="column">
-      {/* Input line matching brand screenshot */}
-      <Box flexDirection="row" alignItems="center">
-        <Text color={theme.colors.logoColor} bold>
-          lil-zila
-        </Text>
-        <Text color={theme.colors.accent} bold>
-          {" > "}
-        </Text>
-        <Text color={theme.colors.textBright}>{input}</Text>
+      {/* Prompt line */}
+      <Box flexDirection="row" alignItems="center" gap={0}>
+        <Text color={theme.colors.retroCyan}>{"══"}</Text>
+        <Text color={theme.colors.retroCyanBright} bold>{"["}</Text>
+        <Text color={theme.colors.retroAmberBright} bold>{"LIL-ZILA"}</Text>
+        <Text color={theme.colors.retroCyanBright} bold>{"]"}</Text>
+        <Text color={theme.colors.retroAmberBright} bold>{"▸ "}</Text>
+        <Text color={theme.colors.white}>{input}</Text>
         {cursorVisible ? (
-          <Text color={theme.colors.accentBright} bold>
-            █
-          </Text>
+          <Text color={theme.colors.retroCyanBright} bold>{"█"}</Text>
         ) : (
-          <Text color={theme.colors.accent}> </Text>
+          <Text color={theme.colors.retroCyan}>{" "}</Text>
         )}
       </Box>
 
-      {/* Clean hint line without tab or emoji */}
+      {/* Hint line — show quick-access commands when input is empty */}
       {!input && (
-        <Box marginTop={1} flexDirection="row">
-          <Text color={theme.colors.dim} dimColor>
-            Commands: <Text color={theme.colors.accent}>group</Text> · <Text color={theme.colors.accent}>cohorts</Text> · <Text color={theme.colors.accent}>tasks</Text> · <Text color={theme.colors.accent}>docs</Text> · <Text color={theme.colors.accent}>help</Text>
-          </Text>
+        <Box marginTop={0} flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroSlateDark}>{"──"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"CMDS:"}</Text>
+          {["group", "cohorts", "tasks", "docs", "assist", "stats", "help"].map((cmd, i, arr) => (
+            <Box key={cmd} flexDirection="row">
+              <Text color={theme.colors.retroCyan}>{cmd}</Text>
+              {i < arr.length - 1 && <Text color={theme.colors.retroPanel}>{" · "}</Text>}
+            </Box>
+          ))}
+          {historyIndex !== -1 && (
+            <Text color={theme.colors.retroSlateDark}>
+              {"  [ ↑/↓ HISTORY: "}{historyIndex + 1}{"/"}{history.length}{" ]"}
+            </Text>
+          )}
         </Box>
       )}
     </Box>

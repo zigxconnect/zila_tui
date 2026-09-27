@@ -7,61 +7,65 @@ export interface RetroStatusBarProps {
   network?: "online" | "offline" | "syncing";
   currentScreen?: string;
   shortcuts?: string[];
-  borderColor?: keyof typeof theme.colors;
 }
 
 export const RetroStatusBar: React.FC<RetroStatusBarProps> = ({
   version = "v0.3.0",
   network = "online",
   currentScreen = "READY",
-  shortcuts = ["F1:HELP", "TAB:NAV", "^C:EXIT"],
-  borderColor = "border",
+  shortcuts = ["F1:HELP", "F2:INIT", "^L:CLR", "^C:EXIT"],
 }) => {
   const netColor =
-    network === "online"
-      ? theme.colors.retroGreen
-      : network === "syncing"
-      ? theme.colors.retroAmber
-      : theme.colors.error;
+    network === "online"  ? theme.colors.retroGreenBright :
+    network === "syncing" ? theme.colors.retroAmberBright :
+                            theme.colors.error;
 
   const netLabel = network.toUpperCase();
 
   return (
-    <Box
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      borderStyle="single"
-      borderColor={theme.colors[borderColor]}
-      paddingX={1}
-    >
-      {/* Left side: System and screen identity */}
-      <Box flexDirection="row" alignItems="center">
-        <Text color={theme.colors.logoColor} bold>lil-zila</Text>
-        <Text color={theme.colors.retroSlateDark}> [</Text>
-        <Text color={theme.colors.accent}>{version}</Text>
-        <Text color={theme.colors.retroSlateDark}>] </Text>
-        <Text color={theme.colors.dim}>│ </Text>
-        <Text color={theme.colors.muted}>STATE: </Text>
-        <Text color={theme.colors.textBright} bold>{currentScreen}</Text>
+    <Box flexDirection="column">
+      {/* ════ TOP BAR ════ */}
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+      >
+        {/* Left: identity + state */}
+        <Box flexDirection="row" gap={1} alignItems="center">
+          <Text color={theme.colors.retroCyan}>{"╔═["}</Text>
+          <Text color={theme.colors.retroCyanBright} bold>{"LIL-ZILA"}</Text>
+          <Text color={theme.colors.retroSlate}>{version}</Text>
+          <Text color={theme.colors.retroCyan}>{"]"}</Text>
+          <Text color={theme.colors.retroPanel}>{"║"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"STATE:"}</Text>
+          <Text color={theme.colors.retroAmberBright} bold>{currentScreen}</Text>
+        </Box>
+
+        {/* Center: network */}
+        <Box flexDirection="row" gap={1} alignItems="center">
+          <Text color={theme.colors.retroSlateDark}>{"NET:"}</Text>
+          <Text color={theme.colors.retroPanel}>{"["}</Text>
+          <Text color={netColor} bold>{netLabel}</Text>
+          <Text color={theme.colors.retroPanel}>{"]"}</Text>
+        </Box>
+
+        {/* Right: function key shortcuts */}
+        <Box flexDirection="row" alignItems="center" gap={0}>
+          {shortcuts.map((sc, i) => (
+            <Box key={sc} flexDirection="row">
+              {i > 0 && <Text color={theme.colors.retroPanel}>{" │ "}</Text>}
+              <Text color={theme.colors.retroCyanBright} bold>{sc}</Text>
+            </Box>
+          ))}
+          <Text color={theme.colors.retroCyan}>{"]=╗"}</Text>
+        </Box>
       </Box>
 
-      {/* Middle side: Network telemetry */}
-      <Box flexDirection="row" alignItems="center">
-        <Text color={theme.colors.muted}>NET: </Text>
-        <Text color={theme.colors.retroSlateDark}>[</Text>
-        <Text color={netColor} bold>{netLabel}</Text>
-        <Text color={theme.colors.retroSlateDark}>]</Text>
-      </Box>
-
-      {/* Right side: 90s Function key shortcuts */}
-      <Box flexDirection="row" alignItems="center">
-        {shortcuts.map((sc, i) => (
-          <Box key={sc} flexDirection="row">
-            {i > 0 && <Text color={theme.colors.dim}> │ </Text>}
-            <Text color={theme.colors.retroCyanBright} bold>{sc}</Text>
-          </Box>
-        ))}
+      {/* ════ SEPARATOR ════ */}
+      <Box>
+        <Text color={theme.colors.retroCyan}>
+          {"╚"}<Text color={theme.colors.retroPanel}>{"═".repeat(70)}</Text>{"╝"}
+        </Text>
       </Box>
     </Box>
   );
