@@ -14,6 +14,7 @@ import { SubmitTaskScreen } from "../screens/SubmitTaskScreen.js";
 import { StatsScreen } from "../screens/StatsScreen.js";
 import { LilZilaBanner } from "../ui/LilZilaBanner.js";
 import { RetroStatusBar } from "../ui/RetroStatusBar.js";
+import { RetroKeyboardLegend } from "../ui/RetroKeyboardLegend.js";
 import { OutputHistory, type OutputLine } from "./OutputHistory.js";
 import { InputPrompt } from "./InputPrompt.js";
 import {
@@ -237,25 +238,20 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             running={running}
             onSubmit={(input) => handleCommand(input, true)}
           />
-          <Box marginTop={1} flexDirection="row" justifyContent="space-between">
-            <Box flexDirection="row">
-              <Text color={theme.colors.retroSlateDark}>[</Text>
-              <Text color={theme.colors.retroCyanBright} bold>F1</Text>
-              <Text color={theme.colors.dim}>:HELP </Text>
-              <Text color={theme.colors.retroCyanBright} bold>F2</Text>
-              <Text color={theme.colors.dim}>:GROUP </Text>
-              <Text color={theme.colors.retroCyanBright} bold>^L</Text>
-              <Text color={theme.colors.dim}>:CLEAR </Text>
-              <Text color={theme.colors.retroCyanBright} bold>^C</Text>
-              <Text color={theme.colors.dim}>:EXIT</Text>
-              <Text color={theme.colors.retroSlateDark}>]</Text>
-            </Box>
-            <Box flexDirection="row">
-              <Text color={theme.colors.dim}>SESSION: </Text>
-              <Text color={theme.colors.retroGreen} bold>ACTIVE</Text>
-              <Text color={theme.colors.retroSlateDark}> │ </Text>
-              <Text color={theme.colors.dim}>TTY: </Text>
-              <Text color={theme.colors.textBright}>pts/0</Text>
+          <Box marginTop={1} flexDirection="row" justifyContent="space-between" alignItems="center">
+            <RetroKeyboardLegend bindings={[
+              { key: "F1",    label: "HELP"  },
+              { key: "F2",    label: "INIT"  },
+              { key: "^L",    label: "CLEAR" },
+              { key: "^C",    label: "EXIT"  },
+              { key: "↑↓",    label: "HIST"  },
+            ]} />
+            <Box flexDirection="row" gap={1}>
+              <Text color={theme.colors.retroSlateDark}>{"SESSION:"}</Text>
+              <Text color={theme.colors.retroGreenBright} bold>{"ACTIVE"}</Text>
+              <Text color={theme.colors.retroPanel}>{"│"}</Text>
+              <Text color={theme.colors.retroSlateDark}>{"TTY:"}</Text>
+              <Text color={theme.colors.retroSlate}>{"pts/0"}</Text>
             </Box>
           </Box>
         </>
