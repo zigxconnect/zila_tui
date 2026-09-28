@@ -17,7 +17,7 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({
   title,
   children,
-  borderColor = "retroCyan",
+  borderColor = "retroBlue",
   padding = 1,
   marginTop = 0,
   marginBottom = 0,
@@ -28,15 +28,15 @@ export const Card: React.FC<CardProps> = ({
     <Box flexDirection="column" marginTop={marginTop} marginBottom={marginBottom}>
       {title && (
         <Box marginBottom={0}>
-          <Text bold color={theme.colors.retroAmberBright}>
-            {"[ "}{title.toUpperCase()}{" ]"}
+          <Text bold color={theme.colors.white}>
+            {"[ "}{title}{" ]"}
           </Text>
         </Box>
       )}
       <Box
         flexDirection="column"
         borderStyle={bStyle}
-        borderColor={theme.colors[borderColor] || theme.colors.retroCyan}
+        borderColor={theme.colors[borderColor] || theme.colors.retroBlue}
         paddingX={padding}
         paddingY={padding}
       >
@@ -61,7 +61,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   max,
   width = 24,
   showPercentage = true,
-  color = "retroCyan",
+  color = "retroBlueBright",
 }) => {
   const percentage = Math.min((current / max) * 100, 100);
   const filled = Math.round((width * percentage) / 100);
@@ -69,16 +69,16 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
   return (
     <Box flexDirection="row" gap={1}>
-      <Text color={theme.colors.retroPanel}>{"["}</Text>
-      <Text color={theme.colors[color] || theme.colors.retroCyan}>
+      <Text color={theme.colors.retroSlateDark}>{"["}</Text>
+      <Text color={theme.colors[color] || theme.colors.retroBlueBright}>
         {"▓".repeat(filled)}
       </Text>
       <Text color={theme.colors.retroSlateDark}>
         {"░".repeat(empty)}
       </Text>
-      <Text color={theme.colors.retroPanel}>{"]"}</Text>
+      <Text color={theme.colors.retroSlateDark}>{"]"}</Text>
       {showPercentage && (
-        <Text color={theme.colors.retroSlate}>
+        <Text color={theme.colors.white} bold>
           {Math.round(percentage).toString().padStart(3, " ")}{"%"}
         </Text>
       )}
@@ -95,17 +95,17 @@ interface BadgeProps {
 
 export const Badge: React.FC<BadgeProps> = ({ children, variant = "default" }) => {
   const colors: Record<string, string> = {
-    default: theme.colors.retroSlate,
+    default: theme.colors.retroSlateDark,
     success: theme.colors.retroGreenBright,
     warning: theme.colors.retroAmberBright,
     error:   theme.colors.error,
-    info:    theme.colors.retroCyan,
-    primary: theme.colors.retroCyanBright,
+    info:    theme.colors.retroBlueBright,
+    primary: theme.colors.retroBlue,
   };
 
   return (
     <Box flexDirection="row">
-      <Text color={colors[variant] || theme.colors.retroSlate} bold>
+      <Text color={colors[variant] || theme.colors.retroSlateDark} bold>
         {"["}{children}{"]"}
       </Text>
     </Box>
@@ -123,12 +123,12 @@ interface DividerProps {
 
 export const Divider: React.FC<DividerProps> = ({
   title,
-  color = "retroCyan",
+  color = "retroBlue",
   marginY = 1,
   double = false,
 }) => {
   const ch = double ? "═" : "─";
-  const c  = theme.colors[color] || theme.colors.retroCyan;
+  const c  = theme.colors[color] || theme.colors.retroBlue;
 
   if (title) {
     return (
@@ -136,8 +136,8 @@ export const Divider: React.FC<DividerProps> = ({
         <Text color={c}>
           {ch.repeat(3)}{" [ "}
         </Text>
-        <Text color={theme.colors.retroAmberBright} bold>
-          {title.toUpperCase()}
+        <Text color={theme.colors.white} bold>
+          {title}
         </Text>
         <Text color={c}>
           {" ] "}{ch.repeat(40)}
@@ -167,20 +167,19 @@ export const StatItem: React.FC<StatItemProps> = ({
   label,
   value,
   icon,
-  color = "retroCyanBright",
+  color = "white",
   width = 20,
 }) => {
-  // Dotted leader between label and value
   const labelStr = (icon ? `${icon} ` : "") + label;
   const dots = ".".repeat(Math.max(2, width - labelStr.length));
 
   return (
     <Box flexDirection="row">
-      <Text color={theme.colors.retroSlate}>
+      <Text color={theme.colors.retroSlateDark}>
         {labelStr}
       </Text>
       <Text color={theme.colors.retroSlateDark}>{dots}</Text>
-      <Text color={theme.colors[color] || theme.colors.retroCyanBright} bold>
+      <Text color={theme.colors[color] || theme.colors.white} bold>
         {String(value)}
       </Text>
     </Box>
@@ -204,16 +203,16 @@ export const ListItem: React.FC<ListItemProps> = ({
 }) => {
   return (
     <Box flexDirection="row" gap={1}>
-      <Text color={selected ? theme.colors.retroCyanBright : theme.colors.retroSlateDark} bold>
-        {selected ? "▶" : " "}
+      <Text color={selected ? theme.colors.retroBlueBright : theme.colors.retroSlateDark} bold>
+        {selected ? "›" : " "}
       </Text>
       {icon && <Text>{icon}</Text>}
       {prefix && (
-        <Text color={theme.colors.retroSlate}>
+        <Text color={theme.colors.retroSlateDark}>
           {prefix}
         </Text>
       )}
-      <Text color={selected ? theme.colors.retroCyanBright : theme.colors.retroSlate} bold={selected}>
+      <Text color={selected ? theme.colors.white : theme.colors.retroSlate} bold={selected}>
         {children}
       </Text>
     </Box>
@@ -230,13 +229,14 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ title, subtitle, icon }) => {
   return (
-    <Box flexDirection="column" marginBottom={2}>
-      <Text color={theme.colors.retroCyan}>{"═".repeat(72)}</Text>
-      <Box flexDirection="row" gap={1}>
-        <Text color={theme.colors.retroCyanBright} bold>{"▓▓"}</Text>
+    <Box flexDirection="column" marginBottom={1}>
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+      <Box flexDirection="row" gap={1} alignItems="center">
+        <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
         {icon && <Text>{icon}</Text>}
-        <Text bold color={theme.colors.retroAmberBright}>
-          {title.toUpperCase()}
+        <Text bold color={theme.colors.white}>
+          {title}
         </Text>
       </Box>
       {subtitle && (
@@ -244,7 +244,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, icon }) => {
           <Text color={theme.colors.retroSlateDark}>{subtitle}</Text>
         </Box>
       )}
-      <Text color={theme.colors.retroCyan}>{"═".repeat(72)}</Text>
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
     </Box>
   );
 };
@@ -259,7 +259,7 @@ interface InfoBoxProps {
 
 export const InfoBox: React.FC<InfoBoxProps> = ({ type, title, children }) => {
   const config: Record<string, { tag: string; color: string }> = {
-    info:    { tag: "[INFO]",  color: theme.colors.retroCyan },
+    info:    { tag: "[INFO]",  color: theme.colors.retroBlueBright },
     success: { tag: "[ OK ]",  color: theme.colors.retroGreenBright },
     warning: { tag: "[WARN]",  color: theme.colors.retroAmberBright },
     error:   { tag: "[FAIL]",  color: theme.colors.error },
@@ -282,7 +282,7 @@ export const InfoBox: React.FC<InfoBoxProps> = ({ type, title, children }) => {
         <Text color={color} bold>{(title || type).toUpperCase()}</Text>
       </Box>
       <Box marginTop={1}>
-        <Text color={theme.colors.text}>{children}</Text>
+        <Text color={theme.colors.white}>{children}</Text>
       </Box>
     </Box>
   );
@@ -302,19 +302,19 @@ export const KeyValue: React.FC<KeyValueProps> = ({ label, value, inline = false
     const dots = ".".repeat(Math.max(2, width - label.length));
     return (
       <Box flexDirection="row">
-        <Text color={theme.colors.retroSlate}>{label}</Text>
+        <Text color={theme.colors.retroSlateDark}>{label}</Text>
         <Text color={theme.colors.retroSlateDark}>{dots}</Text>
-        <Text color={theme.colors.retroCyanBright}>{value}</Text>
+        <Text color={theme.colors.white} bold>{value}</Text>
       </Box>
     );
   }
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text color={theme.colors.retroSlateDark} bold>
-        {label.toUpperCase()}
+      <Text color={theme.colors.retroSlateDark}>
+        {label}
       </Text>
-      <Text color={theme.colors.retroCyanBright}>{value}</Text>
+      <Text color={theme.colors.white} bold>{value}</Text>
     </Box>
   );
 };
@@ -362,19 +362,19 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   action,
 }) => {
   return (
-    <Box flexDirection="column" alignItems="center" paddingY={3}>
-      <Text color={theme.colors.retroCyan}>{icon}</Text>
+    <Box flexDirection="column" alignItems="center" paddingY={2}>
+      <Text color={theme.colors.retroBlueBright}>{icon}</Text>
       <Box marginTop={1}>
-        <Text bold color={theme.colors.retroAmberBright}>
-          {"[ "}{title.toUpperCase()}{" ]"}
+        <Text bold color={theme.colors.white}>
+          {title}
         </Text>
       </Box>
       <Box marginTop={1}>
-        <Text color={theme.colors.retroSlate}>{message}</Text>
+        <Text color={theme.colors.retroSlateDark}>{message}</Text>
       </Box>
       {action && (
         <Box marginTop={1}>
-          <Text color={theme.colors.retroSlateDark}>{action}</Text>
+          <Text color={theme.colors.retroBlueBright}>{action}</Text>
         </Box>
       )}
     </Box>
