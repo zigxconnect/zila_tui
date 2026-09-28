@@ -19,7 +19,7 @@ export const RetroBox: React.FC<RetroBoxProps> = ({
   title,
   tag,
   borderStyle = "single",
-  borderColor = "accent",
+  borderColor = "retroBlue",
   paddingX = 1,
   paddingY = 0,
   width,
@@ -36,7 +36,7 @@ export const RetroBox: React.FC<RetroBoxProps> = ({
       ? theme.box
       : theme.boxSingle;
 
-  const color = theme.colors[borderColor] || theme.colors.accent;
+  const color = theme.colors[borderColor] || theme.colors.retroBlue;
 
   // Render top border with optional inset title and tag
   const renderTopBorder = () => {
@@ -55,23 +55,23 @@ export const RetroBox: React.FC<RetroBoxProps> = ({
         <Text color={color}>{chars.topLeft}{chars.horizontal}</Text>
         {title && (
           <Box flexDirection="row">
-            <Text color={color}>[ </Text>
-            <Text color={theme.colors.textBright} bold>{title}</Text>
-            <Text color={color}> ]</Text>
+            <Text color={color}>{"[ "}</Text>
+            <Text color={theme.colors.white} bold>{title}</Text>
+            <Text color={color}>{" ]"}</Text>
           </Box>
         )}
         <Text color={color}>
           {chars.horizontal.repeat(
             width
-              ? Math.max(1, width - (title ? title.length + 8 : 4) - (tag ? tag.length + 6 : 0))
+              ? Math.max(1, width - (title ? title.length + 6 : 2) - (tag ? tag.length + 6 : 0))
               : 20
           )}
         </Text>
         {tag && (
           <Box flexDirection="row">
-            <Text color={color}>[ </Text>
-            <Text color={theme.colors.retroGreen} bold>{tag}</Text>
-            <Text color={color}> ]</Text>
+            <Text color={color}>{"[ "}</Text>
+            <Text color={theme.colors.retroGreenBright} bold>{tag}</Text>
+            <Text color={color}>{" ]"}</Text>
           </Box>
         )}
         <Text color={color}>{chars.topRight}</Text>
