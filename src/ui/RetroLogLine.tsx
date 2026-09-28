@@ -12,12 +12,12 @@ export interface RetroLogLineProps {
 }
 
 const LEVEL_CONFIG: Record<LogLevel, { tag: string; tagColor: string; msgColor: string }> = {
-  ok:    { tag: "[ OK ]",   tagColor: theme.colors.retroGreenBright, msgColor: theme.colors.retroSlate     },
-  fail:  { tag: "[FAIL]",   tagColor: theme.colors.error,            msgColor: theme.colors.error           },
-  warn:  { tag: "[WARN]",   tagColor: theme.colors.retroAmberBright, msgColor: theme.colors.retroAmber      },
-  info:  { tag: "[INFO]",   tagColor: theme.colors.retroCyanBright,  msgColor: theme.colors.retroSlate      },
-  debug: { tag: "[DBUG]",   tagColor: theme.colors.retroSlateDark,   msgColor: theme.colors.retroSlateDark  },
-  note:  { tag: "[NOTE]",   tagColor: theme.colors.retroMagenta,     msgColor: theme.colors.retroSlate      },
+  ok:    { tag: "[ OK ]",   tagColor: theme.colors.retroGreenBright, msgColor: theme.colors.white },
+  fail:  { tag: "[FAIL]",   tagColor: theme.colors.error,            msgColor: theme.colors.error },
+  warn:  { tag: "[WARN]",   tagColor: theme.colors.retroAmberBright, msgColor: theme.colors.retroAmber },
+  info:  { tag: "[INFO]",   tagColor: theme.colors.retroBlueBright,  msgColor: theme.colors.white },
+  debug: { tag: "[DBUG]",   tagColor: theme.colors.retroSlateDark,   msgColor: theme.colors.retroSlateDark },
+  note:  { tag: "[NOTE]",   tagColor: theme.colors.retroBlueBright,  msgColor: theme.colors.white },
 };
 
 /**
@@ -49,7 +49,7 @@ export const RetroLogLine: React.FC<RetroLogLineProps> = ({
       {source && (
         <>
           <Text color={theme.colors.retroSlateDark}>{source.toUpperCase().padEnd(6)}</Text>
-          <Text color={theme.colors.retroPanel}>{"·"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"·"}</Text>
         </>
       )}
 
