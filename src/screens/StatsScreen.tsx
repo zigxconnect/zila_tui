@@ -43,78 +43,76 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ onClose }) => {
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      {/* 90s Performance Diagnostics Frame */}
-      <Box
-        flexDirection="column"
-        borderStyle="single"
-        borderColor={theme.colors.accent}
-        paddingX={2}
-        paddingY={1}
-      >
-        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroCyanBright} bold>
-              [ INTERN PERFORMANCE & WORKSTATION METRICS ]
-            </Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen} bold>[RANK #{data.rank} OF {data.totalStudents}]</Text>
-          </Box>
-        </Box>
+      {/* Top rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
-        {/* Overview Row */}
-        <Box flexDirection="row" marginBottom={1}>
-          <Box borderStyle="single" borderColor={theme.colors.border} paddingX={1} marginRight={2}>
-            <Text color={theme.colors.muted}>TOTAL POINTS: </Text>
-            <Text color={theme.colors.retroAmberBright} bold>{data.totalPoints} PTS</Text>
-          </Box>
-          <Box borderStyle="single" borderColor={theme.colors.border} paddingX={1} marginRight={2}>
-            <Text color={theme.colors.muted}>COHORT STANDING: </Text>
-            <Text color={theme.colors.retroCyanBright} bold>TOP 7%</Text>
-          </Box>
-          <Box borderStyle="single" borderColor={theme.colors.border} paddingX={1}>
-            <Text color={theme.colors.muted}>LATEST SCORE: </Text>
-            <Text color={theme.colors.retroGreenBright} bold>88%</Text>
-          </Box>
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+          <Text color={theme.colors.white} bold>{"intern performance"}</Text>
         </Box>
+        <Text color={theme.colors.retroGreenBright}>{`rank #${data.rank} of ${data.totalStudents}`}</Text>
+      </Box>
 
-        {/* Weekly Progression ASCII Histogram */}
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={theme.colors.accent} bold>WEEKLY PERFORMANCE HISTOGRAM:</Text>
-          {data.weeklyScores.map((ws) => (
-            <Box key={ws.week} marginY={0}>
-              <RetroMeter
-                label={`Sprint Week 0${ws.week}`}
-                value={ws.score}
-                max={100}
-                width={26}
-                style="blocks"
-                color={ws.score >= 85 ? "retroGreen" : "retroCyan"}
-              />
+      {/* Divider */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Highlights */}
+      <Box flexDirection="row" gap={4} marginBottom={1}>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroSlateDark}>{"Points:"}</Text>
+          <Text color={theme.colors.white} bold>{data.totalPoints} pts</Text>
+        </Box>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroSlateDark}>{"Standing:"}</Text>
+          <Text color={theme.colors.retroBlueBright} bold>{"Top 7%"}</Text>
+        </Box>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroSlateDark}>{"Latest Sprint:"}</Text>
+          <Text color={theme.colors.retroGreenBright} bold>{"88%"}</Text>
+        </Box>
+      </Box>
+
+      {/* Weekly Scores */}
+      <Box flexDirection="column" gap={0} marginBottom={1}>
+        <Text color={theme.colors.retroBlueBright} bold>{"WEEKLY SCORES"}</Text>
+        {data.weeklyScores.map((ws) => (
+          <Box key={ws.week} flexDirection="row" alignItems="center">
+            <Box width={14}>
+              <Text color={theme.colors.retroSlateDark}>{`Week 0${ws.week}`}</Text>
             </Box>
-          ))}
-        </Box>
+            <RetroMeter
+              value={ws.score}
+              max={100}
+              width={24}
+              style="blocks"
+              color={ws.score >= 85 ? "retroGreenBright" : "retroBlueBright"}
+              showPercent={true}
+            />
+          </Box>
+        ))}
+      </Box>
 
-        {/* Points Breakdown with Dotted Leaders */}
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={theme.colors.accent} bold>CREDIT ALLOCATION BREAKDOWN:</Text>
-          {Object.entries(data.pointsBreakdown).map(([category, pts]) => {
-            const dots = Math.max(2, 45 - category.length - String(pts).length);
-            return (
-              <Box key={category} flexDirection="row" alignItems="center">
-                <Text color={theme.colors.muted}>{category}</Text>
-                <Text color={theme.colors.retroSlateDark}> {"·".repeat(dots)} </Text>
-                <Text color={theme.colors.textBright} bold>{pts} PTS</Text>
-              </Box>
-            );
-          })}
-        </Box>
+      {/* Breakdown */}
+      <Box flexDirection="column" gap={0}>
+        <Text color={theme.colors.retroBlueBright} bold>{"CREDIT BREAKDOWN"}</Text>
+        {Object.entries(data.pointsBreakdown).map(([category, pts]) => (
+          <Box key={category} flexDirection="row" justifyContent="space-between" width={48}>
+            <Text color={theme.colors.retroSlateDark}>{category}</Text>
+            <Text color={theme.colors.white} bold>{pts} pts</Text>
+          </Box>
+        ))}
+      </Box>
 
-        {/* Footer */}
-        <Box marginTop={1} flexDirection="row" justifyContent="space-between">
-          <Text color={theme.colors.dim}>[ESC / ENTER / q: RETURN]</Text>
-          <Text color={theme.colors.retroSlateDark}>ZIGEX EVALUATION MATRIX v1.2</Text>
-        </Box>
+      {/* Bottom rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Footer */}
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={theme.colors.retroSlateDark}>{"esc / q / enter to close"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"Zigex Intern Evaluation"}</Text>
       </Box>
     </Box>
   );
