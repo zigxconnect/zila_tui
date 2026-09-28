@@ -3,7 +3,7 @@ import { Box, Text } from "ink";
 import { theme } from "./theme.js";
 
 export interface RetroHeaderProps {
-  /** Primary title — shown bold in amber */
+  /** Primary title — shown bold in white */
   title: string;
   /** Secondary subtitle — shown dim after a · separator */
   subtitle?: string;
@@ -11,29 +11,29 @@ export interface RetroHeaderProps {
   statusTag?: string;
   /** Color of the status tag — defaults to retroGreenBright */
   statusColor?: keyof typeof theme.colors;
-  /** Use double═══ rule (default) or single─── rule */
+  /** Use double═══ rule or single─── rule (default false) */
   double?: boolean;
   /** Screen width for the top/bottom rule */
   width?: number;
 }
 
 /**
- * RetroHeader — Reusable 90s workstation screen header.
+ * RetroHeader — Clean Zigex workstation screen header.
  *
- *  ══════════════════════════════════════════════════════════════
- *  ▓▓  [ TITLE ]  ·  subtitle                         [ STATUS ]
- *  ══════════════════════════════════════════════════════════════
+ *  ──────────────────────────────────────────────────────────────
+ *  lil-zila › TITLE  ·  subtitle                       [ STATUS ]
+ *  ──────────────────────────────────────────────────────────────
  */
 export const RetroHeader: React.FC<RetroHeaderProps> = ({
   title,
   subtitle,
   statusTag,
   statusColor = "retroGreenBright",
-  double = true,
+  double = false,
   width = 72,
 }) => {
   const ch = double ? "═" : "─";
-  const ruleColor = theme.colors.retroCyan;
+  const ruleColor = theme.colors.retroBlue;
   const tagColor  = theme.colors[statusColor] || theme.colors.retroGreenBright;
 
   return (
@@ -43,15 +43,14 @@ export const RetroHeader: React.FC<RetroHeaderProps> = ({
 
       {/* Identity row */}
       <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        {/* Left: prefix + title + subtitle */}
+        {/* Left: branding + title + subtitle */}
         <Box flexDirection="row" gap={1} alignItems="center">
-          <Text color={theme.colors.retroCyanBright} bold>{"▓▓"}</Text>
-          <Text color={theme.colors.retroCyan}>{"["}</Text>
-          <Text color={theme.colors.retroAmberBright} bold>{title.toUpperCase()}</Text>
-          <Text color={theme.colors.retroCyan}>{"]"}</Text>
+          <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+          <Text color={theme.colors.white} bold>{title}</Text>
           {subtitle && (
             <>
-              <Text color={theme.colors.retroPanel}>{"·"}</Text>
+              <Text color={theme.colors.retroSlateDark}>{"·"}</Text>
               <Text color={theme.colors.retroSlateDark}>{subtitle}</Text>
             </>
           )}
@@ -59,11 +58,7 @@ export const RetroHeader: React.FC<RetroHeaderProps> = ({
 
         {/* Right: status tag */}
         {statusTag && (
-          <Box flexDirection="row" gap={0}>
-            <Text color={theme.colors.retroPanel}>{"[ "}</Text>
-            <Text color={tagColor} bold>{statusTag.toUpperCase()}</Text>
-            <Text color={theme.colors.retroPanel}>{" ]"}</Text>
-          </Box>
+          <Text color={tagColor} bold>{statusTag}</Text>
         )}
       </Box>
 
