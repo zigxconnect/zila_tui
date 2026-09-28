@@ -20,7 +20,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onComplete }) => {
   // Cursor blink
   useEffect(() => {
     if (step !== "email" && step !== "otp") return;
-    const id = setInterval(() => setCursorOn((v) => !v), 450);
+    const id = setInterval(() => setCursorOn((v) => !v), 500);
     return () => clearInterval(id);
   }, [step]);
 
@@ -106,110 +106,105 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onComplete }) => {
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      {/* 90s Cryptographic Login Box */}
-      <Box
-        flexDirection="column"
-        borderStyle="single"
-        borderColor={theme.colors.accent}
-        paddingX={2}
-        paddingY={1}
-      >
-        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroCyanBright} bold>
-              [ CRYPTOGRAPHIC IDENTITY AUTHENTICATION GATEWAY ]
+      {/* Top rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+          <Text color={theme.colors.white} bold>{"authentication"}</Text>
+        </Box>
+        <Text color={theme.colors.retroGreenBright}>{"tls secure"}</Text>
+      </Box>
+
+      {/* Divider */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Subtitle / Instructions */}
+      <Box marginBottom={1}>
+        <Text color={theme.colors.retroSlateDark}>
+          {"Connect your Zigex account to sync cohorts and tasks."}
+        </Text>
+      </Box>
+
+      {/* Email input field */}
+      <Box flexDirection="column" marginBottom={1}>
+        <Box flexDirection="row" gap={1} alignItems="center">
+          <Box width={16}>
+            <Text color={step === "email" ? theme.colors.retroBlueBright : theme.colors.retroSlateDark} bold>
+              {"Account Email:"}
             </Text>
           </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen} bold>[SECURE: TLS]</Text>
-          </Box>
-        </Box>
-
-        {/* Instructions */}
-        <Box flexDirection="column" marginBottom={1}>
-          <Text color={theme.colors.muted}>
-            Connect your Zigex intern identity to synchronize cohorts and submissions.
+          <Text color={theme.colors.white}>
+            {email || (step === "email" ? "" : "student@zigex.com")}
           </Text>
-        </Box>
-
-        {/* Email Field Frame */}
-        <Box
-          flexDirection="column"
-          borderStyle="single"
-          borderColor={step === "email" ? theme.colors.retroCyanBright : theme.colors.border}
-          paddingX={1}
-          marginBottom={1}
-        >
-          <Box flexDirection="row">
-            <Text color={step === "email" ? theme.colors.retroCyanBright : theme.colors.muted} bold>
-              {step === "email" ? "› " : "  "}STUDENT ACCOUNT EMAIL:
+          {step === "email" && (
+            <Text color={theme.colors.retroBlueBright} bold>
+              {cursorOn ? "█" : " "}
             </Text>
-          </Box>
-          <Box flexDirection="row" alignItems="center">
-            <Text color={theme.colors.textBright}>{email || (step === "email" ? "" : "(e.g., student@zigex.com)")}</Text>
-            {step === "email" && cursorOn && (
-              <Text color={theme.colors.accentBright} bold>█</Text>
+          )}
+        </Box>
+      </Box>
+
+      {/* OTP input field */}
+      {(step === "otp" || step === "verifying" || step === "done") && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Box flexDirection="row" gap={1} alignItems="center">
+            <Box width={16}>
+              <Text color={step === "otp" ? theme.colors.retroBlueBright : theme.colors.retroSlateDark} bold>
+                {"6-Digit Code:"}
+              </Text>
+            </Box>
+            <Text color={theme.colors.white} bold>
+              {otp ? otp.split("").join(" ") : ""}
+            </Text>
+            {step === "otp" && (
+              <Text color={theme.colors.retroBlueBright} bold>
+                {cursorOn ? "█" : " "}
+              </Text>
+            )}
+            {!otp && step === "otp" && (
+              <Text color={theme.colors.retroSlateDark}>{"(sent to your email)"}</Text>
             )}
           </Box>
         </Box>
+      )}
 
-        {/* OTP Field Frame */}
-        {(step === "otp" || step === "verifying" || step === "done") && (
-          <Box
-            flexDirection="column"
-            borderStyle="single"
-            borderColor={step === "otp" ? theme.colors.retroCyanBright : theme.colors.border}
-            paddingX={1}
-            marginBottom={1}
-          >
-            <Box flexDirection="row" justifyContent="space-between">
-              <Text color={step === "otp" ? theme.colors.retroCyanBright : theme.colors.muted} bold>
-                {step === "otp" ? "› " : "  "}6-DIGIT VERIFICATION TOKEN:
-              </Text>
-              <Text color={theme.colors.dim}>[DISPATCHED TO EMAIL]</Text>
-            </Box>
-            <Box flexDirection="row" alignItems="center">
-              <Text color={theme.colors.retroGreenBright} bold>
-                {otp.split("").join("  ") || "(waiting for code)"}
-              </Text>
-              {step === "otp" && cursorOn && (
-                <Text color={theme.colors.accentBright} bold> █</Text>
-              )}
-            </Box>
-          </Box>
-        )}
-
-        {/* Spinner */}
-        {isLoading && (
-          <Box flexDirection="row" marginBottom={1} alignItems="center">
-            <Spinner
-              style="radar"
-              color={theme.colors.accent}
-              label={step === "requesting" ? "Dispatching OTP challenge packet..." : "Verifying token against Zigex auth authority..."}
-            />
-          </Box>
-        )}
-
-        {/* Success */}
-        {step === "done" && (
-          <Box flexDirection="row" marginBottom={1}>
-            <Text color={theme.colors.successBright} bold>[OK] Authentication verified. Bearer token saved.</Text>
-          </Box>
-        )}
-
-        {/* Error */}
-        {errorMsg !== "" && (
-          <Box flexDirection="row" marginBottom={1}>
-            <Text color={theme.colors.errorBright} bold>[FAIL] </Text>
-            <Text color={theme.colors.error}>{errorMsg}</Text>
-          </Box>
-        )}
-
-        {/* Footer */}
-        <Box marginTop={1} flexDirection="row" justifyContent="space-between">
-          <Text color={theme.colors.dim}>[ENTER: ADVANCE] [ESC: ABORT LOGIN]</Text>
-          <Text color={theme.colors.retroSlateDark}>TOKEN VAULT: ~/.zila/auth.json</Text>
+      {/* Loading indicator */}
+      {isLoading && (
+        <Box flexDirection="row" gap={1} marginBottom={1} alignItems="center">
+          <Spinner style="classic" color={theme.colors.retroBlueBright} />
+          <Text color={theme.colors.retroSlateDark}>
+            {step === "requesting" ? "Requesting verification code..." : "Verifying credentials..."}
+          </Text>
         </Box>
+      )}
+
+      {/* Success notification */}
+      {step === "done" && (
+        <Box flexDirection="row" gap={1} marginBottom={1}>
+          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
+          <Text color={theme.colors.white} bold>{"Authenticated successfully. Token saved."}</Text>
+        </Box>
+      )}
+
+      {/* Error notification */}
+      {errorMsg !== "" && (
+        <Box flexDirection="row" gap={1} marginBottom={1}>
+          <Text color={theme.colors.error}>{"✗"}</Text>
+          <Text color={theme.colors.error}>{errorMsg}</Text>
+        </Box>
+      )}
+
+      {/* Bottom rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Footer */}
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={theme.colors.retroSlateDark}>{"enter to continue · esc to cancel"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"~/.zila/auth.json"}</Text>
       </Box>
     </Box>
   );
