@@ -60,27 +60,29 @@ const Cursor: React.FC<{ on: boolean }> = ({ on }) => (
   <Text color={theme.colors.retroCyanBright}>{on ? "█" : " "}</Text>
 );
 
-// Phase status badge
+// Phase status — clean, minimal
 const PhaseBadge: React.FC<{ phase: Phase; turnCount: number }> = ({ phase, turnCount }) => {
   if (phase === "thinking")
     return (
       <Box flexDirection="row" gap={1}>
-        <Spinner style="radar" color={theme.colors.retroAmber} />
-        <Text color={theme.colors.retroAmberBright} bold>{"[ PROCESSING ]"}</Text>
+        <Spinner style="classic" color={theme.colors.retroBlueBright} />
+        <Text color={theme.colors.retroSlateDark}>{"thinking…"}</Text>
       </Box>
     );
   if (phase === "booting")
     return (
       <Box flexDirection="row" gap={1}>
-        <Spinner style="classic" color={theme.colors.retroCyan} />
-        <Text color={theme.colors.retroCyan}>{"[ BOOTING ]"}</Text>
+        <Spinner style="classic" color={theme.colors.retroSlateDark} />
+        <Text color={theme.colors.retroSlateDark}>{"starting…"}</Text>
       </Box>
     );
   if (phase === "ready" && turnCount === 0)
-    return <Text color={theme.colors.retroGreenBright} bold>{"[ ONLINE ]"}</Text>;
+    return <Text color={theme.colors.retroGreenBright}>{"ready"}</Text>;
   if (phase === "ready" && turnCount > 0)
-    return <Text color={theme.colors.retroGreen}>{"[ READY ] "}<Text color={theme.colors.retroCyan}>{turnCount}</Text><Text color={theme.colors.retroSlate}>{" sessions"}</Text></Text>;
-  return <Text color={theme.colors.error}>{"[ ERROR ]"}</Text>;
+    return (
+      <Text color={theme.colors.retroSlateDark}>{turnCount}{" answered"}</Text>
+    );
+  return <Text color={theme.colors.error}>{"error"}</Text>;
 };
 
 // ─── Header ────────────────────────────────────────────────────────────────────
@@ -89,44 +91,36 @@ const Header: React.FC<{ repo: RepoMeta | null; phase: Phase; turnCount: number 
   repo, phase, turnCount,
 }) => (
   <Box flexDirection="column" marginBottom={1}>
-    {/* ═══ TOP BAR ═══ */}
-    <HeavyRule />
-    <Box flexDirection="row" justifyContent="space-between" paddingX={1}>
-      {/* Left: identity */}
+    {/* Top rule */}
+    <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+    {/* Identity + status row */}
+    <Box flexDirection="row" justifyContent="space-between" alignItems="center">
       <Box flexDirection="row" gap={1}>
-        <Text color={theme.colors.retroCyanBright} bold>{"▓▓"}</Text>
-        <Text color={theme.colors.retroAmberBright} bold>{"LIL ZILA"}</Text>
-        <Text color={theme.colors.retroCyan}>{"›"}</Text>
-        <Text color={theme.colors.retroCyanBright} bold>{"AI ASSISTANT"}</Text>
+        <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+        <Text color={theme.colors.white} bold>{"assistant"}</Text>
         {repo && (
           <>
-            <Text color={theme.colors.retroPanel}>{"║"}</Text>
-            <Text color={theme.colors.retroGreen}>{"REPO:"}</Text>
-            <Text color={theme.colors.retroGreenBright} bold>{repo.name.toUpperCase()}</Text>
-            <Text color={theme.colors.retroSlate}>{"@"}</Text>
-            <Text color={theme.colors.retroAmber}>{repo.branch}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"·"}</Text>
+            <Text color={theme.colors.retroBlueBright}>{repo.name}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"@"}</Text>
+            <Text color={theme.colors.retroSlateDark}>{repo.branch}</Text>
           </>
         )}
       </Box>
-      {/* Right: phase badge */}
       <PhaseBadge phase={phase} turnCount={turnCount} />
     </Box>
-    <HeavyRule />
 
-    {/* Repo telemetry sub-bar */}
+    {/* Repo meta — single dim line */}
     {repo && (
-      <Box flexDirection="row" gap={3} paddingX={1} marginTop={0}>
-        <Text color={theme.colors.retroSlate}>{"COMMITS:"}</Text>
-        <Text color={theme.colors.retroCyan}>{repo.commitCount}</Text>
-        <Text color={theme.colors.retroPanel}>{"·"}</Text>
-        <Text color={theme.colors.retroSlate}>{"LAST:"}</Text>
-        <Text color={theme.colors.retroCyan}>{repo.lastCommit}</Text>
-        <Text color={theme.colors.retroPanel}>{"·"}</Text>
-        <Text color={theme.colors.retroSlate}>{"PATH:"}</Text>
-        <Text color={theme.colors.retroSlateDark}>{repo.path}</Text>
-      </Box>
+      <Text color={theme.colors.retroSlateDark}>
+        {"  "}{repo.commitCount}{" commits · "}{repo.lastCommit}{" · "}{repo.path}
+      </Text>
     )}
-    {repo && <ThinRule />}
+
+    {/* Bottom rule */}
+    <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
   </Box>
 );
 
@@ -143,19 +137,17 @@ const CompletedTurn: React.FC<{ turn: Turn }> = ({ turn }) => {
     <Box flexDirection="column" marginBottom={1}>
       {/* Question row */}
       <Box flexDirection="row" gap={1}>
-        <Text color={theme.colors.retroAmberBright} bold>{"[Q]"}</Text>
-        <Text color={theme.colors.retroAmber} bold wrap="wrap">{turn.question}</Text>
+        <Text color={theme.colors.retroBlueBright} bold>{"Q:"}</Text>
+        <Text color={theme.colors.white} bold wrap="wrap">{turn.question}</Text>
       </Box>
 
       {/* Meta row */}
-      <Box flexDirection="row" gap={2} marginLeft={4} marginTop={0} marginBottom={1}>
-        <Text color={theme.colors.retroSlateDark}>{"TIME:"}</Text>
-        <Text color={theme.colors.retroSlate}>{turn.elapsedS}s</Text>
+      <Box flexDirection="row" gap={2} marginLeft={3} marginTop={0} marginBottom={1}>
+        <Text color={theme.colors.retroSlateDark}>{turn.elapsedS}{"s"}</Text>
         {toolsUsed.length > 0 && (
           <>
-            <Text color={theme.colors.retroPanel}>{"·"}</Text>
-            <Text color={theme.colors.retroSlateDark}>{"TOOLS:"}</Text>
-            <Text color={theme.colors.retroSlate}>{toolsUsed.join(", ")}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"·"}</Text>
+            <Text color={theme.colors.retroSlateDark}>{toolsUsed.join(", ")}</Text>
           </>
         )}
       </Box>
@@ -163,17 +155,12 @@ const CompletedTurn: React.FC<{ turn: Turn }> = ({ turn }) => {
       {/* Answer box */}
       {answerEvent?.type === "answer" && (
         <Box flexDirection="column" marginLeft={0} marginBottom={1}>
-          <Box flexDirection="row" gap={1} marginBottom={0}>
-            <Text color={theme.colors.retroCyanBright} bold>{"[A]"}</Text>
-            <Text color={theme.colors.retroGreen}>{"─────────────────────────────────────────────────────────"}</Text>
-          </Box>
           <Box
             flexDirection="column"
             borderStyle="single"
-            borderColor={theme.colors.retroCyan}
+            borderColor={theme.colors.retroBlue}
             paddingX={2}
             paddingY={1}
-            marginLeft={0}
           >
             <Text color={theme.colors.white} wrap="wrap">{answerEvent.text}</Text>
           </Box>
@@ -183,10 +170,7 @@ const CompletedTurn: React.FC<{ turn: Turn }> = ({ turn }) => {
       {/* Error box */}
       {!answerEvent && errorEvent?.type === "error" && (
         <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.error} paddingX={2} paddingY={1}>
-          <Box flexDirection="row" gap={1} marginBottom={1}>
-            <Text color={theme.colors.error} bold>{"[FAIL]"}</Text>
-            <Text color={theme.colors.error} bold>{"AGENT ERROR"}</Text>
-          </Box>
+          <Text color={theme.colors.error} bold>{"Error"}</Text>
           <Text color={theme.colors.text} wrap="wrap">{errorEvent.text}</Text>
         </Box>
       )}
@@ -194,12 +178,11 @@ const CompletedTurn: React.FC<{ turn: Turn }> = ({ turn }) => {
       {/* No answer */}
       {!answerEvent && !errorEvent && (
         <Box paddingX={2}>
-          <Text color={theme.colors.retroAmber}>{"[WARN]"}</Text>
-          <Text color={theme.colors.warning}>{" No answer was produced. Try rephrasing."}</Text>
+          <Text color={theme.colors.warning}>{"⚠ No answer produced. Try rephrasing."}</Text>
         </Box>
       )}
 
-      <Box marginTop={1}><ThinRule /></Box>
+      <Text color={theme.colors.retroSlateDark}>{"─".repeat(72)}</Text>
     </Box>
   );
 };
@@ -275,9 +258,8 @@ const LiveFeed: React.FC<{ question: string; events: AgentEvent[] }> = ({ questi
 
         {/* Thinking animation */}
         <Box flexDirection="row" gap={1} marginTop={1}>
-          <Spinner style="braille" color={theme.colors.retroCyan} />
-          <Text color={theme.colors.retroSlate}>{"REASONING"}</Text>
-          <Text color={theme.colors.retroSlateDark}>{"· · ·"}</Text>
+          <Spinner style="classic" color={theme.colors.retroBlueBright} />
+          <Text color={theme.colors.retroSlateDark}>{"thinking…"}</Text>
         </Box>
       </Box>
     </Box>
@@ -287,33 +269,21 @@ const LiveFeed: React.FC<{ question: string; events: AgentEvent[] }> = ({ questi
 // ─── Empty State ─────────────────────────────────────────────────────────────
 
 const EmptyState: React.FC = () => (
-  <Box flexDirection="column" gap={1} paddingY={1} marginBottom={1}>
-    {/* Prompt examples panel */}
-    <Box flexDirection="row" gap={2}>
-      <Text color={theme.colors.retroCyan} bold>{"┌─"}</Text>
-      <Text color={theme.colors.retroCyanBright} bold>{"QUERY EXAMPLES"}</Text>
-      <Text color={theme.colors.retroCyan} bold>{"──────────────────────────────────────────"}</Text>
-    </Box>
-    <Box flexDirection="column" marginLeft={4} gap={0}>
+  <Box flexDirection="column" paddingY={1} marginBottom={1}>
+    <Text color={theme.colors.retroSlateDark}>{"Ask anything about this repository:"}</Text>
+    <Box flexDirection="column" marginLeft={2} marginTop={1} gap={0}>
       {[
-        { q: "What has been worked on recently?",       cat: "GIT  " },
-        { q: "What does this project do?",              cat: "REPO " },
-        { q: "Who contributed the most?",               cat: "STATS" },
-        { q: "What did the last commit change?",        cat: "GIT  " },
-        { q: "Find all uses of the authenticate fn",    cat: "CODE " },
-        { q: "List all TODO comments in this codebase", cat: "SCAN " },
-      ].map(({ q, cat }) => (
-        <Box key={q} flexDirection="row" gap={2}>
-          <Text color={theme.colors.retroPanel}>{"["}</Text>
-          <Text color={theme.colors.retroGreen}>{cat}</Text>
-          <Text color={theme.colors.retroPanel}>{"]"}</Text>
-          <Text color={theme.colors.retroSlate}>{q}</Text>
+        "What has been worked on recently?",
+        "What does this project do?",
+        "Who contributed the most?",
+        "What did the last commit change?",
+        "Find all uses of the authenticate function",
+      ].map((q) => (
+        <Box key={q} flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlueBright}>{"›"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{q}</Text>
         </Box>
       ))}
-    </Box>
-    <Box flexDirection="row" gap={2} marginTop={1}>
-      <Text color={theme.colors.retroCyan} bold>{"└─"}</Text>
-      <Text color={theme.colors.retroSlateDark}>{"Type a question and press ENTER to query the AI agent"}</Text>
     </Box>
   </Box>
 );
@@ -326,41 +296,28 @@ const InputBar: React.FC<{
   const disabled = phase === "thinking" || phase === "booting";
   return (
     <Box flexDirection="column" marginTop={1}>
-      <HeavyRule dim={disabled} />
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
       {inputError && (
-        <Box marginTop={0} flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroAmber} bold>{"[WARN]"}</Text>
-          <Text color={theme.colors.retroAmber}>{inputError}</Text>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.warning}>{"⚠"}</Text>
+          <Text color={theme.colors.warning}>{inputError}</Text>
         </Box>
       )}
 
-      <Box flexDirection="row" gap={1} marginTop={0}>
-        {disabled
-          ? <Text color={theme.colors.retroSlateDark}>{"……"}</Text>
-          : <Text color={theme.colors.retroCyanBright} bold>{"›"}</Text>
-        }
-        <Text color={theme.colors.retroCyan} bold>{"QUERY"}</Text>
-        <Text color={theme.colors.retroPanel}>{"▸"}</Text>
+      <Box flexDirection="row" gap={1} alignItems="center">
+        <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
         <Text color={disabled ? theme.colors.retroSlateDark : theme.colors.white}>
-          {disabled ? (phase === "thinking" ? "AGENT PROCESSING — PLEASE WAIT…" : "INITIALIZING…") : input}
+          {disabled ? (phase === "thinking" ? "thinking…" : "starting…") : input}
         </Text>
         {!disabled && <Cursor on={cursorOn} />}
       </Box>
 
       {!disabled && (
-        <Box flexDirection="row" gap={3} marginTop={0}>
-          <Text color={theme.colors.retroSlateDark}>
-            <Text color={theme.colors.retroCyan} bold>{"[ENTER]"}</Text>
-            <Text color={theme.colors.retroSlate}>{" ask  "}</Text>
-            <Text color={theme.colors.retroCyan} bold>{"[BSP]"}</Text>
-            <Text color={theme.colors.retroSlate}>{" del  "}</Text>
-            <Text color={theme.colors.retroCyan} bold>{"[back]"}</Text>
-            <Text color={theme.colors.retroSlate}>{" exit  "}</Text>
-            <Text color={theme.colors.retroCyan} bold>{"[clear]"}</Text>
-            <Text color={theme.colors.retroSlate}>{" reset"}</Text>
-          </Text>
-        </Box>
+        <Text color={theme.colors.retroSlateDark} dimColor>
+          {"  enter:ask  back:exit  clear:reset"}
+        </Text>
       )}
     </Box>
   );

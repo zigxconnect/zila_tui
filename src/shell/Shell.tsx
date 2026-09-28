@@ -238,21 +238,8 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             running={running}
             onSubmit={(input) => handleCommand(input, true)}
           />
-          <Box marginTop={1} flexDirection="row" justifyContent="space-between" alignItems="center">
-            <RetroKeyboardLegend bindings={[
-              { key: "F1",    label: "HELP"  },
-              { key: "F2",    label: "INIT"  },
-              { key: "^L",    label: "CLEAR" },
-              { key: "^C",    label: "EXIT"  },
-              { key: "↑↓",    label: "HIST"  },
-            ]} />
-            <Box flexDirection="row" gap={1}>
-              <Text color={theme.colors.retroSlateDark}>{"SESSION:"}</Text>
-              <Text color={theme.colors.retroGreenBright} bold>{"ACTIVE"}</Text>
-              <Text color={theme.colors.retroPanel}>{"│"}</Text>
-              <Text color={theme.colors.retroSlateDark}>{"TTY:"}</Text>
-              <Text color={theme.colors.retroSlate}>{"pts/0"}</Text>
-            </Box>
+          <Box marginTop={0} flexDirection="row" gap={2}>
+            <Text color={theme.colors.retroSlateDark}>{"help · group · tasks · docs · assist · stats · exit"}</Text>
           </Box>
         </>
       )}

@@ -56,8 +56,10 @@ export const theme = {
 
     // 90s Silicon Graphics / NeXT / DEC workstation palette
     retroNavy: "#090D16",
-    retroPanel: "#0D1527",
+    retroPanel: "#1E293B",      // slightly lighter — less invisible on dark bg
     retroHeader: "#1E293B",
+    retroBlue: "#155DFC",       // Zigex sharp brand blue — for lil-zila identity
+    retroBlueBright: "#3B82F6", // Electric blue — secondary accents
     retroCyan: "#38BDF8",
     retroCyanBright: "#7DD3FC",
     retroGreen: "#34D399",
@@ -66,7 +68,7 @@ export const theme = {
     retroAmberBright: "#FDE68A",
     retroMagenta: "#C084FC",
     retroSlate: "#94A3B8",
-    retroSlateDark: "#334155",
+    retroSlateDark: "#64748B",  // bumped up from #334155 — more readable
     retroWhite: "#F8FAFC",
   },
 

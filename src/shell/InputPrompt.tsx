@@ -14,18 +14,14 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
-  // Blinking block cursor — authentic 90s CRT feel
   React.useEffect(() => {
-    const interval = setInterval(() => {
-      setCursorVisible((v) => !v);
-    }, 450);
+    const interval = setInterval(() => setCursorVisible((v) => !v), 500);
     return () => clearInterval(interval);
   }, []);
 
   useInput(
     (char, key) => {
       if (running) return;
-
       if (key.return) {
         if (input.trim()) {
           const trimmed = input.trim();
@@ -43,13 +39,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
       } else if (key.downArrow) {
         if (historyIndex !== -1) {
           const nextIdx = historyIndex + 1;
-          if (nextIdx >= history.length) {
-            setHistoryIndex(-1);
-            setInput("");
-          } else {
-            setHistoryIndex(nextIdx);
-            setInput(history[nextIdx] || "");
-          }
+          if (nextIdx >= history.length) { setHistoryIndex(-1); setInput(""); }
+          else { setHistoryIndex(nextIdx); setInput(history[nextIdx] || ""); }
         }
       } else if (key.backspace || key.delete) {
         setInput(input.slice(0, -1));
@@ -62,52 +53,38 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
     { isActive: !running }
   );
 
-  // ─── Running state ────────────────────────────────────────────────────────
   if (running) {
     return (
-      <Box marginTop={1} flexDirection="column">
-        <Box flexDirection="row" alignItems="center" gap={1}>
-          <Text color={theme.colors.retroCyan}>{"═".repeat(4)}</Text>
-          <Text color={theme.colors.retroCyanBright} bold>{"LIL-ZILA"}</Text>
-          <Text color={theme.colors.retroAmberBright} bold>{"▸"}</Text>
-          <Spinner style="radar" color={theme.colors.retroAmber} label="executing…" />
-        </Box>
+      <Box marginTop={1} flexDirection="row" gap={1} alignItems="center">
+        <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+        <Spinner style="classic" color={theme.colors.retroBlueBright} label="running…" />
       </Box>
     );
   }
 
-  // ─── Ready state ──────────────────────────────────────────────────────────
   return (
     <Box marginTop={1} flexDirection="column">
-      {/* Prompt line */}
-      <Box flexDirection="row" alignItems="center" gap={0}>
-        <Text color={theme.colors.retroCyan}>{"══"}</Text>
-        <Text color={theme.colors.retroCyanBright} bold>{"["}</Text>
-        <Text color={theme.colors.retroAmberBright} bold>{"LIL-ZILA"}</Text>
-        <Text color={theme.colors.retroCyanBright} bold>{"]"}</Text>
-        <Text color={theme.colors.retroAmberBright} bold>{"▸ "}</Text>
+      {/* Prompt */}
+      <Box flexDirection="row" alignItems="center" gap={1}>
+        <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
         <Text color={theme.colors.white}>{input}</Text>
-        {cursorVisible ? (
-          <Text color={theme.colors.retroCyanBright} bold>{"█"}</Text>
-        ) : (
-          <Text color={theme.colors.retroCyan}>{" "}</Text>
-        )}
+        {cursorVisible
+          ? <Text color={theme.colors.retroBlueBright} bold>{"█"}</Text>
+          : <Text color={theme.colors.retroBlue}>{" "}</Text>
+        }
       </Box>
 
-      {/* Hint line — show quick-access commands when input is empty */}
+      {/* Subtle hint — only when input is empty */}
       {!input && (
-        <Box marginTop={0} flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroSlateDark}>{"──"}</Text>
-          <Text color={theme.colors.retroSlateDark}>{"CMDS:"}</Text>
-          {["group", "cohorts", "tasks", "docs", "assist", "stats", "help"].map((cmd, i, arr) => (
-            <Box key={cmd} flexDirection="row">
-              <Text color={theme.colors.retroCyan}>{cmd}</Text>
-              {i < arr.length - 1 && <Text color={theme.colors.retroPanel}>{" · "}</Text>}
-            </Box>
+        <Box flexDirection="row" gap={2} marginTop={0} marginLeft={10}>
+          {["help", "group", "tasks", "docs", "assist", "stats"].map((cmd) => (
+            <Text key={cmd} color={theme.colors.retroSlateDark}>{cmd}</Text>
           ))}
           {historyIndex !== -1 && (
             <Text color={theme.colors.retroSlateDark}>
-              {"  [ ↑/↓ HISTORY: "}{historyIndex + 1}{"/"}{history.length}{" ]"}
+              {"  ↑↓ hist "}{historyIndex + 1}{"/"}{history.length}
             </Text>
           )}
         </Box>
