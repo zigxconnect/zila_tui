@@ -4,26 +4,28 @@ import { theme } from "./theme.js";
 
 export interface RetroBadgeProps {
   label: string;
-  variant?: "cyan" | "green" | "amber" | "magenta" | "blue" | "slate" | "danger";
+  variant?: "cyan" | "green" | "amber" | "magenta" | "blue" | "sharpBlue" | "slate" | "danger" | "white";
   bold?: boolean;
 }
 
 export const RetroBadge: React.FC<RetroBadgeProps> = ({
   label,
-  variant = "cyan",
+  variant = "sharpBlue",
   bold = true,
 }) => {
   const colorMap = {
+    sharpBlue: theme.colors.retroBlue,
+    blue: theme.colors.retroBlueBright,
     cyan: theme.colors.retroCyanBright,
     green: theme.colors.retroGreenBright,
     amber: theme.colors.retroAmberBright,
     magenta: theme.colors.retroMagenta,
-    blue: theme.colors.primaryBright,
-    slate: theme.colors.retroSlate,
-    danger: theme.colors.errorBright,
+    slate: theme.colors.retroSlateDark,
+    danger: theme.colors.error,
+    white: theme.colors.white,
   };
 
-  const selectedColor = colorMap[variant] || theme.colors.accent;
+  const selectedColor = colorMap[variant] || theme.colors.retroBlueBright;
 
   return (
     <Box flexDirection="row">
@@ -45,9 +47,9 @@ export const FunctionKey: React.FC<FunctionKeyProps> = ({ keyName, action }) => 
   return (
     <Box flexDirection="row" marginRight={2}>
       <Text color={theme.colors.retroSlateDark}>[</Text>
-      <Text color={theme.colors.retroCyanBright} bold>{keyName}</Text>
-      <Text color={theme.colors.dim}>:</Text>
-      <Text color={theme.colors.text}>{action}</Text>
+      <Text color={theme.colors.retroBlueBright} bold>{keyName}</Text>
+      <Text color={theme.colors.retroSlateDark}>:</Text>
+      <Text color={theme.colors.white}>{action}</Text>
       <Text color={theme.colors.retroSlateDark}>]</Text>
     </Box>
   );
