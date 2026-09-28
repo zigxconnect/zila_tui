@@ -20,7 +20,7 @@ export interface StatusLineProps {
 // 90s-style bracket status tags
 const STATUS_TAG: Record<StatusType, { tag: string; color: string }> = {
   pending: { tag: "[    ]",  color: theme.colors.retroSlateDark },
-  loading: { tag: "[ >> ]",  color: theme.colors.retroCyanBright },
+  loading: { tag: "[ >> ]",  color: theme.colors.retroBlueBright },
   success: { tag: "[ OK ]",  color: theme.colors.retroGreenBright },
   error:   { tag: "[FAIL]",  color: theme.colors.error },
   warning: { tag: "[WARN]",  color: theme.colors.retroAmberBright },
@@ -29,7 +29,7 @@ const STATUS_TAG: Record<StatusType, { tag: string; color: string }> = {
 
 function renderIcon(status: StatusType): React.ReactElement {
   if (status === "loading") {
-    return <Spinner style="classic" color={theme.colors.retroCyan} />;
+    return <Spinner style="classic" color={theme.colors.retroBlueBright} />;
   }
   const { tag, color } = STATUS_TAG[status];
   return <Text color={color} bold>{tag}</Text>;
@@ -37,12 +37,12 @@ function renderIcon(status: StatusType): React.ReactElement {
 
 function labelColor(status: StatusType): string {
   switch (status) {
-    case "success": return theme.colors.retroGreenBright;
-    case "loading": return theme.colors.retroCyanBright;
+    case "success": return theme.colors.white;
+    case "loading": return theme.colors.retroBlueBright;
     case "error":   return theme.colors.error;
     case "warning": return theme.colors.retroAmberBright;
     case "skipped": return theme.colors.retroSlateDark;
-    default:        return theme.colors.retroSlate;
+    default:        return theme.colors.retroSlateDark;
   }
 }
 
