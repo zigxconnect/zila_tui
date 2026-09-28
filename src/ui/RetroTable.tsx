@@ -20,9 +20,9 @@ export const RetroTable: React.FC<RetroTableProps> = ({
   columns,
   data,
   title,
-  borderColor = "border",
+  borderColor = "retroBlue",
 }) => {
-  const color = theme.colors[borderColor] || theme.colors.border;
+  const color = theme.colors[borderColor] || theme.colors.retroBlue;
 
   const pad = (text: string, width: number, align: "left" | "right" | "center" = "left"): string => {
     const s = String(text);
@@ -40,10 +40,9 @@ export const RetroTable: React.FC<RetroTableProps> = ({
   return (
     <Box flexDirection="column" marginY={1}>
       {title && (
-        <Box marginBottom={1} flexDirection="row">
-          <Text color={theme.colors.accent} bold>
-            {theme.symbols.pointer} {title}
-          </Text>
+        <Box marginBottom={1} flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>{"›"}</Text>
+          <Text color={theme.colors.white} bold>{title}</Text>
         </Box>
       )}
 
@@ -53,7 +52,7 @@ export const RetroTable: React.FC<RetroTableProps> = ({
         {columns.map((col, idx) => (
           <Box key={col.key} flexDirection="row">
             {idx > 0 && <Text color={color}> │ </Text>}
-            <Text color={theme.colors.retroCyanBright} bold>
+            <Text color={theme.colors.retroBlueBright} bold>
               {pad(col.header, col.width, col.align)}
             </Text>
           </Box>
@@ -80,7 +79,7 @@ export const RetroTable: React.FC<RetroTableProps> = ({
           {columns.map((col, idx) => (
             <Box key={col.key} flexDirection="row">
               {idx > 0 && <Text color={color}> │ </Text>}
-              <Text color={theme.colors.text}>
+              <Text color={theme.colors.white}>
                 {pad(String(row[col.key] ?? ""), col.width, col.align)}
               </Text>
             </Box>
@@ -115,15 +114,15 @@ export const DottedLeader: React.FC<DottedLeaderProps> = ({
   label,
   value,
   width = 60,
-  valueColor = "textBright",
+  valueColor = "white",
 }) => {
   const valStr = String(value);
   const dotCount = Math.max(2, width - label.length - valStr.length - 2);
-  const valColorHex = theme.colors[valueColor] || theme.colors.textBright;
+  const valColorHex = theme.colors[valueColor] || theme.colors.white;
 
   return (
     <Box flexDirection="row" alignItems="center">
-      <Text color={theme.colors.muted}>{label}</Text>
+      <Text color={theme.colors.retroSlateDark}>{label}</Text>
       <Text color={theme.colors.retroSlateDark}> {"·".repeat(dotCount)} </Text>
       <Text color={valColorHex} bold>{valStr}</Text>
     </Box>
