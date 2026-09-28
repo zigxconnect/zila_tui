@@ -11,9 +11,9 @@ export interface DividerProps {
 
 export const Divider: React.FC<DividerProps> = ({
   label,
-  width = 60,
+  width = 72,
   style = "single",
-  color = "border",
+  color = "retroBlue",
 }) => {
   const char =
     style === "double"
@@ -26,7 +26,7 @@ export const Divider: React.FC<DividerProps> = ({
       ? "-"
       : theme.boxSingle.horizontal;
 
-  const borderColor = theme.colors[color] || theme.colors.border;
+  const borderColor = theme.colors[color] || theme.colors.retroBlue;
 
   if (!label) {
     return (
@@ -45,9 +45,9 @@ export const Divider: React.FC<DividerProps> = ({
   return (
     <Box flexDirection="row" alignItems="center" marginY={0}>
       <Text color={borderColor}>{char.repeat(sideLen)}</Text>
-      <Text color={borderColor}>[ </Text>
-      <Text color={theme.colors.retroCyanBright} bold>{label.toUpperCase()}</Text>
-      <Text color={borderColor}> ]</Text>
+      <Text color={borderColor}>{"[ "}</Text>
+      <Text color={theme.colors.white} bold>{label}</Text>
+      <Text color={borderColor}>{" ]"}</Text>
       <Text color={borderColor}>{char.repeat(rightLen)}</Text>
     </Box>
   );
