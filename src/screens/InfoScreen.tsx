@@ -24,89 +24,97 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      {/* 90s Workstation Diagnostic Frame */}
-      <Box
-        flexDirection="column"
-        borderStyle="single"
-        borderColor={theme.colors.accent}
-        paddingX={2}
-        paddingY={1}
-      >
-        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroCyanBright} bold>
-              [ SYSTEM TELEMETRY & RUNTIME DIAGNOSTICS ]
-            </Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen} bold>[SYS: NOMINAL]</Text>
-          </Box>
-        </Box>
+      {/* Top rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
-        {/* Workstation Specification */}
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={theme.colors.accent} bold>KERNEL & HARDWARE ENVIRONMENT:</Text>
-          <Box flexDirection="row" alignItems="center">
-            <Text color={theme.colors.muted}>Workstation Client</Text>
-            <Text color={theme.colors.retroSlateDark}> ··············· </Text>
-            <Text color={theme.colors.textBright} bold>lil-zila v0.3.0</Text>
-          </Box>
-          <Box flexDirection="row" alignItems="center">
-            <Text color={theme.colors.muted}>Node.js Runtime</Text>
-            <Text color={theme.colors.retroSlateDark}> ·················· </Text>
-            <Text color={theme.colors.textBright}>{nodeVersion}</Text>
-          </Box>
-          <Box flexDirection="row" alignItems="center">
-            <Text color={theme.colors.muted}>OS Architecture</Text>
-            <Text color={theme.colors.retroSlateDark}> ·················· </Text>
-            <Text color={theme.colors.textBright}>{platform} / {arch}</Text>
-          </Box>
-          <Box flexDirection="row" alignItems="center">
-            <Text color={theme.colors.muted}>Session Uptime</Text>
-            <Text color={theme.colors.retroSlateDark}> ··················· </Text>
-            <Text color={theme.colors.textBright}>{uptimeMinutes} minutes (PID: {process.pid})</Text>
-          </Box>
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+          <Text color={theme.colors.white} bold>{"system diagnostics"}</Text>
         </Box>
+        <Text color={theme.colors.retroGreenBright}>{"nominal"}</Text>
+      </Box>
 
-        {/* Memory Gauge */}
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={theme.colors.accent} bold>VIRTUAL MEMORY (VRAM / HEAP):</Text>
+      {/* Divider */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Runtime Environment */}
+      <Box flexDirection="column" gap={0} marginBottom={1}>
+        <Text color={theme.colors.retroBlueBright} bold>{"ENVIRONMENT"}</Text>
+        <Box flexDirection="row" gap={2}>
+          <Box width={18}>
+            <Text color={theme.colors.retroSlateDark}>{"Client"}</Text>
+          </Box>
+          <Text color={theme.colors.white} bold>{"lil-zila v0.3.0"}</Text>
+        </Box>
+        <Box flexDirection="row" gap={2}>
+          <Box width={18}>
+            <Text color={theme.colors.retroSlateDark}>{"Node Runtime"}</Text>
+          </Box>
+          <Text color={theme.colors.white}>{nodeVersion}</Text>
+        </Box>
+        <Box flexDirection="row" gap={2}>
+          <Box width={18}>
+            <Text color={theme.colors.retroSlateDark}>{"Platform / Arch"}</Text>
+          </Box>
+          <Text color={theme.colors.white}>{platform} / {arch}</Text>
+        </Box>
+        <Box flexDirection="row" gap={2}>
+          <Box width={18}>
+            <Text color={theme.colors.retroSlateDark}>{"Session Uptime"}</Text>
+          </Box>
+          <Text color={theme.colors.white}>{uptimeMinutes}m (PID: {process.pid})</Text>
+        </Box>
+      </Box>
+
+      {/* Memory Allocation */}
+      <Box flexDirection="column" gap={0} marginBottom={1}>
+        <Text color={theme.colors.retroBlueBright} bold>{"MEMORY"}</Text>
+        <Box flexDirection="row" alignItems="center" gap={2}>
+          <Text color={theme.colors.retroSlateDark}>
+            {`Heap: ${heapMB}MB / ${totalHeapMB}MB`}
+          </Text>
           <RetroMeter
-            label={`Heap [${heapMB}MB / ${totalHeapMB}MB]`}
             value={heapMB}
             max={totalHeapMB}
-            width={28}
+            width={24}
             style="blocks"
-            color="retroGreen"
+            color="retroBlueBright"
+            showPercent={true}
           />
         </Box>
+      </Box>
 
-        {/* Subsystem State */}
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={theme.colors.accent} bold>SUBSYSTEM STATUS CHECKLIST:</Text>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen}>[OK] </Text>
-            <Text color={theme.colors.text}>Multi-tier L1/L2 Client Cache mounted (~/.zila/cache.json)</Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen}>[OK] </Text>
-            <Text color={theme.colors.text}>Bluetooth Low Energy P2P Protocol Engine ready</Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen}>[OK] </Text>
-            <Text color={theme.colors.text}>GitHub API OAuth & Personal Access Token pipeline ready</Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen}>[OK] </Text>
-            <Text color={theme.colors.text}>Zigex REST Sync Daemon connected (http://localhost:5000)</Text>
-          </Box>
+      {/* Subsystem State */}
+      <Box flexDirection="column" gap={0}>
+        <Text color={theme.colors.retroBlueBright} bold>{"SUBSYSTEMS"}</Text>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
+          <Text color={theme.colors.white}>{"Client Cache (~/.zila/cache.json)"}</Text>
         </Box>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
+          <Text color={theme.colors.white}>{"Bluetooth LE Protocol Engine ready"}</Text>
+        </Box>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
+          <Text color={theme.colors.white}>{"GitHub API OAuth integration active"}</Text>
+        </Box>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
+          <Text color={theme.colors.white}>{"Zigex REST Sync Daemon connected"}</Text>
+        </Box>
+      </Box>
 
-        {/* Footer */}
-        <Box marginTop={1} flexDirection="row" justifyContent="space-between">
-          <Text color={theme.colors.dim}>[ESC / ENTER / q: CLOSE]</Text>
-          <Text color={theme.colors.retroSlateDark}>ENGINEERED BY GITA & ZIGEX CORP</Text>
-        </Box>
+      {/* Bottom rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Footer */}
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={theme.colors.retroSlateDark}>{"esc / q / enter to close"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"Zigex Workstation Environment"}</Text>
       </Box>
     </Box>
   );
