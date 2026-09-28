@@ -50,13 +50,15 @@ const Field: React.FC<{
 }> = ({ label, value, valueColor = theme.colors.white }) => {
   if (isEmpty(value)) return null;
   const displayValue = Array.isArray(value) ? value.join(", ") : String(value);
-  const dotCount = Math.max(2, 40 - label.length - displayValue.length);
 
   return (
-    <Box flexDirection="row" alignItems="center">
-      <Text color={theme.colors.muted}>{label}</Text>
-      <Text color={theme.colors.retroSlateDark}> {"·".repeat(dotCount)} </Text>
-      <Text color={valueColor} bold>{displayValue}</Text>
+    <Box flexDirection="row" gap={2}>
+      <Box width={18}>
+        <Text color={theme.colors.retroSlateDark}>{label}</Text>
+      </Box>
+      <Text color={valueColor} bold={valueColor === theme.colors.white}>
+        {displayValue}
+      </Text>
     </Box>
   );
 };
@@ -94,90 +96,91 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ onComplete }) => {
 
   if (loading) {
     return (
-      <Box flexDirection="row" paddingY={1} alignItems="center">
-        <Spinner style="radar" color={theme.colors.accent} label="Retrieving profile dossier from Zigex host..." />
+      <Box flexDirection="row" paddingY={1} alignItems="center" gap={1}>
+        <Spinner style="classic" color={theme.colors.retroBlueBright} />
+        <Text color={theme.colors.retroSlateDark}>{"Retrieving profile from Zigex..."}</Text>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box flexDirection="column" borderStyle="single" borderColor={theme.colors.error} paddingX={2} paddingY={1}>
-        <Box flexDirection="row">
-          <Text color={theme.colors.error} bold>[ PROFILE LOOKUP ERROR ]</Text>
+      <Box flexDirection="column" paddingY={1}>
+        <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.error}>{"Error:"}</Text>
+          <Text color={theme.colors.white}>{error}</Text>
         </Box>
-        <Box marginTop={1}>
-          <Text color={theme.colors.text}>{error}</Text>
-        </Box>
-        <Box marginTop={1}>
-          <Text color={theme.colors.dim}>[ Press ESC or ENTER to return ]</Text>
-        </Box>
+        <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"esc / enter to return"}</Text>
       </Box>
     );
   }
 
   if (!profile) {
-    return <Text color={theme.colors.warning}>[ No profile record available ]</Text>;
+    return <Text color={theme.colors.warning}>{"No profile record available."}</Text>;
   }
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      {/* 90s Identity Frame */}
-      <Box
-        flexDirection="column"
-        borderStyle="single"
-        borderColor={theme.colors.accent}
-        paddingX={2}
-        paddingY={1}
-      >
-        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroCyanBright} bold>
-              [ USER IDENTITY DOSSIER: {profile.full_name?.toUpperCase() ?? "INTERN"} ]
-            </Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen} bold>[{profile.profile_status ?? "ACTIVE"}]</Text>
-          </Box>
-        </Box>
+      {/* Top rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
-        {profile.about && (
-          <Box marginBottom={1} flexDirection="row">
-            <Text color={theme.colors.dim}>"{profile.about}"</Text>
-          </Box>
-        )}
-
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={theme.colors.accent} bold>PRIMARY DETAILS:</Text>
-          <Field label="Full Name" value={profile.full_name} />
-          <Field label="Email Address" value={profile.email} />
-          <Field label="Phone" value={profile.phone} />
-          <Field label="Location" value={profile.location} />
-          <Field label="Role" value={profile.role} valueColor={theme.colors.retroGreenBright} />
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+          <Text color={theme.colors.white} bold>{profile.full_name ?? "User Dossier"}</Text>
         </Box>
+        <Text color={theme.colors.retroGreenBright}>{profile.profile_status ?? "active"}</Text>
+      </Box>
 
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={theme.colors.accent} bold>ACADEMIC RECORD:</Text>
-          <Field label="University" value={profile.university} />
-          <Field label="Field of Study" value={profile.field_of_study} />
-          <Field label="Degree" value={profile.degree} />
-          <Field label="Graduation Year" value={profile.graduation_year} />
-          <Field label="GPA" value={profile.gpa} />
-        </Box>
+      {/* Divider */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
-        <Box flexDirection="column" marginTop={1}>
-          <Text color={theme.colors.accent} bold>SKILLS & REPOSITORIES:</Text>
-          <Field label="Technical Skills" value={profile.hard_skills} />
-          <Field label="Spoken Languages" value={profile.languages} />
-          <Field label="GitHub Handle" value={profile.github_url} valueColor={theme.colors.retroCyanBright} />
-          <Field label="Portfolio Site" value={profile.portfolio_url} valueColor={theme.colors.retroCyanBright} />
+      {profile.about && (
+        <Box marginBottom={1}>
+          <Text color={theme.colors.retroSlateDark}>"{profile.about}"</Text>
         </Box>
+      )}
 
-        {/* Hotkey footer */}
-        <Box marginTop={1} flexDirection="row" justifyContent="space-between">
-          <Text color={theme.colors.dim}>[ESC / ENTER: RETURN]</Text>
-          <Text color={theme.colors.retroSlateDark}>VERIFIED BY ZIGEX CORE</Text>
-        </Box>
+      {/* Details */}
+      <Box flexDirection="column" gap={0} marginBottom={1}>
+        <Text color={theme.colors.retroBlueBright} bold>{"DETAILS"}</Text>
+        <Field label="Full Name" value={profile.full_name} />
+        <Field label="Email" value={profile.email} />
+        <Field label="Phone" value={profile.phone} />
+        <Field label="Location" value={profile.location} />
+        <Field label="Role" value={profile.role} valueColor={theme.colors.retroGreenBright} />
+      </Box>
+
+      {/* Academics */}
+      <Box flexDirection="column" gap={0} marginBottom={1}>
+        <Text color={theme.colors.retroBlueBright} bold>{"ACADEMICS"}</Text>
+        <Field label="University" value={profile.university} />
+        <Field label="Study" value={profile.field_of_study} />
+        <Field label="Degree" value={profile.degree} />
+        <Field label="Graduation" value={profile.graduation_year} />
+        <Field label="GPA" value={profile.gpa} />
+      </Box>
+
+      {/* Skills & Repos */}
+      <Box flexDirection="column" gap={0}>
+        <Text color={theme.colors.retroBlueBright} bold>{"SKILLS & LINKS"}</Text>
+        <Field label="Skills" value={profile.hard_skills} />
+        <Field label="Languages" value={profile.languages} />
+        <Field label="GitHub" value={profile.github_url} valueColor={theme.colors.retroBlueBright} />
+        <Field label="Portfolio" value={profile.portfolio_url} valueColor={theme.colors.retroBlueBright} />
+      </Box>
+
+      {/* Bottom rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Footer */}
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={theme.colors.retroSlateDark}>{"esc / enter to return"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"Zigex Core Verified"}</Text>
       </Box>
     </Box>
   );
