@@ -8,32 +8,30 @@ interface SplashScreenProps {
   onComplete: () => void;
 }
 
-const BOOT_MESSAGES: Array<{ label: string; msg: string; status?: "ok" | "warn" }> = [
-  { label: "BIOS",  msg: "ZILA-ROM v2.4 (C) 1994-2026 ZIGEX CORP",           status: "ok" },
-  { label: "MEM ",  msg: "640 KB BASE OK  ·  16384 KB EXTENDED OK",           status: "ok" },
-  { label: "CPU ",  msg: "INTEL 486DX2/66 — 90s EMULATION LAYER ACTIVE",      status: "ok" },
-  { label: "BUS ",  msg: "BLUETOOTH BLE CONTROLLER [ONLINE]",                  status: "ok" },
-  { label: "NET ",  msg: "TCP/IP ZIGEX-NET STACK INITIALIZED",                 status: "ok" },
-  { label: "FS  ",  msg: "LOCAL WORKSPACE MOUNTED  [/home/intern]",            status: "ok" },
-  { label: "API ",  msg: "GEMINI AI GATEWAY — HANDSHAKE COMPLETE",             status: "ok" },
-  { label: "CACHE", msg: "LRU RESPONSE CACHE WARM  [0 ENTRIES]",              status: "ok" },
+const BOOT_MESSAGES: Array<{ label: string; msg: string }> = [
+  { label: "ROM",   msg: "ZILA-ROM v2.4 (C) 1994-2026 Zigex Corp" },
+  { label: "MEM",   msg: "System memory 16 MB extended OK" },
+  { label: "NET",   msg: "TCP/IP Zigex-Net stack online" },
+  { label: "CACHE", msg: "Client cache warm (~/.zila/cache.json)" },
+  { label: "BLE",   msg: "Bluetooth LE protocol initialized" },
+  { label: "WS",    msg: "Workspace attached [/home/intern]" },
 ];
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   const [frame, setFrame] = useState(0);
 
   const totalLines  = Math.max(LLAMA_ART.length, LIL_ZILA_TEXT.length);
-  const totalFrames = totalLines + BOOT_MESSAGES.length + 4;
+  const totalFrames = totalLines + BOOT_MESSAGES.length + 3;
 
   useEffect(() => {
     if (frame >= totalFrames) {
-      const timer = setTimeout(onComplete, 250);
+      const timer = setTimeout(onComplete, 200);
       return () => clearTimeout(timer);
     }
 
     const timer = setTimeout(() => {
       setFrame((f) => f + 1);
-    }, 26);
+    }, 22);
 
     return () => clearTimeout(timer);
   }, [frame, onComplete, totalFrames]);
@@ -46,62 +44,42 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       {/* Animated reveal of pixel llama and lil-zila logo */}
       <LilZilaBanner maxLines={Math.min(frame, totalLines)} />
 
-      {/* 90s CRT Boot Sequence Diagnostics */}
+      {/* Boot Sequence */}
       {bootStep > 0 && (
-        <Box
-          flexDirection="column"
-          marginTop={1}
-          borderStyle="single"
-          borderColor={theme.colors.retroCyan}
-          paddingX={2}
-          paddingY={0}
-        >
-          {/* Boot header */}
-          <Box flexDirection="row" alignItems="center" marginBottom={0}>
-            <Text color={theme.colors.retroCyanBright} bold>{"[ BOOT SEQUENCE ]"}</Text>
-            <Text color={theme.colors.retroPanel}>{" ─────────────────────────────────────────"}</Text>
-          </Box>
-
-          {/* Boot messages */}
-          {visibleBoot.map(({ label, msg, status }, i) => (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+          {visibleBoot.map(({ label, msg }, i) => (
             <Box key={i} flexDirection="row" gap={1}>
-              <Text color={theme.colors.retroSlateDark}>{"["}</Text>
-              <Text color={status === "warn" ? theme.colors.retroAmberBright : theme.colors.retroGreenBright} bold>
-                {status === "warn" ? "WARN" : " OK "}
-              </Text>
-              <Text color={theme.colors.retroSlateDark}>{"]"}</Text>
-              <Text color={theme.colors.retroSlate}>{label}</Text>
-              <Text color={theme.colors.retroPanel}>{"·"}</Text>
-              <Text color={theme.colors.retroSlateDark}>{msg}</Text>
+              <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
+              <Box width={7}>
+                <Text color={theme.colors.retroSlateDark}>{label}</Text>
+              </Box>
+              <Text color={theme.colors.white}>{msg}</Text>
             </Box>
           ))}
 
-          {/* Progress meter */}
+          {/* Meter */}
           <Box marginTop={1} flexDirection="row" alignItems="center" gap={2}>
-            <Text color={theme.colors.retroSlateDark}>{"INITIALIZING"}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"Loading:"}</Text>
             <RetroMeter
               value={bootStep}
               max={BOOT_MESSAGES.length}
-              width={28}
+              width={24}
               style="blocks"
-              color="retroCyan"
-              showPercent
+              color="retroBlueBright"
+              showPercent={true}
             />
           </Box>
+          <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
         </Box>
       )}
 
-      {/* Final ready message */}
+      {/* Ready line */}
       {frame >= totalFrames - 2 && (
-        <Box marginTop={1} flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroCyan}>{"╔═["}</Text>
-          <Text color={theme.colors.retroGreenBright} bold>{"SYSTEM READY"}</Text>
-          <Text color={theme.colors.retroCyan}>{"]"}</Text>
-          <Text color={theme.colors.retroPanel}>{"═══"}</Text>
-          <Text color={theme.colors.retroSlate}>{"lil-zila v0.3.0"}</Text>
-          <Text color={theme.colors.retroPanel}>{"·"}</Text>
-          <Text color={theme.colors.retroSlateDark}>{"AUTHENTIC 90S RETRO-TERMINAL"}</Text>
-          <Text color={theme.colors.retroCyan}>{"═╗"}</Text>
+        <Box marginTop={0} flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
+          <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+          <Text color={theme.colors.white}>{"workstation ready"}</Text>
         </Box>
       )}
     </Box>
