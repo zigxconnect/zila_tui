@@ -102,12 +102,12 @@ const ProgressBar: React.FC<{ steps: Step[] }> = ({ steps }) => {
   return (
     <Box marginY={1}>
       <RetroMeter
-        label="SETUP PROGRESS"
+        label="Progress"
         value={done}
         max={STEP_COUNT}
-        width={32}
+        width={24}
         style="blocks"
-        color="retroCyan"
+        color="retroBlueBright"
       />
     </Box>
   );
@@ -366,23 +366,27 @@ export const InitScreen: React.FC<InitScreenProps> = ({
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-        <Box flexDirection="row">
-          <Text color={theme.colors.retroCyanBright} bold>
-            [ WORKSPACE INITIALIZATION & ENVIRONMENT SETUP ]
-          </Text>
+      {/* Top rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+          <Text color={theme.colors.white} bold>{"workspace setup"}</Text>
         </Box>
-        <Box flexDirection="row">
-          <Text color={theme.colors.retroGreen} bold>[{userEmail || "AUTHENTICATED"}]</Text>
-        </Box>
+        <Text color={theme.colors.retroGreenBright}>{userEmail || "authenticated"}</Text>
       </Box>
+
+      {/* Divider */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
       <ProgressBar steps={steps} />
 
       <Box flexDirection="column" marginBottom={1}>
-        <Text color={theme.colors.dim} bold>
-          {" "}
-          ENVIRONMENT
+        <Text color={theme.colors.retroBlueBright} bold>
+          {"ENVIRONMENT"}
         </Text>
         <StatusLine
           status={steps[S.GIT]?.status ?? "pending"}
@@ -406,9 +410,8 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         />
 
         <Box marginTop={1}>
-          <Text color={theme.colors.dim} bold>
-            {" "}
-            ZIGEX PROFILE
+          <Text color={theme.colors.retroBlueBright} bold>
+            {"ZIGEX PROFILE"}
           </Text>
         </Box>
         <StatusLine
@@ -418,9 +421,8 @@ export const InitScreen: React.FC<InitScreenProps> = ({
         />
 
         <Box marginTop={1}>
-          <Text color={theme.colors.dim} bold>
-            {" "}
-            CURRICULUM
+          <Text color={theme.colors.retroBlueBright} bold>
+            {"CURRICULUM"}
           </Text>
         </Box>
         <StatusLine
