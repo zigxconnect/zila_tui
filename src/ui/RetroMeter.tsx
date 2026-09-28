@@ -18,7 +18,7 @@ export const RetroMeter: React.FC<RetroMeterProps> = ({
   max = 100,
   width = 20,
   style = "blocks",
-  color = "accent",
+  color = "retroBlueBright",
   showPercent = true,
 }) => {
   const safeMax = Math.max(1, max);
@@ -41,13 +41,13 @@ export const RetroMeter: React.FC<RetroMeterProps> = ({
     emptyChar = "·";
   }
 
-  const activeColor = theme.colors[color] || theme.colors.accent;
+  const activeColor = theme.colors[color] || theme.colors.retroBlueBright;
 
   return (
     <Box flexDirection="row" alignItems="center">
       {label && (
         <Box marginRight={1}>
-          <Text color={theme.colors.muted}>{label}: </Text>
+          <Text color={theme.colors.retroSlateDark}>{label}: </Text>
         </Box>
       )}
       <Text color={theme.colors.retroSlateDark}>[</Text>
@@ -56,7 +56,7 @@ export const RetroMeter: React.FC<RetroMeterProps> = ({
       <Text color={theme.colors.retroSlateDark}>]</Text>
       {showPercent && (
         <Box marginLeft={1}>
-          <Text color={theme.colors.textBright} bold>{percent}%</Text>
+          <Text color={theme.colors.white} bold>{percent}%</Text>
         </Box>
       )}
     </Box>
