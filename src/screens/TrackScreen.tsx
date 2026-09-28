@@ -18,7 +18,7 @@ const TRACKS: Track[] = [
     department: "SEED Summer Internship Program",
     supervisor: "Leonhard Hopeful <leonhardkwahle@gmail.com>",
     duration: "12 Weeks (Summer 2026)",
-    capacity: "15 Active Interns",
+    capacity: "15 Interns",
   },
   {
     id: "TRK-02",
@@ -26,7 +26,7 @@ const TRACKS: Track[] = [
     department: "Cloud Engineering Division",
     supervisor: "Engineering Core <core@zigex.com>",
     duration: "12 Weeks (Summer 2026)",
-    capacity: "20 Active Interns",
+    capacity: "20 Interns",
   },
   {
     id: "TRK-03",
@@ -34,7 +34,7 @@ const TRACKS: Track[] = [
     department: "Hardware & Robotics Lab",
     supervisor: "Systems Lead <firmware@zigex.com>",
     duration: "10 Weeks (Summer 2026)",
-    capacity: "8 Active Interns",
+    capacity: "8 Interns",
   },
   {
     id: "TRK-04",
@@ -42,7 +42,7 @@ const TRACKS: Track[] = [
     department: "Security Architecture",
     supervisor: "SecOps Lead <sec@zigex.com>",
     duration: "10 Weeks (Summer 2026)",
-    capacity: "10 Active Interns",
+    capacity: "10 Interns",
   },
 ];
 
@@ -83,91 +83,77 @@ export const TrackScreen: React.FC<TrackScreenProps> = ({ onClose, onSelect }) =
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      {/* 90s Track Selection Frame */}
-      <Box
-        flexDirection="column"
-        borderStyle="single"
-        borderColor={theme.colors.accent}
-        paddingX={2}
-        paddingY={1}
-      >
-        <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroCyanBright} bold>
-              [ COHORT SPECIALIZATION TRACK SELECTOR ]
-            </Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.retroGreen} bold>[SUMMER 2026]</Text>
-          </Box>
-        </Box>
+      {/* Top rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
-        {/* Tracks List */}
-        <Box flexDirection="column" marginBottom={1}>
-          {TRACKS.map((t, idx) => {
-            const isSelected = idx === selectedIndex;
-            return (
-              <Box
-                key={t.id}
-                flexDirection="row"
-                borderStyle="single"
-                borderColor={isSelected ? theme.colors.retroCyanBright : theme.colors.border}
-                paddingX={1}
-                marginBottom={0}
-              >
-                <Text color={isSelected ? theme.colors.retroCyanBright : theme.colors.dim} bold>
-                  {isSelected ? "› " : "  "}
-                </Text>
-                <Box width={10}>
-                  <Text color={isSelected ? theme.colors.retroAmberBright : theme.colors.muted} bold>
-                    {t.id}
-                  </Text>
-                </Box>
-                <Box width={36}>
-                  <Text color={isSelected ? theme.colors.textBright : theme.colors.text} bold={isSelected}>
-                    {t.name}
-                  </Text>
-                </Box>
-                <Text color={theme.colors.retroGreen}>
-                  [{t.capacity}]
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+          <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
+          <Text color={theme.colors.white} bold>{"specialization tracks"}</Text>
+        </Box>
+        <Text color={theme.colors.retroSlateDark}>{`track ${selectedIndex + 1} of ${TRACKS.length}`}</Text>
+      </Box>
+
+      {/* Divider */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Track List */}
+      <Box flexDirection="column" marginBottom={1}>
+        {TRACKS.map((t, idx) => {
+          const isSelected = idx === selectedIndex;
+          return (
+            <Box key={t.id} flexDirection="row" alignItems="center" gap={1}>
+              <Text color={isSelected ? theme.colors.retroBlueBright : theme.colors.retroSlateDark} bold>
+                {isSelected ? "›" : " "}
+              </Text>
+              <Box width={10}>
+                <Text color={isSelected ? theme.colors.retroBlueBright : theme.colors.retroSlateDark}>
+                  {t.id}
                 </Text>
               </Box>
-            );
-          })}
-        </Box>
+              <Box width={38}>
+                <Text color={isSelected ? theme.colors.white : theme.colors.retroSlate} bold={isSelected}>
+                  {t.name}
+                </Text>
+              </Box>
+              <Text color={theme.colors.retroSlateDark}>{t.capacity}</Text>
+            </Box>
+          );
+        })}
+      </Box>
 
-        {/* Track Detail Inspection Card */}
-        <Box
-          flexDirection="column"
-          borderStyle="single"
-          borderColor={theme.colors.border}
-          paddingX={1}
-          paddingY={0}
-        >
-          <Text color={theme.colors.accent} bold>TRACK DOSSIER INSPECTOR:</Text>
-          <Box flexDirection="row">
-            <Text color={theme.colors.muted}>Track Title:   </Text>
-            <Text color={theme.colors.textBright} bold>{current.name}</Text>
+      {/* Selected Track Details */}
+      <Box flexDirection="column" gap={0} marginBottom={1}>
+        <Text color={theme.colors.retroBlueBright} bold>{"TRACK DETAILS"}</Text>
+        <Box flexDirection="row" gap={2}>
+          <Box width={14}>
+            <Text color={theme.colors.retroSlateDark}>{"Department:"}</Text>
           </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.muted}>Department:    </Text>
-            <Text color={theme.colors.text}>{current.department}</Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.muted}>Supervisor:    </Text>
-            <Text color={theme.colors.retroGreenBright} bold>{current.supervisor}</Text>
-          </Box>
-          <Box flexDirection="row">
-            <Text color={theme.colors.muted}>Program Terms: </Text>
-            <Text color={theme.colors.text}>{current.duration}</Text>
-          </Box>
+          <Text color={theme.colors.white}>{current.department}</Text>
         </Box>
+        <Box flexDirection="row" gap={2}>
+          <Box width={14}>
+            <Text color={theme.colors.retroSlateDark}>{"Supervisor:"}</Text>
+          </Box>
+          <Text color={theme.colors.white} bold>{current.supervisor}</Text>
+        </Box>
+        <Box flexDirection="row" gap={2}>
+          <Box width={14}>
+            <Text color={theme.colors.retroSlateDark}>{"Duration:"}</Text>
+          </Box>
+          <Text color={theme.colors.white}>{current.duration}</Text>
+        </Box>
+      </Box>
 
-        {/* Footer */}
-        <Box marginTop={1} flexDirection="row" justifyContent="space-between">
-          <Text color={theme.colors.dim}>[↑/↓: SELECT TRACK] [ENTER: CONFIRM] [ESC: RETURN]</Text>
-          <Text color={theme.colors.retroSlateDark}>TRACK {selectedIndex + 1} OF {TRACKS.length}</Text>
-        </Box>
+      {/* Bottom rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+
+      {/* Footer */}
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={theme.colors.retroSlateDark}>{"↑/↓ select · enter confirm · esc close"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"Summer 2026 Program"}</Text>
       </Box>
     </Box>
   );
