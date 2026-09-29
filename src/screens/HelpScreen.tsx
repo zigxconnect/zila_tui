@@ -15,8 +15,9 @@ interface CommandItem {
 }
 
 const COMMAND_CATALOG: CommandItem[] = [
-  { cmd: "group [--cohort ID]", category: "cohort", desc: "View team members in a selected cohort" },
+  { cmd: "group --cohorts", category: "cohort", desc: "Pick a cohort and view its team" },
   { cmd: "cohorts", category: "cohort", desc: "List cohorts and IDs for team switching" },
+  { cmd: "leaderboard", category: "cohort", desc: "Add --cohorts to pick a cohort ranking" },
   { cmd: "downloads", category: "cohort", desc: "Clone course materials & repo" },
   { cmd: "leaderboard", category: "cohort", desc: "Cohort ranking & intern points" },
   { cmd: "achievements", category: "cohort", desc: "Intern badges & milestone achievements" },

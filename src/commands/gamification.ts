@@ -94,10 +94,19 @@ export const leaderboardCommand: ZilaCommand = {
   name: "leaderboard",
   aliases: ["rankings", "top"],
   description: "View the leaderboard for your cohort",
-  usage: "leaderboard [--text] [cohort-id]",
+  usage: "leaderboard [--cohorts] | [--text] [cohort-id]",
   category: "gamification",
   available: true,
   handler: async (args, output, shellContext) => {
+    if (args.includes("--cohorts") && !args.includes("--text") && !args.includes("-t")) {
+      if (shellContext?.startCohortPicker) {
+        shellContext.startCohortPicker("leaderboard");
+      } else {
+        output("Run 'zila cohorts' to list IDs, then 'zila leaderboard --text <ID>'.", "dim");
+      }
+      return;
+    }
+
     if (!args.includes("--text") && !args.includes("-t") && shellContext?.startLeaderboard) {
       shellContext.startLeaderboard();
       return;

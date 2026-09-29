@@ -1,4 +1,4 @@
-import type { ZilaCommand } from "./registry.js";
+import type { ZilaCommand, ShellContext } from "./registry.js";
 import { loadAuth } from "../utils/auth.js";
 import { ClientCache } from "../utils/cache.js";
 import { env } from "process";
@@ -58,7 +58,18 @@ export const groupCommand: ZilaCommand = {
   usage: "group [--cohort <id>] [--refresh]",
   category: "cohort",
   available: true,
-  handler: async (args, output) => {
+  handler: async (args, output, shellContext: ShellContext) => {
+    if (args.includes("--cohorts")) {
+      if (args.length !== 1) {
+        output("Usage: zila group --cohorts", "warning");
+      } else if (shellContext.startCohortPicker) {
+        shellContext.startCohortPicker("group");
+      } else {
+        output("Run 'zila cohorts' to list IDs, then 'zila group --cohort <ID>'.", "dim");
+      }
+      return;
+    }
+
     const parsedArgs = parseGroupArguments(args);
     if (parsedArgs.error) {
       output(`[ERROR] ${parsedArgs.error}`, "error");

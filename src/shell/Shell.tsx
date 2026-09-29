@@ -13,6 +13,7 @@ import { SubmitReportScreen } from "../screens/SubmitReportScreen.js";
 import { SubmitTaskScreen } from "../screens/SubmitTaskScreen.js";
 import { StatsScreen } from "../screens/StatsScreen.js";
 import { LeaderboardScreen } from "../screens/LeaderboardScreen.js";
+import { CohortPickerScreen, type CohortPickerMode } from "../screens/CohortPickerScreen.js";
 import { AchievementsScreen } from "../screens/AchievementsScreen.js";
 import { LilZilaBanner } from "../ui/LilZilaBanner.js";
 import { RetroStatusBar } from "../ui/RetroStatusBar.js";
@@ -53,6 +54,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [showStats, setShowStats] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [cohortPickerMode, setCohortPickerMode] = useState<CohortPickerMode | null>(null);
 
   const pushLine = useCallback(
     (text: string, type: OutputLine["type"] = "default") => {
@@ -83,6 +85,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
     startStats: () => setShowStats(true),
     startAchievements: () => setShowAchievements(true),
     startLeaderboard: () => setShowLeaderboard(true),
+    startCohortPicker: (mode) => setCohortPickerMode(mode),
     clearHistory: () => setHistory([]),
   };
 
@@ -146,7 +149,8 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
         !showSubmitTask &&
         !showStats &&
         !showAchievements &&
-        !showLeaderboard,
+        !showLeaderboard &&
+        !cohortPickerMode,
     },
   );
 
@@ -244,6 +248,22 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
           onClose={() => {
             setShowAchievements(false);
             pushLine("Welcome back to lil-zila.", "success");
+          }}
+        />
+      ) : cohortPickerMode ? (
+        <CohortPickerScreen
+          mode={cohortPickerMode}
+          onClose={() => setCohortPickerMode(null)}
+          onSelect={(cohort) => {
+            const mode = cohortPickerMode;
+            setCohortPickerMode(null);
+            pushLine(`Selected cohort: ${cohort.name}`, "success");
+            void handleCommand(
+              mode === "group"
+                ? `group --cohort ${cohort.id}`
+                : `leaderboard --text ${cohort.id}`,
+              false,
+            );
           }}
         />
       ) : showLeaderboard ? (

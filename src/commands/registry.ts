@@ -1,4 +1,5 @@
 import type { OutputLine } from "../shell/OutputHistory.js";
+import type { CohortPickerMode } from "../screens/CohortPickerScreen.js";
 export type OutputCallback = (text: string, type?: OutputLine["type"]) => void;
 
 export interface ShellContext {
@@ -16,6 +17,7 @@ export interface ShellContext {
   startStats?: () => void;
   startAchievements?: () => void;
   startLeaderboard?: () => void;
+  startCohortPicker?: (mode: CohortPickerMode) => void;
   clearHistory: () => void;
 }
 
