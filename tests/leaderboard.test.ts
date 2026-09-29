@@ -8,8 +8,8 @@ test("Leaderboard loads real students from the same active cohort as group", asy
     {
       rank: 1,
       studentId: "student-1",
-      studentName: "Actual Student",
-      studentEmail: "actual@example.com",
+      studentName: "Signed In Student",
+      studentEmail: "me@example.com",
       totalPoints: 340,
       latestScore: 91,
     },
@@ -42,9 +42,10 @@ test("Leaderboard loads real students from the same active cohort as group", asy
   ]);
   assert.equal(data.cohortName, "Real cohort");
   assert.deepEqual(data.entries.map((entry) => entry.studentEmail), [
-    "actual@example.com",
+    "me@example.com",
     "another@example.com",
   ]);
+  assert.equal(data.entries[0].name, "Signed In Student");
 });
 
 test("Leaderboard does not fabricate entries without an active group", async () => {

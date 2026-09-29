@@ -81,15 +81,12 @@ function rankBadge(rank: number): string {
   return `${rank}th`;
 }
 
-function scoreBar(score: number): string {
-  const filled = Math.round((score / 100) * 16);
-  return "█".repeat(filled) + "░".repeat(16 - filled);
-}
-
 export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose }) => {
+  const currentEmail = loadAuth()?.email.trim().toLowerCase() ?? "";
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [spinnerFrame, setSpinnerFrame] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -111,6 +108,14 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
     };
   }, []);
 
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setInterval(() => {
+      setSpinnerFrame((frame) => (frame + 1) % theme.spinner.frames.length);
+    }, theme.spinner.intervalMs);
+    return () => clearInterval(timer);
+  }, [loading]);
+
   useInput((input, key) => {
     if (key.escape || input === "q" || key.return) {
       onClose();
@@ -119,8 +124,6 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
-
       <Box flexDirection="row" justifyContent="space-between" alignItems="center">
         <Box flexDirection="row" gap={1}>
           <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
@@ -135,12 +138,13 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
       <Text color={theme.colors.retroSlateDark}>
         {data?.cohortName ?? (loading ? "Loading your group..." : "No active cohort")}
       </Text>
-      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
       {error ? (
         <Text color={theme.colors.retroGreenBright}>{`Unable to load leaderboard: ${error}`}</Text>
       ) : loading ? (
-        <Text color={theme.colors.retroSlateDark}>Fetching your cohort leaderboard...</Text>
+        <Text color={theme.colors.retroBlueBright}>
+          {`${theme.spinner.frames[spinnerFrame]} Fetching your cohort leaderboard...`}
+        </Text>
       ) : data?.cohortName === null ? (
         <Text color={theme.colors.retroSlateDark}>
           Join an active cohort to see its leaderboard.
@@ -161,16 +165,13 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
             <Box width={10}>
               <Text color={theme.colors.retroBlueBright} bold>{"POINTS"}</Text>
             </Box>
-            <Box width={20}>
+            <Box width={12}>
               <Text color={theme.colors.retroBlueBright} bold>{"LATEST"}</Text>
-            </Box>
-            <Box>
-              <Text color={theme.colors.retroBlueBright} bold>{"SCORE"}</Text>
             </Box>
           </Box>
 
           {data?.entries.map((entry) => {
-            const isYou = entry.studentEmail.toLowerCase() === loadAuth()?.email.toLowerCase();
+            const isYou = currentEmail !== "" && entry.studentEmail.trim().toLowerCase() === currentEmail;
             const rankColor = entry.rank <= 3
               ? theme.colors.retroGreenBright
               : theme.colors.retroSlateDark;
@@ -190,10 +191,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
                     {`${entry.points} pts`}
                   </Text>
                 </Box>
-                <Box width={20}>
-                  <Text color={theme.colors.retroBlueBright}>{scoreBar(entry.latestScore)}</Text>
-                </Box>
-                <Box>
+                <Box width={12}>
                   <Text color={theme.colors.retroSlateDark}>{`${entry.latestScore}%`}</Text>
                 </Box>
               </Box>
@@ -201,8 +199,6 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
           })}
         </>
       )}
-
-      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
       <Box flexDirection="row" justifyContent="space-between">
         <Text color={theme.colors.retroSlateDark}>{"esc / q / enter to close"}</Text>
