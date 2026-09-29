@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
 import { Spinner } from "../ui/Spinner.js";
-import { requestOtp, verifyOtp, saveToken } from "../utils/auth.js";
+import { requestOtp, verifyOtp, saveToken, loadAuth } from "../utils/auth.js";
 
 type Step = "email" | "otp" | "verifying" | "requesting" | "done" | "error";
 
@@ -12,7 +12,7 @@ interface AuthScreenProps {
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onComplete }) => {
   const [step, setStep] = useState<Step>("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => loadAuth()?.email ?? "");
   const [otp, setOtp] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [cursorOn, setCursorOn] = useState(true);

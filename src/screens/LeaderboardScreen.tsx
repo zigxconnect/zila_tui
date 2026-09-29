@@ -37,8 +37,20 @@ interface LeaderboardResponse {
   }>;
 }
 
+interface ProfileResponse {
+  profile?: {
+    user_id?: string;
+    full_name?: string;
+    email?: string;
+  };
+}
+
 interface LeaderboardData {
   cohortName: string | null;
+  currentStudentId: string | null;
+  currentStudentName: string | null;
+  currentStudentEmail: string;
+  profileMatchesAccount: boolean;
   entries: LeaderboardEntry[];
 }
 
@@ -46,26 +58,53 @@ type ApiRequest = <T = unknown>(endpoint: string) => Promise<T>;
 
 export async function fetchLeaderboardData(
   request: ApiRequest = zilaApi,
+  authenticatedEmail = loadAuth()?.email ?? "",
 ): Promise<LeaderboardData> {
   const group = await request<GroupResponse>("/cohorts/group");
   const cohortId = group.cohort?.id ?? group.chatContext?.cohortId;
   const cohortName = group.cohort?.name ?? group.chatContext?.cohortName ?? null;
 
   if (!cohortId) {
-    return { cohortName: null, entries: [] };
+    return {
+      cohortName: null,
+      currentStudentId: null,
+      currentStudentName: null,
+      currentStudentEmail: authenticatedEmail,
+      profileMatchesAccount: true,
+      entries: [],
+    };
   }
 
   const peers = group.peers ?? group.chatContext?.members ?? [];
   const limit = Math.max(peers.length + 1, 1);
-  const response = await request<LeaderboardResponse>(
-    `/gamification/leaderboard/${encodeURIComponent(cohortId)}?limit=${limit}`,
-  );
+  const [response, profileResponse] = await Promise.all([
+    request<LeaderboardResponse>(
+      `/gamification/leaderboard/${encodeURIComponent(cohortId)}?limit=${limit}`,
+    ),
+    request<ProfileResponse>("/profile/me").catch(() => null),
+  ]);
+  const profile = profileResponse?.profile;
+  const currentStudentId = profile?.user_id ?? null;
+  const currentStudentEmail = authenticatedEmail.trim() || profile?.email?.trim() || "";
+  const currentStudentName = profile?.full_name?.trim() || null;
+  const normalizedCurrentEmail = currentStudentEmail.toLowerCase();
+  const profileMatchesAccount = !profile?.email
+    || profile.email.trim().toLowerCase() === normalizedCurrentEmail;
 
   return {
     cohortName,
+    currentStudentId,
+    currentStudentName,
+    currentStudentEmail,
+    profileMatchesAccount,
     entries: (response.leaderboard ?? []).map((entry) => ({
       rank: entry.rank,
-      name: entry.studentName,
+      name: profileMatchesAccount
+        && normalizedCurrentEmail !== ""
+        && entry.studentEmail.trim().toLowerCase() === normalizedCurrentEmail
+        && currentStudentName
+        ? currentStudentName
+        : entry.studentName,
       studentId: entry.studentId,
       studentEmail: entry.studentEmail,
       points: entry.totalPoints,
@@ -82,7 +121,6 @@ function rankBadge(rank: number): string {
 }
 
 export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose }) => {
-  const currentEmail = loadAuth()?.email.trim().toLowerCase() ?? "";
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +209,10 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
           </Box>
 
           {data?.entries.map((entry) => {
-            const isYou = currentEmail !== "" && entry.studentEmail.trim().toLowerCase() === currentEmail;
+            const currentEmail = data.currentStudentEmail.trim().toLowerCase();
+            const isYou = currentEmail !== ""
+              && data.profileMatchesAccount
+              && entry.studentEmail.trim().toLowerCase() === currentEmail;
             const rankColor = entry.rank <= 3
               ? theme.colors.retroGreenBright
               : theme.colors.retroSlateDark;

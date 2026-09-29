@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
 import { Spinner } from "../ui/Spinner.js";
-import { zilaApi, AuthRequiredError, AuthExpiredError } from "../utils/auth.js";
+import { zilaApi, loadAuth, AuthRequiredError, AuthExpiredError } from "../utils/auth.js";
 
 interface Profile {
   id: string;
@@ -43,6 +43,22 @@ function isEmpty(val: FieldValue): boolean {
   return false;
 }
 
+export function resolveAccountProfile(profile: Profile, accountEmail: string): Profile {
+  const normalizedAccountEmail = accountEmail.trim().toLowerCase();
+  const normalizedProfileEmail = profile.email?.trim().toLowerCase() ?? "";
+
+  if (normalizedAccountEmail && normalizedProfileEmail && normalizedAccountEmail !== normalizedProfileEmail) {
+    throw new Error(
+      `Signed in as ${accountEmail.trim()}, but the profile belongs to ${profile.email}. Refusing to show another account's profile.`,
+    );
+  }
+
+  return {
+    ...profile,
+    email: profile.email?.trim() || accountEmail.trim(),
+  };
+}
+
 const Field: React.FC<{
   label: string;
   value: FieldValue;
@@ -64,6 +80,7 @@ const Field: React.FC<{
 };
 
 export const AboutScreen: React.FC<AboutScreenProps> = ({ onComplete }) => {
+  const authenticatedEmail = loadAuth()?.email ?? "Not signed in";
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
@@ -73,7 +90,8 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ onComplete }) => {
       try {
         const response = await zilaApi<{ profile: Profile; type: string }>("/profile/me");
         if (response.profile) {
-          setProfile(response.profile);
+          const accountEmail = loadAuth()?.email ?? "";
+          setProfile(resolveAccountProfile(response.profile, accountEmail));
         } else {
           setError("No profile data found. Complete your profile on the Zigex platform.");
         }
@@ -135,6 +153,7 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ onComplete }) => {
         </Box>
         <Text color={theme.colors.retroGreenBright}>{profile.profile_status ?? "active"}</Text>
       </Box>
+      <Text color={theme.colors.retroSlateDark}>{`SIGNED IN AS  ${authenticatedEmail}`}</Text>
 
       {/* Divider */}
       <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>

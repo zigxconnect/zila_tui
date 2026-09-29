@@ -7,17 +7,17 @@ test("Leaderboard loads real students from the same active cohort as group", asy
   const expectedEntries = [
     {
       rank: 1,
-      studentId: "student-1",
-      studentName: "Signed In Student",
-      studentEmail: "me@example.com",
+      studentId: "different-student-id",
+      studentName: "Old Cohort Name",
+      studentEmail: "FonyuyJudeGita@gmail.com",
       totalPoints: 340,
       latestScore: 91,
     },
     {
       rank: 2,
-      studentId: "student-2",
-      studentName: "Another Student",
-      studentEmail: "another@example.com",
+      studentId: "student-sanda",
+      studentName: "Sanda Maurice",
+      studentEmail: "sanda@example.com",
       totalPoints: 275,
       latestScore: 84,
     },
@@ -31,21 +31,33 @@ test("Leaderboard loads real students from the same active cohort as group", asy
         peers: [{ studentEmail: "another@example.com" }],
       } as T;
     }
+    if (endpoint === "/profile/me") {
+      return {
+        profile: {
+          user_id: "authenticated-user-id",
+          full_name: "Fonyuy Gita",
+          email: "fonyuyjudegita@gmail.com",
+        },
+      } as T;
+    }
     return { leaderboard: expectedEntries } as T;
   };
 
-  const data = await fetchLeaderboardData(request);
+  const data = await fetchLeaderboardData(request, "fonyuyjudegita@gmail.com");
 
   assert.deepEqual(requests, [
     "/cohorts/group",
     "/gamification/leaderboard/cohort-123?limit=2",
+    "/profile/me",
   ]);
   assert.equal(data.cohortName, "Real cohort");
   assert.deepEqual(data.entries.map((entry) => entry.studentEmail), [
-    "me@example.com",
-    "another@example.com",
+    "FonyuyJudeGita@gmail.com",
+    "sanda@example.com",
   ]);
-  assert.equal(data.entries[0].name, "Signed In Student");
+  assert.equal(data.entries[0].name, "Fonyuy Gita");
+  assert.equal(data.entries[1].name, "Sanda Maurice");
+  assert.equal(data.currentStudentEmail, "fonyuyjudegita@gmail.com");
 });
 
 test("Leaderboard does not fabricate entries without an active group", async () => {
@@ -60,4 +72,39 @@ test("Leaderboard does not fabricate entries without an active group", async () 
   assert.deepEqual(requests, ["/cohorts/group"]);
   assert.equal(data.cohortName, null);
   assert.deepEqual(data.entries, []);
+});
+
+test("Leaderboard does not relabel another student's row when profile identity conflicts", async () => {
+  const request = async <T>(endpoint: string): Promise<T> => {
+    if (endpoint === "/cohorts/group") {
+      return {
+        cohort: { id: "cohort-123", name: "Real cohort" },
+        peers: [{ studentEmail: "sanda@example.com" }],
+      } as T;
+    }
+    if (endpoint === "/profile/me") {
+      return {
+        profile: {
+          user_id: "sanda-user-id",
+          full_name: "Sanda Maurice",
+          email: "sanda@example.com",
+        },
+      } as T;
+    }
+    return {
+      leaderboard: [{
+        rank: 1,
+        studentId: "sanda-user-id",
+        studentName: "Sanda Maurice",
+        studentEmail: "sanda@example.com",
+        totalPoints: 100,
+        latestScore: 80,
+      }],
+    } as T;
+  };
+
+  const data = await fetchLeaderboardData(request, "fonyuyjudegita@gmail.com");
+
+  assert.equal(data.profileMatchesAccount, false);
+  assert.equal(data.entries[0].name, "Sanda Maurice");
 });
