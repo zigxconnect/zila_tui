@@ -6,6 +6,10 @@ import { requestOtp, verifyOtp, saveToken, loadAuth } from "../utils/auth.js";
 
 type Step = "email" | "otp" | "verifying" | "requesting" | "done" | "error";
 
+export function maskVerificationCode(code: string): string {
+  return Array.from(code, () => "•").join(" ");
+}
+
 interface AuthScreenProps {
   onComplete: (success: boolean) => void;
 }
@@ -158,7 +162,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onComplete }) => {
               </Text>
             </Box>
             <Text color={theme.colors.white} bold>
-              {otp ? otp.split("").join(" ") : ""}
+              {otp ? maskVerificationCode(otp) : ""}
             </Text>
             {step === "otp" && (
               <Text color={theme.colors.retroBlueBright} bold>

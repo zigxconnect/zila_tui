@@ -5,25 +5,99 @@ import { env } from "process";
 
 const API_BASE_URL = env.ZILA_API_URL || "http://localhost:5000";
 
+export interface GroupArguments {
+  cohortId?: string;
+  refresh: boolean;
+  error?: string;
+}
+
+export function parseGroupArguments(args: string[]): GroupArguments {
+  let cohortId: string | undefined;
+  let refresh = false;
+
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg === "--refresh" || arg === "-r") {
+      refresh = true;
+      continue;
+    }
+
+    if (arg === "--cohort" || arg === "-c") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) {
+        return { refresh, error: "Missing cohort ID after --cohort." };
+      }
+      if (cohortId) return { refresh, error: "Specify only one cohort ID." };
+      cohortId = value;
+      index++;
+      continue;
+    }
+
+    if (arg.startsWith("--cohort=")) {
+      const value = arg.slice("--cohort=".length);
+      if (!value) return { refresh, error: "Missing cohort ID after --cohort=." };
+      if (cohortId) return { refresh, error: "Specify only one cohort ID." };
+      cohortId = value;
+      continue;
+    }
+
+    if (arg.startsWith("-")) {
+      return { refresh, error: `Unknown group option: ${arg}` };
+    }
+    if (cohortId) return { refresh, error: "Specify only one cohort ID." };
+    cohortId = arg;
+  }
+
+  return { cohortId, refresh };
+}
+
 export const groupCommand: ZilaCommand = {
   name: "group",
   aliases: ["peers", "colleagues", "cohort-members"],
   description: "View your fellow accepted interns and supervisor in your cohort",
-  usage: "group [cohort-id] [--refresh]",
+  usage: "group [--cohort <id>] [--refresh]",
   category: "cohort",
   available: true,
   handler: async (args, output) => {
+    const parsedArgs = parseGroupArguments(args);
+    if (parsedArgs.error) {
+      output(`[ERROR] ${parsedArgs.error}`, "error");
+      output("Usage: zila group [--cohort <id>] [--refresh]", "dim");
+      return;
+    }
+
     const authRecord = loadAuth();
     if (!authRecord?.token) {
       output("[AUTH] Not authenticated. Run 'auth' to login.", "error");
       return;
     }
 
-    const refresh = args.includes("--refresh") || args.includes("-r");
-    const targetCohortId = args.find((a) => !a.startsWith("-"));
+    const { refresh, cohortId: targetCohortId } = parsedArgs;
     const cacheKey = `group:${authRecord.email || "me"}:${targetCohortId || "default"}`;
 
     try {
+      if (targetCohortId) {
+        const cohortsCacheKey = `my-cohorts:${authRecord.email || "me"}`;
+        let cohorts = refresh ? null : ClientCache.get<any[]>(cohortsCacheKey);
+        if (!cohorts) {
+          const cohortsResponse = await fetch(`${API_BASE_URL}/api/cohorts/my-cohorts`, {
+            headers: { Authorization: `Bearer ${authRecord.token}` },
+          });
+          if (!cohortsResponse.ok) {
+            output(`[ERROR] Failed to verify cohort membership (HTTP ${cohortsResponse.status})`, "error");
+            return;
+          }
+          const cohortsData = await cohortsResponse.json() as { cohorts?: any[] };
+          cohorts = cohortsData.cohorts ?? [];
+          ClientCache.set(cohortsCacheKey, cohorts, 120);
+        }
+        if (!cohorts.some((cohort) => cohort.id === targetCohortId)) {
+          output(`[ERROR] Cohort ${targetCohortId} is not in your enrolled cohorts.`, "error");
+          output("Run 'zila cohorts --refresh' to see your available cohort IDs.", "dim");
+          return;
+        }
+      }
+
       let data: any = null;
       if (!refresh) {
         data = ClientCache.get<any>(cacheKey);
@@ -35,7 +109,7 @@ export const groupCommand: ZilaCommand = {
         output("[FETCH] Loading your cohort members and placements...", "info");
 
         const targetUrl = targetCohortId
-          ? `${API_BASE_URL}/api/cohorts/${targetCohortId}/chat-group`
+          ? `${API_BASE_URL}/api/cohorts/${encodeURIComponent(targetCohortId)}/chat-group`
           : `${API_BASE_URL}/api/cohorts/group`;
 
         const res = await fetch(targetUrl, {
@@ -66,7 +140,11 @@ export const groupCommand: ZilaCommand = {
       };
 
       const supervisor = data.supervisor || data.chatContext?.supervisorAdmin;
-      const peers = data.peers || data.chatContext?.members || [];
+      const currentEmail = authRecord.email.trim().toLowerCase();
+      const peers = (data.peers || data.chatContext?.members || []).filter((peer: any) => {
+        const peerEmail = String(peer.studentEmail || peer.email || "").trim().toLowerCase();
+        return !currentEmail || peerEmail !== currentEmail;
+      });
 
       output("", "default");
       output("================================================================================", "info");
@@ -116,7 +194,7 @@ export const cohortsCommand: ZilaCommand = {
   name: "cohorts",
   aliases: ["sessions", "programs-list"],
   description: "Browse and manage your enrolled cohorts",
-  usage: "cohorts [--all]",
+  usage: "cohorts [--refresh]",
   category: "cohort",
   available: true,
   handler: async (args, output) => {
@@ -171,13 +249,14 @@ export const cohortsCommand: ZilaCommand = {
         output(`[${idx + 1}] ${cohort.name}`, "info");
         output(`    Track: ${cohort.department} | ${supInfo}`, "dim");
         output(`    ID: ${cohort.id} | Status: ${cohort.enrollmentStatus || 'Active'}`, "dim");
+        output(`    Team: zila group --cohort ${cohort.id}`, "dim");
         if (cohort.githubRepoUrl) {
           output(`    Repository: ${cohort.githubRepoUrl}`, "dim");
         }
         output("", "default");
       });
 
-      output("[HINT] Type 'group' to see your fellow interns and supervisor.", "dim");
+      output("[HINT] Use 'zila group --cohort <ID>' to view a cohort's team; add --refresh for live data.", "dim");
 
     } catch (error: any) {
       output(`[ERROR] ${error.message}`, "error");
