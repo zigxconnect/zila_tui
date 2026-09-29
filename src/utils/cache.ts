@@ -114,6 +114,22 @@ export class ClientCache {
   }
 
   /**
+   * Invalidate all keys matching a prefix
+   */
+  static invalidatePrefix(prefix: string): number {
+    this.initDisk();
+    let count = 0;
+    for (const key of Array.from(this.memoryStore.keys())) {
+      if (key.startsWith(prefix)) {
+        this.memoryStore.delete(key);
+        count++;
+      }
+    }
+    this.persistDisk();
+    return count;
+  }
+
+  /**
    * Clear all cache
    */
   static clear(): void {

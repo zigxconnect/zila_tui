@@ -12,6 +12,8 @@ import { InfoScreen } from "../screens/InfoScreen.js";
 import { SubmitReportScreen } from "../screens/SubmitReportScreen.js";
 import { SubmitTaskScreen } from "../screens/SubmitTaskScreen.js";
 import { StatsScreen } from "../screens/StatsScreen.js";
+import { LeaderboardScreen } from "../screens/LeaderboardScreen.js";
+import { AchievementsScreen } from "../screens/AchievementsScreen.js";
 import { LilZilaBanner } from "../ui/LilZilaBanner.js";
 import { RetroStatusBar } from "../ui/RetroStatusBar.js";
 import { RetroKeyboardLegend } from "../ui/RetroKeyboardLegend.js";
@@ -49,6 +51,8 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [showSubmitReport, setShowSubmitReport] = useState(false);
   const [showSubmitTask, setShowSubmitTask] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   const pushLine = useCallback(
     (text: string, type: OutputLine["type"] = "default") => {
@@ -77,6 +81,8 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
     startSubmitReport: () => setShowSubmitReport(true),
     startSubmitTask: () => setShowSubmitTask(true),
     startStats: () => setShowStats(true),
+    startAchievements: () => setShowAchievements(true),
+    startLeaderboard: () => setShowLeaderboard(true),
     clearHistory: () => setHistory([]),
   };
 
@@ -138,7 +144,9 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
         !showInfo &&
         !showSubmitReport &&
         !showSubmitTask &&
-        !showStats,
+        !showStats &&
+        !showAchievements &&
+        !showLeaderboard,
     },
   );
 
@@ -231,6 +239,20 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             pushLine("Welcome back to lil-zila.", "success");
           }}
         />
+      ) : showAchievements ? (
+        <AchievementsScreen
+          onClose={() => {
+            setShowAchievements(false);
+            pushLine("Welcome back to lil-zila.", "success");
+          }}
+        />
+      ) : showLeaderboard ? (
+        <LeaderboardScreen
+          onClose={() => {
+            setShowLeaderboard(false);
+            pushLine("Welcome back to lil-zila.", "success");
+          }}
+        />
       ) : (
         <>
           {history.length === 0 && <LilZilaBanner />}
@@ -239,7 +261,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             onSubmit={(input) => handleCommand(input, true)}
           />
           <Box marginTop={0} flexDirection="row" gap={2}>
-            <Text color={theme.colors.retroSlateDark}>{"help · group · tasks · docs · assist · stats · exit"}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"help · group · tasks · docs · stats · cache · exit"}</Text>
           </Box>
         </>
       )}

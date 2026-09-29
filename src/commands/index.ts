@@ -36,6 +36,7 @@ import { docsCommand, searchCommand2, githubReposCommand } from "./docs.js";
 import { statsScreenCommand } from "./stats-screen.js";
 import { downloadsCommand } from "./downloads.js";
 import { githubAuthCommand, githubStatusCommand, githubLogoutCommand } from "./githubAuth.js";
+import { cacheCommand } from "./cache.js";
 
 export function registerAllCommands(): void {
   registerCommand(exitCommand);
@@ -73,4 +74,5 @@ export function registerAllCommands(): void {
   registerCommand(githubAuthCommand);
   registerCommand(githubStatusCommand);
   registerCommand(githubLogoutCommand);
+  registerCommand(cacheCommand);
 }

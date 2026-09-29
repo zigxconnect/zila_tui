@@ -14,6 +14,8 @@ export interface ShellContext {
   startSubmitReport: () => void;
   startSubmitTask: () => void;
   startStats?: () => void;
+  startAchievements?: () => void;
+  startLeaderboard?: () => void;
   clearHistory: () => void;
 }
 

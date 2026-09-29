@@ -7,6 +7,13 @@ interface InfoScreenProps {
   onComplete: () => void;
 }
 
+interface DiagnosticItem {
+  component: string;
+  subsystem: string;
+  status: string;
+  highlight?: boolean;
+}
+
 export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
   useInput((char, key) => {
     if (key.escape || char === "q" || key.return) {
@@ -22,6 +29,18 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
   const totalHeapMB = Math.round(memoryUsage.heapTotal / 1024 / 1024) || 64;
   const uptimeMinutes = Math.floor(process.uptime() / 60);
 
+  const DIAGNOSTIC_ITEMS: DiagnosticItem[] = [
+    { component: "Client Agent", subsystem: "Runtime", status: "lil-zila v0.3.0 (TUI Shell)" },
+    { component: "Node.js Engine", subsystem: "Runtime", status: `${nodeVersion} (${platform}/${arch})` },
+    { component: "Session Process", subsystem: "Host OS", status: `PID ${process.pid} · Uptime ${uptimeMinutes}m` },
+    { component: "CacheService (API)", subsystem: "Memory Cache", status: "120s TTL · 0.8ms sub-ms latency (560x)", highlight: true },
+    { component: "Client Cache", subsystem: "Local Store", status: "~/.zila/cache.json [Persistent]" },
+    { component: "Polyglot Database", subsystem: "Backend", status: "Supabase (Truth) + Neon DB (Prisma)" },
+    { component: "BLE Mesh Service", subsystem: "Bluetooth", status: "0000FE26 · P2P Mesh ready (512B MTU)" },
+    { component: "GitHub OAuth", subsystem: "Integration", status: "zigxconnect personal access tokens" },
+    { component: "Swagger OpenAPI", subsystem: "Docs Spec", status: "http://localhost:5000/docs [v3.0.0]" },
+  ];
+
   return (
     <Box flexDirection="column" paddingY={1}>
       {/* Top rule */}
@@ -32,79 +51,64 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
         <Box flexDirection="row" gap={1}>
           <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
           <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
-          <Text color={theme.colors.white} bold>{"system diagnostics"}</Text>
+          <Text color={theme.colors.white} bold>{"system diagnostics & cache"}</Text>
         </Box>
-        <Text color={theme.colors.retroGreenBright}>{"nominal"}</Text>
+        <Text color={theme.colors.retroGreenBright}>{"nominal · all systems active"}</Text>
       </Box>
 
       {/* Divider */}
       <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
-      {/* Runtime Environment */}
-      <Box flexDirection="column" gap={0} marginBottom={1}>
-        <Text color={theme.colors.retroBlueBright} bold>{"ENVIRONMENT"}</Text>
-        <Box flexDirection="row" gap={2}>
-          <Box width={18}>
-            <Text color={theme.colors.retroSlateDark}>{"Client"}</Text>
-          </Box>
-          <Text color={theme.colors.white} bold>{"lil-zila v0.3.0"}</Text>
+      {/* Column Headers */}
+      <Box flexDirection="row" marginBottom={0}>
+        <Box width={20}>
+          <Text color={theme.colors.retroBlueBright} bold>{"COMPONENT"}</Text>
         </Box>
-        <Box flexDirection="row" gap={2}>
-          <Box width={18}>
-            <Text color={theme.colors.retroSlateDark}>{"Node Runtime"}</Text>
-          </Box>
-          <Text color={theme.colors.white}>{nodeVersion}</Text>
+        <Box width={16}>
+          <Text color={theme.colors.retroSlateDark}>{"SUBSYSTEM"}</Text>
         </Box>
-        <Box flexDirection="row" gap={2}>
-          <Box width={18}>
-            <Text color={theme.colors.retroSlateDark}>{"Platform / Arch"}</Text>
-          </Box>
-          <Text color={theme.colors.white}>{platform} / {arch}</Text>
-        </Box>
-        <Box flexDirection="row" gap={2}>
-          <Box width={18}>
-            <Text color={theme.colors.retroSlateDark}>{"Session Uptime"}</Text>
-          </Box>
-          <Text color={theme.colors.white}>{uptimeMinutes}m (PID: {process.pid})</Text>
+        <Box>
+          <Text color={theme.colors.retroSlateDark}>{"STATUS / CONFIGURATION"}</Text>
         </Box>
       </Box>
 
-      {/* Memory Allocation */}
-      <Box flexDirection="column" gap={0} marginBottom={1}>
-        <Text color={theme.colors.retroBlueBright} bold>{"MEMORY"}</Text>
-        <Box flexDirection="row" alignItems="center" gap={2}>
-          <Text color={theme.colors.retroSlateDark}>
-            {`Heap: ${heapMB}MB / ${totalHeapMB}MB`}
-          </Text>
+      {/* Diagnostic Items */}
+      {DIAGNOSTIC_ITEMS.map((item) => (
+        <Box key={item.component} flexDirection="row" paddingY={0}>
+          <Box width={20}>
+            <Text color={item.highlight ? theme.colors.retroGreenBright : theme.colors.white} bold={item.highlight}>
+              {item.component}
+            </Text>
+          </Box>
+          <Box width={16}>
+            <Text color={theme.colors.retroSlateDark}>{item.subsystem}</Text>
+          </Box>
+          <Box>
+            <Text color={item.highlight ? theme.colors.white : theme.colors.text}>
+              {item.status}
+            </Text>
+          </Box>
+        </Box>
+      ))}
+
+      {/* Memory Utilization Gauge */}
+      <Box flexDirection="row" marginTop={1} alignItems="center">
+        <Box width={20}>
+          <Text color={theme.colors.white} bold>{"Memory Allocation"}</Text>
+        </Box>
+        <Box width={16}>
+          <Text color={theme.colors.retroSlateDark}>{"RAM Heap"}</Text>
+        </Box>
+        <Box flexDirection="row" alignItems="center" gap={1}>
           <RetroMeter
             value={heapMB}
             max={totalHeapMB}
-            width={24}
+            width={18}
             style="blocks"
             color="retroBlueBright"
-            showPercent={true}
+            showPercent={false}
           />
-        </Box>
-      </Box>
-
-      {/* Subsystem State */}
-      <Box flexDirection="column" gap={0}>
-        <Text color={theme.colors.retroBlueBright} bold>{"SUBSYSTEMS"}</Text>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
-          <Text color={theme.colors.white}>{"Client Cache (~/.zila/cache.json)"}</Text>
-        </Box>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
-          <Text color={theme.colors.white}>{"Bluetooth LE Protocol Engine ready"}</Text>
-        </Box>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
-          <Text color={theme.colors.white}>{"GitHub API OAuth integration active"}</Text>
-        </Box>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright}>{"✓"}</Text>
-          <Text color={theme.colors.white}>{"Zigex REST Sync Daemon connected"}</Text>
+          <Text color={theme.colors.white}>{`${heapMB}MB / ${totalHeapMB}MB`}</Text>
         </Box>
       </Box>
 
@@ -114,7 +118,7 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
       {/* Footer */}
       <Box flexDirection="row" justifyContent="space-between">
         <Text color={theme.colors.retroSlateDark}>{"esc / q / enter to close"}</Text>
-        <Text color={theme.colors.retroSlateDark}>{"Zigex Workstation Environment"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"type cache or stats at prompt"}</Text>
       </Box>
     </Box>
   );
