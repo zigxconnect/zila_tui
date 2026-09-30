@@ -177,23 +177,20 @@ export const groupCommand: ZilaCommand = {
       }
 
       output(`ACCEPTED INTERNS (${peers.length} active peers):`, "success");
-      output("--------------------------------------------------------------------------------", "dim");
-      output(` #  NAME`, "dim");
-      output(`    EMAIL                         POINTS  STATUS`, "dim");
-      output("--------------------------------------------------------------------------------", "dim");
+      output("", "groupDivider");
+      output("#\tNAME\tEMAIL\tPOINTS\tSTATUS", "groupHeader");
+      output("", "groupDivider");
 
       peers.forEach((peer: any, idx: number) => {
-        const num = String(idx + 1).padEnd(2);
-        const name = String(peer.studentName || peer.name || 'Intern').padEnd(32).slice(0, 32);
-        const email = String(peer.studentEmail || peer.email || 'N/A').padEnd(28).slice(0, 28);
-        const points = String(peer.totalPoints || 0).padStart(6);
-        const status = (peer.status || 'Active').padEnd(7);
+        const name = String(peer.studentName || peer.name || "Intern").replace(/\s+/g, " ").slice(0, 24);
+        const email = String(peer.studentEmail || peer.email || "N/A").slice(0, 28);
+        const points = String(peer.totalPoints || 0);
+        const status = String(peer.status || "Active").slice(0, 10);
 
-        output(` ${num} ${name.trimEnd()}`, "white");
-        output(`    ${email} ${points}  ${status}`, "dim");
+        output(`${String(idx + 1)}\t${name}\t${email}\t${points}\t${status}`, "groupRow");
       });
 
-      output("--------------------------------------------------------------------------------", "dim");
+      output("", "groupDivider");
       output(`[INFO] Bluetooth Chat: Ready for peer-to-peer connection with supervisor admin`, "dim");
       output("", "default");
 

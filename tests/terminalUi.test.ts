@@ -55,3 +55,27 @@ test('SubmitTaskScreen - renders without Text string outside <Text> error', asyn
   const instance2 = render(React.createElement(SubmitReportScreen, { onComplete: () => {} }));
   instance2.unmount();
 });
+
+test('Group table - renders member name and email in the same row', async () => {
+  const React = await import('react');
+  const { render } = await import('ink');
+  const { PassThrough } = await import('node:stream');
+  const { OutputHistory } = await import('../dist/shell/OutputHistory.js');
+  const stdout = new PassThrough() as NodeJS.WriteStream;
+  stdout.columns = 120;
+  stdout.rows = 30;
+  let rendered = '';
+  stdout.on('data', (chunk: Buffer) => { rendered += chunk.toString(); });
+  const instance = render(React.createElement(OutputHistory, {
+    history: [{
+      id: 'group-member-1',
+      text: '1\tAda Lovelace\tada@example.com\t42\tActive',
+      type: 'groupRow',
+    }],
+  }), { stdout, debug: true, patchConsole: false });
+
+  const nameRow = rendered.split('\n').find((line: string) => line.includes('Ada Lovelace')) ?? '';
+  assert.ok(nameRow.includes('ada@example.com'), 'email should be rendered beside the student name');
+  assert.ok(nameRow.includes('42'), 'points should be rendered in the same table row');
+  instance.unmount();
+});

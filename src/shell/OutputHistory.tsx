@@ -6,7 +6,7 @@ import { RetroLogLine, type LogLevel } from "../ui/RetroLogLine.js";
 export type OutputLine = {
   id: string;
   text: string;
-  type: "default" | "success" | "error" | "warning" | "info" | "dim" | "white" | "command";
+  type: "default" | "success" | "error" | "warning" | "info" | "dim" | "white" | "groupHeader" | "groupRow" | "groupDivider" | "command";
 };
 
 interface OutputHistoryProps {
@@ -60,6 +60,32 @@ export const OutputHistory: React.FC<OutputHistoryProps> = ({ history }) => {
             <Box key={line.id} flexDirection="row" gap={1}>
               <Text color={theme.colors.retroSlateDark}>{"  ·"}</Text>
               <Text color="#FFFFFF" bold>{line.text}</Text>
+            </Box>
+          );
+        }
+
+        if (line.type === "groupHeader" || line.type === "groupRow") {
+          const [number = "", name = "", email = "", points = "", status = ""] = line.text.split("\t");
+          const isHeader = line.type === "groupHeader";
+          return (
+            <Box key={line.id} flexDirection="row" gap={1}>
+              <Text color={theme.colors.retroSlateDark}>{"  ·"}</Text>
+              <Box width={4}><Text color={theme.colors.retroSlateDark}>{number}</Text></Box>
+              <Box width={24}><Text color={isHeader ? theme.colors.retroSlateDark : "#FFFFFF"} bold={!isHeader}>{name}</Text></Box>
+              <Box width={28}><Text color={theme.colors.retroSlateDark}>{email}</Text></Box>
+              <Box width={8}><Text color={theme.colors.retroSlateDark}>
+                {points ? String(Number(points)).padStart(5) : ""}
+              </Text></Box>
+              <Box width={10}><Text color={theme.colors.retroSlateDark}>{status}</Text></Box>
+            </Box>
+          );
+        }
+
+        if (line.type === "groupDivider") {
+          return (
+            <Box key={line.id} flexDirection="row" gap={1}>
+              <Text color={theme.colors.retroSlateDark}>{"  ·"}</Text>
+              <Text color={theme.colors.retroSlateDark}>{"-".repeat(78)}</Text>
             </Box>
           );
         }
