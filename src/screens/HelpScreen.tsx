@@ -26,7 +26,7 @@ const COMMAND_CATALOG: CommandItem[] = [
   { cmd: "submit-report", category: "work", desc: "Draft & submit daily progress report" },
   { cmd: "docs [query]", category: "library", desc: "Search Zigex engineering documentation" },
   { cmd: "auth", category: "auth", desc: "Authenticate with Zigex credentials" },
-  { cmd: "gh-auth <tok>", category: "auth", desc: "Connect GitHub Personal Access Token" },
+  { cmd: "github-auth", category: "auth", desc: "Connect GitHub in your browser" },
   { cmd: "gh-status", category: "auth", desc: "Check GitHub connection & identity" },
   { cmd: "stats", category: "telemetry", desc: "Workstation performance & credit stats" },
   { cmd: "cache", category: "system", desc: "In-memory CacheService telemetry & bench" },

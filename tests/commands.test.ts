@@ -14,7 +14,8 @@ test('Command Registry - Newly added commands are registered and accessible', ()
   assert.ok(downloadsCmd, 'downloads command should be registered');
   assert.equal(downloadsCmd.name, 'downloads');
 
-  const ghAuthCmd = findCommand('gh-auth');
-  assert.ok(ghAuthCmd, 'gh-auth command should be registered');
-  assert.equal(ghAuthCmd.name, 'gh-auth');
+  const githubAuthCmd = findCommand('github-auth');
+  assert.ok(githubAuthCmd, 'github-auth command should be registered');
+  assert.equal(githubAuthCmd.name, 'github-auth');
+  assert.equal(findCommand('gh-auth'), githubAuthCmd, 'legacy gh-auth alias should remain available');
 });

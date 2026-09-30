@@ -1,50 +1,49 @@
 import type { ZilaCommand } from "./registry.js";
 import {
-  saveGitHubToken,
+  authenticateWithGitHub,
   loadGitHubAuth,
   clearGitHubAuth,
-  verifyGitHubToken,
 } from "../utils/githubAuth.js";
 
 export const githubAuthCommand: ZilaCommand = {
-  name: "gh-auth",
-  aliases: ["github-auth", "gh-login"],
-  description: "Authenticate with GitHub using your Personal Access Token",
-  usage: "gh-auth [token]",
+  name: "github-auth",
+  aliases: ["gh-auth", "gh-login"],
+  description: "Connect your GitHub account in a browser",
+  usage: "github-auth",
   category: "auth",
   available: true,
   handler: async (args, output) => {
-    let token = args[0];
-
-    if (!token) {
-      output("[GITHUB] Please provide your GitHub Personal Access Token (PAT).", "info");
-      output("Usage: zila gh-auth <your-github-token>", "warning");
-      output("Create a token at https://github.com/settings/tokens (scopes: repo, read:user)", "dim");
+    const clientId = process.env.ZILA_GITHUB_CLIENT_ID;
+    if (!clientId) {
+      output("[ERROR] GitHub OAuth is not configured for this installation.", "error");
+      output("Set ZILA_GITHUB_CLIENT_ID to the client ID of the Zila GitHub OAuth App.", "dim");
       return;
     }
 
-    token = token.trim();
-    output("[GITHUB] Verifying credentials with GitHub API...", "info");
-
-    const verification = await verifyGitHubToken(token);
-
-    if (!verification.valid || !verification.username) {
-      output(`[ERROR] GitHub authentication failed: ${verification.error || 'Invalid token'}`, "error");
+    if (args.length > 0) {
+      output("Usage: zila github-auth", "warning");
+      output("GitHub login no longer accepts pasted tokens; authorization opens in your browser.", "dim");
       return;
     }
 
-    saveGitHubToken(token, verification.username, verification.name || null, verification.email || null);
+    output("[GITHUB] Starting secure browser authorization...", "info");
+    try {
+      const account = await authenticateWithGitHub(clientId, (verificationUri, userCode) => {
+        output(`[GITHUB] Open ${verificationUri} and enter code: ${userCode}`, "info");
+        output("Waiting for you to approve GitHub access...", "dim");
+      });
 
-    output("", "default");
-    output("================================================================================", "info");
-    output(`[SUCCESS] Authenticated as GitHub user: @${verification.username}`, "success");
-    if (verification.name) {
-      output(`Name:   ${verification.name}`, "dim");
+      output("", "default");
+      output("================================================================================", "info");
+      output(`[SUCCESS] Authenticated as GitHub user: @${account.username}`, "success");
+      if (account.name) output(`Name:   ${account.name}`, "dim");
+      output("Account access token stored in ~/.zila/github.json", "dim");
+      output("================================================================================", "info");
+      output("[READY] GitHub access is ready for course repositories and task submissions.", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown authorization error";
+      output(`[ERROR] GitHub authentication failed: ${message}`, "error");
     }
-    output(`Token:  Stored securely in ~/.zila/github.json`, "dim");
-    output("================================================================================", "info");
-    output("", "default");
-    output("[READY] You can now collaborate with git, download course repos, and submit PRs.", "dim");
   },
 };
 
@@ -60,7 +59,7 @@ export const githubStatusCommand: ZilaCommand = {
 
     if (!auth) {
       output("[GITHUB] Not authenticated with GitHub.", "warning");
-      output("Run 'zila gh-auth <token>' to connect your GitHub account.", "dim");
+      output("Run 'zila github-auth' to connect your GitHub account.", "dim");
       return;
     }
 
@@ -89,6 +88,6 @@ export const githubLogoutCommand: ZilaCommand = {
   available: true,
   handler: async (_args, output) => {
     clearGitHubAuth();
-    output("[GITHUB] Logged out successfully. Token removed.", "success");
+    output("[GITHUB] Logged out successfully. GitHub authorization removed.", "success");
   },
 };

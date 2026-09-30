@@ -441,6 +441,12 @@ Flagged submissions are not automatically rejected — they are surfaced to the 
 
 ## 9. Command Reference
 
+### GitHub Login
+
+Configure `ZILA_GITHUB_CLIENT_ID` with the client ID of the Zila GitHub OAuth App (device flow must be enabled). It can be exported in the environment or placed in a local `.env` file based on `.env.example`; the client ID is public and must not be treated as a secret.
+
+Run `zila github-auth` to open GitHub's device authorization page, enter the displayed code, and approve access. Zila stores the resulting access token in `~/.zila/github.json` with owner-only file permissions. `gh-auth` remains available as a compatibility alias.
+
 ### Student Commands
 
 | Command | Description |
@@ -449,6 +455,7 @@ Flagged submissions are not automatically rejected — they are surfaced to the 
 | `zila monitor start` | Start the monitoring assistant |
 | `zila monitor stop` | Stop the monitoring assistant |
 | `zila monitor status` | Check monitor status |
+| `zila github-auth` | Connect a GitHub account in the browser |
 | `zila submit` | Guide through submitting a PR for the current exercise |
 | `zila logbook` | Generate this week's logbook |
 | `zila logbook --week <n>` | Generate logbook for week N |
