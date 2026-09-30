@@ -6,7 +6,7 @@ import { RetroLogLine, type LogLevel } from "../ui/RetroLogLine.js";
 export type OutputLine = {
   id: string;
   text: string;
-  type: "default" | "success" | "error" | "warning" | "info" | "dim" | "command";
+  type: "default" | "success" | "error" | "warning" | "info" | "dim" | "white" | "command";
 };
 
 interface OutputHistoryProps {
@@ -51,6 +51,15 @@ export const OutputHistory: React.FC<OutputHistoryProps> = ({ history }) => {
               <Text color={theme.colors.retroAmberBright} bold>{"CMD"}</Text>
               <Text color={theme.colors.retroCyan} bold>{"]▸"}</Text>
               <Text color={theme.colors.white} bold>{line.text}</Text>
+            </Box>
+          );
+        }
+
+        if (line.type === "white") {
+          return (
+            <Box key={line.id} flexDirection="row" gap={1}>
+              <Text color={theme.colors.retroSlateDark}>{"  ·"}</Text>
+              <Text color="#FFFFFF" bold>{line.text}</Text>
             </Box>
           );
         }

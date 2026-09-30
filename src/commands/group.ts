@@ -178,7 +178,8 @@ export const groupCommand: ZilaCommand = {
 
       output(`ACCEPTED INTERNS (${peers.length} active peers):`, "success");
       output("--------------------------------------------------------------------------------", "dim");
-      output(` #  NAME                             EMAIL                         POINTS  STATUS`, "dim");
+      output(` #  NAME`, "dim");
+      output(`    EMAIL                         POINTS  STATUS`, "dim");
       output("--------------------------------------------------------------------------------", "dim");
 
       peers.forEach((peer: any, idx: number) => {
@@ -188,7 +189,8 @@ export const groupCommand: ZilaCommand = {
         const points = String(peer.totalPoints || 0).padStart(6);
         const status = (peer.status || 'Active').padEnd(7);
 
-        output(` ${num} ${name} ${email} ${points}  ${status}`, "default");
+        output(` ${num} ${name.trimEnd()}`, "white");
+        output(`    ${email} ${points}  ${status}`, "dim");
       });
 
       output("--------------------------------------------------------------------------------", "dim");
