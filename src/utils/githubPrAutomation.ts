@@ -105,6 +105,19 @@ export function resetLocalQuota(): void {
 }
 
 /**
+ * Validates if a string is a well-formed HTTP/HTTPS URL
+ */
+export function isValidHttpUrl(candidate: string): boolean {
+  if (!candidate || !candidate.trim()) return false;
+  try {
+    const parsed = new URL(candidate.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Increment local daily PR count after successful submission
  */
 export function recordPrSubmission(): number {
