@@ -196,7 +196,7 @@ export function sanitizePathComponent(input: string): string {
   return (input || "")
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, "_")
+    .replace(/[^a-z0-9_]/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_|_$/g, "") || "module";
 }
@@ -299,8 +299,8 @@ export async function executeAutomatedTaskSubmission(
   // Branch format: module_name/student_github_username/day
   const cleanDomain = sanitizePathComponent(payload.domain || "ml");
   const cleanModule = sanitizePathComponent(payload.module || "1_python");
-  const branchName = `${cleanModule}/${githubUsername}/day-${payload.day}`;
-  const contributorFilePath = `contributors/${githubUsername}/${cleanDomain}/${payload.level}/${cleanModule}/day-${payload.day}/exercise.md`;
+  const branchName = `${cleanModule}/${githubUsername}/day_${payload.day}`;
+  const contributorFilePath = `contributors/${githubUsername}/${cleanDomain}/${payload.level}/${cleanModule}/day_${payload.day}/exercise.md`;
 
   onProgress?.(`Configuring automated branch: ${branchName}`);
 

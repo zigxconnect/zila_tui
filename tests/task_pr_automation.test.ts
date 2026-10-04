@@ -46,11 +46,11 @@ test("PR Automation - Exercise report generation matches cohort rubric", () => {
     deploymentUrl: "https://demo.zigex.dev/intern-eda",
   };
 
-  const report = generateExerciseReport(payload, "octocat", "1_python/octocat/day-1");
+  const report = generateExerciseReport(payload, "octocat", "1_python/octocat/day_1");
 
   assert.ok(report.includes("# Daily Cohort Exercise Report — Day 01"));
   assert.ok(report.includes("@octocat"));
-  assert.ok(report.includes("`1_python/octocat/day-1`"));
+  assert.ok(report.includes("`1_python/octocat/day_1`"));
   assert.ok(report.includes("Built basic CLI data processor"));
   assert.ok(report.includes("Handling sparse matrices"));
   assert.ok(report.includes(SAMPLE_COHORT_REPO));

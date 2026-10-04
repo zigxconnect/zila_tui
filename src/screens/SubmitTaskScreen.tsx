@@ -180,9 +180,9 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const dayWeightInfo = DAY_WEIGHTS[dayNumber] || { weight: 1, percentage: 12.5 };
   const ghAuth = loadGitHubAuth();
   const username = ghAuth?.username || "student";
-  const cleanModule = module.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const branchPreview = `${cleanModule}/${username}/day-${dayNumber}`;
-  const pathPreview = `contributors/${username}/${currentDomainKey}/${currentLevel}/${cleanModule}/day-${dayNumber}/exercise.md`;
+  const cleanModule = module.replace(/[^a-zA-Z0-9_]/g, "_");
+  const branchPreview = `${cleanModule}/${username}/day_${dayNumber}`;
+  const pathPreview = `contributors/${username}/${currentDomainKey}/${currentLevel}/${cleanModule}/day_${dayNumber}/exercise.md`;
 
   const fieldLabels = [
     "Curriculum Domain:",
