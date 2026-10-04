@@ -6,7 +6,8 @@ import {
   executeAutomatedTaskSubmission,
   checkDailyPrQuota,
   DAY_WEIGHTS,
-  CURRICULUM_TRACKS,
+  CURRICULUM_DOMAINS,
+  getTrackModules,
   type TaskSubmissionPayload,
   type AutomatedPrResult,
   SAMPLE_COHORT_REPO,
@@ -19,6 +20,8 @@ interface SubmitTaskScreenProps {
 }
 
 export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }) => {
+  const domains = Object.keys(CURRICULUM_DOMAINS);
+  const [domainIndex, setDomainIndex] = useState(0); // 0: ml, 1: web, 2: cyber, 3: embeded, 4: app, 5: cloud
   const [levelIndex, setLevelIndex] = useState(0); // 0: beginner, 1: intermediate, 2: advance
   const [module, setModule] = useState("1_python");
   const [day, setDay] = useState("1");
@@ -27,7 +30,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const [challenges, setChallenges] = useState("");
   const [deploymentUrl, setDeploymentUrl] = useState("");
 
-  const [activeField, setActiveField] = useState(0); // 0: level, 1: module, 2: day, 3: summary, 4: practicals, 5: challenges, 6: deploymentUrl
+  const [activeField, setActiveField] = useState(0); // 0: domain, 1: level, 2: module, 3: day, 4: summary, 5: practicals, 6: challenges, 7: deploymentUrl
   const [cursorOn, setCursorOn] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [progressMsg, setProgressMsg] = useState("");
@@ -35,6 +38,8 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const [error, setError] = useState("");
 
   const levels: Array<"beginner" | "intermediate" | "advance"> = ["beginner", "intermediate", "advance"];
+  const currentDomainKey = domains[domainIndex] || "ml";
+  const currentDomainDef = CURRICULUM_DOMAINS[currentDomainKey] || CURRICULUM_DOMAINS.ml!;
   const currentLevel = levels[levelIndex] || "beginner";
   const quota = checkDailyPrQuota();
 
@@ -62,8 +67,9 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     setProgressMsg("Initiating automated GitHub PR pipeline...");
     try {
       const payload: TaskSubmissionPayload = {
+        domain: currentDomainKey,
         level: currentLevel,
-        module: module.trim() || "1_python",
+        module: module.trim() || "1_fundamentals",
         day: Math.max(1, Math.min(4, Number(day) || 1)),
         summary,
         practicalsDescription: practicals || "Implementation completed according to curriculum specification.",
@@ -93,29 +99,46 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     }
 
     if (key.tab) {
-      setActiveField((prev) => (prev + 1) % 7);
+      setActiveField((prev) => (prev + 1) % 8);
       return;
     }
 
     if (key.upArrow) {
-      setActiveField((prev) => (prev > 0 ? prev - 1 : 6));
+      setActiveField((prev) => (prev > 0 ? prev - 1 : 7));
       return;
     }
 
     if (key.downArrow) {
-      setActiveField((prev) => (prev < 6 ? prev + 1 : 0));
+      setActiveField((prev) => (prev < 7 ? prev + 1 : 0));
       return;
     }
 
-    // Toggle level or day with left/right
+    // Toggle domain with left/right
     if (activeField === 0 && (key.leftArrow || key.rightArrow)) {
-      setLevelIndex((prev) => (key.rightArrow ? (prev + 1) % 3 : prev > 0 ? prev - 1 : 2));
-      const nextLvl = levels[(key.rightArrow ? (levelIndex + 1) % 3 : levelIndex > 0 ? levelIndex - 1 : 2)] || "beginner";
-      setModule(CURRICULUM_TRACKS[nextLvl]?.[0] || "1_python");
+      setDomainIndex((prev) => {
+        const nextIdx = key.rightArrow ? (prev + 1) % domains.length : prev > 0 ? prev - 1 : domains.length - 1;
+        const nextDom = domains[nextIdx] || "ml";
+        const modules = getTrackModules(currentLevel, nextDom);
+        setModule(modules[0] || `1_${nextDom}_fundamentals`);
+        return nextIdx;
+      });
       return;
     }
 
-    if (activeField === 2 && (key.leftArrow || key.rightArrow)) {
+    // Toggle level with left/right
+    if (activeField === 1 && (key.leftArrow || key.rightArrow)) {
+      setLevelIndex((prev) => {
+        const nextIdx = key.rightArrow ? (prev + 1) % 3 : prev > 0 ? prev - 1 : 2;
+        const nextLvl = levels[nextIdx] || "beginner";
+        const modules = getTrackModules(nextLvl, currentDomainKey);
+        setModule(modules[0] || `1_${currentDomainKey}_fundamentals`);
+        return nextIdx;
+      });
+      return;
+    }
+
+    // Toggle day with left/right
+    if (activeField === 3 && (key.leftArrow || key.rightArrow)) {
       setDay((prev) => {
         const d = Number(prev) || 1;
         const next = key.rightArrow ? (d < 4 ? d + 1 : 1) : d > 1 ? d - 1 : 4;
@@ -125,13 +148,14 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     }
 
     if (key.return) {
-      if (activeField < 6) setActiveField((prev) => prev + 1);
+      if (activeField < 7) setActiveField((prev) => prev + 1);
       else void sendSubmission();
       return;
     }
 
     // Text inputs
     const setters = [
+      () => {}, // domain
       () => {}, // level
       setModule,
       setDay,
@@ -142,7 +166,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     ];
 
     const currentSetter = setters[activeField];
-    if (currentSetter && activeField !== 0) {
+    if (currentSetter && activeField !== 0 && activeField !== 1) {
       if (key.backspace || key.delete) {
         currentSetter((prev: string) => prev.slice(0, -1));
       } else if (char) {
@@ -156,10 +180,12 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const dayWeightInfo = DAY_WEIGHTS[dayNumber] || { weight: 1, percentage: 12.5 };
   const ghAuth = loadGitHubAuth();
   const username = ghAuth?.username || "student";
-  const branchPreview = `${module.replace(/[^a-zA-Z0-9_-]/g, "_")}/${username}/day-${dayNumber}`;
-  const pathPreview = `contributors/${username}/${currentLevel}/${module}/day-${dayNumber}/exercise.md`;
+  const cleanModule = module.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const branchPreview = `${cleanModule}/${username}/day-${dayNumber}`;
+  const pathPreview = `contributors/${username}/${currentDomainKey}/${currentLevel}/${cleanModule}/day-${dayNumber}/exercise.md`;
 
   const fieldLabels = [
+    "Curriculum Domain:",
     "Track Level:",
     "Curriculum Module:",
     "Curriculum Day:",
@@ -170,6 +196,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   ];
 
   const fieldValues = [
+    `[ ${currentDomainKey.toUpperCase()}: ${currentDomainDef.name} ] (use ←/→ to cycle)`,
     `[ ${currentLevel.toUpperCase()} ] (use ←/→ to toggle)`,
     module,
     `Day 0${dayNumber} (use ←/→ to toggle)`,
@@ -205,6 +232,10 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
             {"✓ Automated Pull Request Created & Submitted Successfully!"}
           </Text>
           <Box flexDirection="column" marginTop={1} gap={0}>
+            <Box flexDirection="row" gap={1}>
+              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Domain & Track:"}</Text></Box>
+              <Text color={theme.colors.white} bold>{`${currentDomainKey.toUpperCase()} / ${currentLevel.toUpperCase()}`}</Text>
+            </Box>
             <Box flexDirection="row" gap={1}>
               <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Target Repo:"}</Text></Box>
               <Text color={theme.colors.white} bold>{result.repositoryUrl}</Text>
@@ -252,7 +283,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
                 <Text color={isSelected ? theme.colors.white : theme.colors.text}>
                   {val || (isSelected ? "" : "—")}
                 </Text>
-                {isSelected && !submitting && index !== 0 && index !== 2 && <Cursor on={cursorOn} />}
+                {isSelected && !submitting && index !== 0 && index !== 1 && index !== 3 && <Cursor on={cursorOn} />}
               </Box>
             );
           })}
@@ -272,6 +303,10 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
           {/* Live Preview Box */}
           <Box flexDirection="column" marginTop={1}>
             <Text color={theme.colors.retroBlueBright} bold>{"AUTOMATED PIPELINE PREVIEW"}</Text>
+            <Box flexDirection="row" gap={1}>
+              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Domain / Track:"}</Text></Box>
+              <Text color={theme.colors.white}>{`${currentDomainKey.toUpperCase()} · ${currentLevel}`}</Text>
+            </Box>
             <Box flexDirection="row" gap={1}>
               <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Branch:"}</Text></Box>
               <Text color={theme.colors.white}>{branchPreview}</Text>
@@ -299,7 +334,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
           <Box flexDirection="row" justifyContent="space-between">
             <Text color={theme.colors.retroSlateDark}>{"tab next · enter submit · esc cancel"}</Text>
             <Text color={theme.colors.retroSlateDark}>
-              {activeField === 6 ? "enter to launch automated PR" : "tab / ↑ / ↓ to navigate"}
+              {activeField === 7 ? "enter to launch automated PR" : "tab / ↑ / ↓ to navigate"}
             </Text>
           </Box>
         </>
