@@ -4,6 +4,8 @@ import {
   generateExerciseReport,
   DAY_WEIGHTS,
   checkDailyPrQuota,
+  getTrackModules,
+  resetLocalQuota,
   SAMPLE_COHORT_REPO,
   type TaskSubmissionPayload,
 } from "../dist/utils/githubPrAutomation.js";
@@ -69,4 +71,28 @@ test("PR Automation - submit-task command and zila-submit alias", () => {
   assert.ok(registered);
   const alias = findCommand("zila-submit");
   assert.ok(alias);
+});
+
+test("PR Automation - Curriculum track module resolution", () => {
+  const beginner = getTrackModules("beginner");
+  assert.ok(beginner.includes("1_python"));
+  assert.ok(beginner.includes("2_eda_and_classical_ml"));
+
+  const intermediate = getTrackModules("intermediate");
+  assert.ok(intermediate.includes("1_deeplearning_and_neural_nets"));
+
+  const advance = getTrackModules("advance");
+  assert.ok(advance.includes("1_generative_ai_and_agents"));
+
+  // Fallback
+  const unknown = getTrackModules("nonexistent");
+  assert.ok(unknown.length > 0);
+});
+
+test("PR Automation - Local daily quota reset utility", () => {
+  resetLocalQuota();
+  const quota = checkDailyPrQuota();
+  assert.equal(quota.allowed, true);
+  assert.equal(quota.countToday, 0);
+  assert.equal(quota.remainingToday, 2);
 });
