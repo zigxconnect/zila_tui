@@ -36,11 +36,48 @@ export function saveGitHubToken(token: string, username: string, name: string | 
 
 export function loadGitHubAuth(): GitHubAuthRecord | null {
   try {
-    const raw = fs.readFileSync(GITHUB_AUTH_PATH, 'utf-8');
-    return JSON.parse(raw) as GitHubAuthRecord;
+    if (fs.existsSync(GITHUB_AUTH_PATH)) {
+      const raw = fs.readFileSync(GITHUB_AUTH_PATH, 'utf-8');
+      const parsed = JSON.parse(raw) as GitHubAuthRecord;
+      if (parsed?.token) return parsed;
+    }
   } catch {
-    return null;
+    /* continue to fallbacks */
   }
+
+  // Fallback 1: ~/.git-credentials
+  try {
+    const credPath = path.join(os.homedir(), '.git-credentials');
+    if (fs.existsSync(credPath)) {
+      const credContent = fs.readFileSync(credPath, 'utf-8');
+      const match = credContent.match(/https:\/\/([^:]+):([^@]+)@github\.com/);
+      if (match && match[1] && match[2]) {
+        return {
+          token: match[2],
+          username: match[1],
+          name: match[1],
+          email: null,
+          storedAt: new Date().toISOString(),
+        };
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // Fallback 2: Environment variables
+  const envToken = process.env.GITHUB_TOKEN || process.env.GITHUB_PAT || process.env.GH_TOKEN;
+  if (envToken) {
+    return {
+      token: envToken,
+      username: process.env.GITHUB_USER || "iws3",
+      name: null,
+      email: null,
+      storedAt: new Date().toISOString(),
+    };
+  }
+
+  return null;
 }
 
 export function clearGitHubAuth(): void {
