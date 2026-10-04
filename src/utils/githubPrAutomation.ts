@@ -5,7 +5,8 @@ import { API_BASE, loadAuth } from "./auth.js";
 import { loadGitHubAuth, type GitHubAuthRecord } from "./githubAuth.js";
 
 export interface TaskSubmissionPayload {
-  level: "beginner" | "intermediate" | "advance";
+  domain?: string; // ml, web, cyber, embeded, app, cloud, or custom!
+  level: "beginner" | "intermediate" | "advance" | string;
   module: string;
   day: number;
   summary: string;
@@ -26,10 +27,67 @@ export interface AutomatedPrResult {
   submissionId?: string;
 }
 
-export const CURRICULUM_TRACKS: Record<string, string[]> = {
-  beginner: ["1_python", "2_eda_and_classical_ml"],
-  intermediate: ["1_deeplearning_and_neural_nets", "2_computer_vision_and_nlp"],
-  advance: ["1_generative_ai_and_agents", "2_reinforcement_learning_and_llms"],
+export interface DomainDefinition {
+  id: string;
+  name: string;
+  levels: Record<string, string[]>;
+}
+
+export const CURRICULUM_DOMAINS: Record<string, DomainDefinition> = {
+  ml: {
+    id: "ml",
+    name: "Machine Learning & AI",
+    levels: {
+      beginner: ["1_python", "2_eda_and_classical_ml"],
+      intermediate: ["1_deeplearning_and_neural_nets", "2_computer_vision_and_nlp"],
+      advance: ["1_generative_ai_and_agents", "2_reinforcement_learning_and_llms"],
+    },
+  },
+  web: {
+    id: "web",
+    name: "Web & Fullstack",
+    levels: {
+      beginner: ["1_html_css_javascript", "2_typescript_and_react"],
+      intermediate: ["1_nodejs_and_microservices", "2_databases_and_graphql"],
+      advance: ["1_distributed_systems_and_wasm", "2_fullstack_architecture"],
+    },
+  },
+  cyber: {
+    id: "cyber",
+    name: "Cybersecurity & InfoSec",
+    levels: {
+      beginner: ["1_networking_and_linux_security", "2_cryptography_basics"],
+      intermediate: ["1_penetration_testing_and_soc", "2_web_app_security_owasp"],
+      advance: ["1_malware_analysis_and_reversing", "2_zero_trust_and_cloud_security"],
+    },
+  },
+  embeded: {
+    id: "embeded",
+    name: "Embedded Systems & IoT",
+    levels: {
+      beginner: ["1_c_and_embedded_fundamentals", "2_microcontrollers_and_gpio"],
+      intermediate: ["1_rtos_and_firmware_dev", "2_communication_protocols_i2c_spi"],
+      advance: ["1_tinyml_and_edge_computing", "2_secure_firmware_and_bootloaders"],
+    },
+  },
+  app: {
+    id: "app",
+    name: "Mobile App Development",
+    levels: {
+      beginner: ["1_mobile_ui_and_dart_flutter", "2_state_management_and_apis"],
+      intermediate: ["1_native_bridges_and_offline_first", "2_performance_and_security"],
+      advance: ["1_cross_platform_arch_and_ci_cd", "2_multithreaded_mobile_systems"],
+    },
+  },
+  cloud: {
+    id: "cloud",
+    name: "Cloud & DevOps",
+    levels: {
+      beginner: ["1_linux_and_containers_docker", "2_ci_cd_and_gitops"],
+      intermediate: ["1_kubernetes_orchestration", "2_terraform_and_infrastructure_as_code"],
+      advance: ["1_site_reliability_and_chaos_eng", "2_multi_cloud_and_service_mesh"],
+    },
+  },
 };
 
 export const DAY_WEIGHTS: Record<number, { weight: number; percentage: number }> = {
@@ -85,10 +143,24 @@ export function checkDailyPrQuota(): { allowed: boolean; countToday: number; rem
 }
 
 /**
- * Retrieve list of curriculum modules for a given track level
+ * Returns available domains list
  */
-export function getTrackModules(level: string): string[] {
-  return CURRICULUM_TRACKS[level.toLowerCase()] || CURRICULUM_TRACKS.beginner || [];
+export function getAvailableDomains(): Array<{ id: string; name: string }> {
+  return Object.values(CURRICULUM_DOMAINS).map((d) => ({ id: d.id, name: d.name }));
+}
+
+/**
+ * Retrieve list of curriculum modules for a given track level and domain
+ */
+export function getTrackModules(level: string, domainId: string = "ml"): string[] {
+  const domainKey = domainId.toLowerCase().trim();
+  const domain = CURRICULUM_DOMAINS[domainKey];
+  if (!domain) {
+    return [`1_${sanitizePathComponent(domainId)}_fundamentals`];
+  }
+
+  const normLevel = level.toLowerCase().trim();
+  return domain.levels[normLevel] || domain.levels.beginner || [];
 }
 
 /**
@@ -118,6 +190,18 @@ export function isValidHttpUrl(candidate: string): boolean {
 }
 
 /**
+ * Sanitizes a path component
+ */
+export function sanitizePathComponent(input: string): string {
+  return (input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "") || "module";
+}
+
+/**
  * Increment local daily PR count after successful submission
  */
 export function recordPrSubmission(): number {
@@ -144,12 +228,14 @@ export function recordPrSubmission(): number {
 export function generateExerciseReport(payload: TaskSubmissionPayload, githubUsername: string, branchName: string): string {
   const dayWeightInfo = DAY_WEIGHTS[payload.day] || { weight: 1, percentage: 12.5 };
   const dateStr = new Date().toISOString().slice(0, 10);
+  const domainName = (payload.domain || "ml").toUpperCase();
 
   return `# Daily Cohort Exercise Report — Day 0${payload.day}
 
 ## Student Metadata
 - **GitHub Intern:** @${githubUsername}
-- **Cohort Track:** ${payload.level.toUpperCase()}
+- **Curriculum Domain:** ${domainName}
+- **Cohort Track Level:** ${payload.level.toUpperCase()}
 - **Curriculum Module:** ${payload.module}
 - **Submission Date:** ${dateStr}
 - **Git Branch:** \`${branchName}\`
@@ -211,9 +297,10 @@ export async function executeAutomatedTaskSubmission(
 
   // 3. Automated branch and path construction
   // Branch format: module_name/student_github_username/day
-  const cleanModule = payload.module.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const cleanDomain = sanitizePathComponent(payload.domain || "ml");
+  const cleanModule = sanitizePathComponent(payload.module || "1_python");
   const branchName = `${cleanModule}/${githubUsername}/day-${payload.day}`;
-  const contributorFilePath = `contributors/${githubUsername}/${payload.level}/${payload.module}/day-${payload.day}/exercise.md`;
+  const contributorFilePath = `contributors/${githubUsername}/${cleanDomain}/${payload.level}/${cleanModule}/day-${payload.day}/exercise.md`;
 
   onProgress?.(`Configuring automated branch: ${branchName}`);
 
@@ -273,10 +360,10 @@ export async function executeAutomatedTaskSubmission(
             method: "POST",
             headers: { Authorization: `Bearer ${githubToken}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              title: `[Day 0${payload.day}] ${payload.module} by @${githubUsername}`,
+              title: `[${cleanDomain.toUpperCase()} Day 0${payload.day}] ${payload.module} by @${githubUsername}`,
               head: branchName,
               base: defaultBranch,
-              body: `Automated exercise submission for **${payload.level}/${payload.module}/Day ${payload.day}**.\n\n### Summary\n${payload.summary}\n\n### Details\n${payload.practicalsDescription}`,
+              body: `Automated exercise submission for **${cleanDomain}/${payload.level}/${payload.module}/Day ${payload.day}**.\n\n### Summary\n${payload.summary}\n\n### Details\n${payload.practicalsDescription}`,
             }),
           });
 
@@ -309,8 +396,9 @@ export async function executeAutomatedTaskSubmission(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        domain: cleanDomain,
         level: payload.level,
-        module: payload.module,
+        module: cleanModule,
         day: payload.day,
         githubPrUrl: pullRequestUrl,
         githubRepoUrl: SAMPLE_COHORT_REPO,
