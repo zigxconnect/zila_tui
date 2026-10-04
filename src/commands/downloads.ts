@@ -123,14 +123,14 @@ export const downloadsCommand: ZilaCommand = {
       }
 
       output("", "default");
-      output("COLLABORATION WORKFLOW:", "info");
-      output("--------------------------------------------------------------------------------", "dim");
+      output("COLLABORATION & PR SUBMISSION WORKFLOW:", "info");
+      output("─".repeat(72), "dim");
       output(` 1. Navigate:     cd ${rawRepoName}`, "default");
-      output(` 2. Branch:       git checkout -b task/my-feature`, "default");
-      output(` 3. Commit:       git add . && git commit -m "feat: complete lab task"`, "default");
-      output(` 4. Push:         git push origin task/my-feature`, "default");
-      output(` 5. Submit PR:    Create a PR on GitHub and submit link via 'zila submit-task'`, "default");
-      output("--------------------------------------------------------------------------------", "dim");
+      output(` 2. Folder:       contributors/<username>/<level>/<module>/day-<day>/exercise.md`, "default");
+      output(` 3. Automated PR: Run 'submit-task' or 'zila-submit' to open background PR`, "default");
+      output(` 4. Quota:        1 PR a day recommended (Max 2 PRs per calendar day)`, "default");
+      output(` 5. Rubric Scale: Day 1 (12.5%) · Day 2 (12.5%) · Day 3 (25%) · Day 4 (50%)`, "default");
+      output("─".repeat(72), "dim");
       output("[READY] You are set up to build and collaborate with your fellow interns!", "success");
       output("", "default");
 
