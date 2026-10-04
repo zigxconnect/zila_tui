@@ -85,6 +85,26 @@ export function checkDailyPrQuota(): { allowed: boolean; countToday: number; rem
 }
 
 /**
+ * Retrieve list of curriculum modules for a given track level
+ */
+export function getTrackModules(level: string): string[] {
+  return CURRICULUM_TRACKS[level.toLowerCase()] || CURRICULUM_TRACKS.beginner || [];
+}
+
+/**
+ * Reset local daily PR quota (useful for development and testing)
+ */
+export function resetLocalQuota(): void {
+  try {
+    if (fs.existsSync(QUOTA_FILE)) {
+      fs.unlinkSync(QUOTA_FILE);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/**
  * Increment local daily PR count after successful submission
  */
 export function recordPrSubmission(): number {
