@@ -46,6 +46,7 @@ export const submitTaskCommand: ZilaCommand = {
         return idx !== -1 && args[idx + 1] ? args[idx + 1]! : fallback;
       };
 
+      const domain = getArg("--domain", "ml");
       const level = (getArg("--level", "beginner") as "beginner" | "intermediate" | "advance");
       const module = getArg("--module", "1_python");
       const day = Number(getArg("--day", "1")) || 1;
@@ -58,11 +59,12 @@ export const submitTaskCommand: ZilaCommand = {
         return;
       }
 
-      output(`Target: ${level.toUpperCase()} / ${module} / Day 0${day}`, "info");
+      output(`Target: ${domain.toUpperCase()} / ${level.toUpperCase()} / ${module} / Day 0${day}`, "info");
       output("Running automated background GitHub PR pipeline...", "dim");
 
       try {
         const payload: TaskSubmissionPayload = {
+          domain,
           level,
           module,
           day,
