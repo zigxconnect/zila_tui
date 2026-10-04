@@ -95,8 +95,8 @@ export const tasksCommand: ZilaCommand = {
    }
 
    output("\n[TIP] Commands:", "info");
-   output("  zila submit-task <task-id> - Submit a task", "dim");
-   output("  zila task-details <task-id> - View task details", "dim");
+   output("  zila submit-task (or zila-submit) - Automated GitHub PR pipeline", "dim");
+   output("  zila task-details <task-id>       - View task details", "dim");
 
   } catch (error: any) {
    output(`[ERROR] Error: ${error.message}`, "error");
