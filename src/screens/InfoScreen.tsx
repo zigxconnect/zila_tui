@@ -38,6 +38,7 @@ export const InfoScreen: React.FC<InfoScreenProps> = ({ onComplete }) => {
     { component: "Polyglot Database", subsystem: "Backend", status: "Supabase (Truth) + Neon DB (Prisma)" },
     { component: "BLE Mesh Service", subsystem: "Bluetooth", status: "0000FE26 · P2P Mesh ready (512B MTU)" },
     { component: "GitHub OAuth", subsystem: "Integration", status: "zigxconnect personal access tokens" },
+    { component: "PR Automation", subsystem: "GitHub Pipeline", status: "sample_repo_zila · 1-2 PR/day quota · 100% rubric", highlight: true },
     { component: "Swagger OpenAPI", subsystem: "Docs Spec", status: "http://localhost:5000/docs [v3.0.0]" },
   ];
 
