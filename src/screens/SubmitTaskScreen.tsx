@@ -281,6 +281,12 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
               <Text color={theme.colors.retroSlate}>{pathPreview}</Text>
             </Box>
             <Box flexDirection="row" gap={1}>
+              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Sprint Progress:"}</Text></Box>
+              <Text color={theme.colors.retroBlueBright}>
+                {`[ ${"■ ".repeat(dayNumber)}${"□ ".repeat(4 - dayNumber)}] (Day ${dayNumber} of 4)`}
+              </Text>
+            </Box>
+            <Box flexDirection="row" gap={1}>
               <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Normalized Score:"}</Text></Box>
               <Text color={theme.colors.retroGreenBright}>{`${dayWeightInfo.weight} pt · ${dayWeightInfo.percentage}% of weekly 100`}</Text>
             </Box>
