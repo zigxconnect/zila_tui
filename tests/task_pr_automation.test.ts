@@ -5,8 +5,10 @@ import {
   DAY_WEIGHTS,
   checkDailyPrQuota,
   getTrackModules,
+  getAvailableDomains,
   resetLocalQuota,
   isValidHttpUrl,
+  sanitizePathComponent,
   SAMPLE_COHORT_REPO,
   type TaskSubmissionPayload,
 } from "../dist/utils/githubPrAutomation.js";
@@ -103,4 +105,30 @@ test("PR Automation - HTTP URL validation helper", () => {
   assert.equal(isValidHttpUrl("http://localhost:3000"), true);
   assert.equal(isValidHttpUrl("not-a-url"), false);
   assert.equal(isValidHttpUrl(""), false);
+});
+
+test("PR Automation - Multi-domain support (Web, Cyber, Embedded, Mobile, Cloud)", () => {
+  const domains = getAvailableDomains();
+  const domainIds = domains.map((d) => d.id);
+  assert.ok(domainIds.includes("ml"));
+  assert.ok(domainIds.includes("web"));
+  assert.ok(domainIds.includes("cyber"));
+  assert.ok(domainIds.includes("embeded"));
+  assert.ok(domainIds.includes("app"));
+  assert.ok(domainIds.includes("cloud"));
+
+  const webModules = getTrackModules("beginner", "web");
+  assert.ok(webModules.includes("1_html_css_javascript"));
+
+  const cyberModules = getTrackModules("intermediate", "cyber");
+  assert.ok(cyberModules.includes("1_penetration_testing_and_soc"));
+
+  const embededModules = getTrackModules("advance", "embeded");
+  assert.ok(embededModules.includes("1_tinyml_and_edge_computing"));
+
+  const appModules = getTrackModules("beginner", "app");
+  assert.ok(appModules.includes("1_mobile_ui_and_dart_flutter"));
+
+  const sanitized = sanitizePathComponent("Web App / React & Native!!");
+  assert.equal(sanitized, "web_app_react_native");
 });
