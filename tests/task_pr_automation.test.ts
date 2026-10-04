@@ -6,6 +6,7 @@ import {
   checkDailyPrQuota,
   getTrackModules,
   resetLocalQuota,
+  isValidHttpUrl,
   SAMPLE_COHORT_REPO,
   type TaskSubmissionPayload,
 } from "../dist/utils/githubPrAutomation.js";
@@ -95,4 +96,11 @@ test("PR Automation - Local daily quota reset utility", () => {
   assert.equal(quota.allowed, true);
   assert.equal(quota.countToday, 0);
   assert.equal(quota.remainingToday, 2);
+});
+
+test("PR Automation - HTTP URL validation helper", () => {
+  assert.equal(isValidHttpUrl("https://github.com/iws3/sample_repo_zila"), true);
+  assert.equal(isValidHttpUrl("http://localhost:3000"), true);
+  assert.equal(isValidHttpUrl("not-a-url"), false);
+  assert.equal(isValidHttpUrl(""), false);
 });
