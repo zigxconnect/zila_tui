@@ -307,81 +307,176 @@ export async function executeAutomatedTaskSubmission(
   // 4. Generate exercise report
   const exerciseContent = generateExerciseReport(payload, githubUsername, branchName);
 
-  // 5. Create PR via GitHub API (or fallback for sandboxed/offline environments)
-  let pullRequestUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/pull/1`;
-  let commitHash = "a1b2c3d4e5f6";
+  // 5. Create PR via GitHub API
+  if (!githubToken) {
+    throw new Error(
+      "No GitHub token found. Please run 'zila github-auth' or ensure your credentials are set in ~/.git-credentials."
+    );
+  }
 
-  if (githubToken) {
-    try {
-      onProgress?.(`Opening automated pull request on ${REPO_OWNER}/${REPO_NAME}...`);
-      // Try creating branch on GitHub repo
-      const repoRes = await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`, {
-        headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json" },
-      });
+  onProgress?.(`Connecting to GitHub repository ${REPO_OWNER}/${REPO_NAME}...`);
 
-      if (repoRes.ok) {
-        const repoData = await repoRes.json() as any;
-        const defaultBranch = repoData.default_branch || "main";
+  // Fetch repository metadata to obtain default branch
+  const repoRes = await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`, {
+    headers: {
+      Authorization: `Bearer ${githubToken}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "Zila-Agent/1.0",
+    },
+  });
 
-        // Get ref SHA
-        const refRes = await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/ref/heads/${defaultBranch}`, {
-          headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json" },
-        });
+  if (!repoRes.ok) {
+    const errData = await repoRes.json().catch(() => ({})) as any;
+    throw new Error(
+      `GitHub API error (${repoRes.status}): ${errData.message || "Cannot access repository " + REPO_OWNER + "/" + REPO_NAME}`
+    );
+  }
 
-        if (refRes.ok) {
-          const refData = await refRes.json() as any;
-          const baseSha = refData.object?.sha;
+  const repoData = await repoRes.json() as any;
+  const defaultBranch = repoData.default_branch || "master";
 
-          // Create new branch
-          await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/refs`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${githubToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha: baseSha }),
-          });
-
-          // Commit exercise.md file
-          const contentRes = await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${contributorFilePath}`, {
-            method: "PUT",
-            headers: { Authorization: `Bearer ${githubToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: `feat(cohort): add Day 0${payload.day} exercise for @${githubUsername}`,
-              content: Buffer.from(exerciseContent).toString("base64"),
-              branch: branchName,
-            }),
-          });
-
-          if (contentRes.ok) {
-            const contentData = await contentRes.json() as any;
-            commitHash = contentData.commit?.sha || commitHash;
-          }
-
-          // Create PR
-          const prRes = await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${githubToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: `[${cleanDomain.toUpperCase()} Day 0${payload.day}] ${payload.module} by @${githubUsername}`,
-              head: branchName,
-              base: defaultBranch,
-              body: `Automated exercise submission for **${cleanDomain}/${payload.level}/${payload.module}/Day ${payload.day}**.\n\n### Summary\n${payload.summary}\n\n### Details\n${payload.practicalsDescription}`,
-            }),
-          });
-
-          if (prRes.ok) {
-            const prData = await prRes.json() as any;
-            pullRequestUrl = prData.html_url || pullRequestUrl;
-          }
-        }
-      }
-    } catch {
-      // Fallback in sandbox or network limit
-      const simulatedPrNum = Math.floor(100 + Math.random() * 900);
-      pullRequestUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/pull/${simulatedPrNum}`;
+  // Fetch head commit SHA of default branch
+  const branchRes = await fetchImpl(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/branches/${encodeURIComponent(defaultBranch)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${githubToken}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": "Zila-Agent/1.0",
+      },
     }
+  );
+
+  if (!branchRes.ok) {
+    const errData = await branchRes.json().catch(() => ({})) as any;
+    throw new Error(
+      `Failed to resolve default branch '${defaultBranch}' (${branchRes.status}): ${errData.message || "Unknown error"}`
+    );
+  }
+
+  const branchData = await branchRes.json() as any;
+  const baseSha = branchData.commit?.sha;
+  if (!baseSha) {
+    throw new Error(`Could not determine commit SHA for branch '${defaultBranch}'.`);
+  }
+
+  // Create isolated branch ref (or continue if it already exists)
+  onProgress?.(`Configuring automated branch: ${branchName}`);
+  await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/refs`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${githubToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/vnd.github+json",
+      "User-Agent": "Zila-Agent/1.0",
+    },
+    body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha: baseSha }),
+  });
+
+  // Check if file already exists on this branch to support seamless updates
+  let existingFileSha: string | undefined;
+  try {
+    const fileCheckRes = await fetchImpl(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${contributorFilePath}?ref=${encodeURIComponent(branchName)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "Zila-Agent/1.0",
+        },
+      }
+    );
+    if (fileCheckRes.ok) {
+      const fileCheckData = await fileCheckRes.json() as any;
+      existingFileSha = fileCheckData.sha;
+    }
+  } catch {
+    /* file does not exist yet */
+  }
+
+  // Commit exercise.md file
+  onProgress?.(`Committing exercise report to ${contributorFilePath}...`);
+  const contentPayload: any = {
+    message: `feat(cohort): add ${cleanDomain.toUpperCase()} Day 0${payload.day} exercise for @${githubUsername}`,
+    content: Buffer.from(exerciseContent).toString("base64"),
+    branch: branchName,
+  };
+  if (existingFileSha) {
+    contentPayload.sha = existingFileSha;
+  }
+
+  const contentRes = await fetchImpl(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${contributorFilePath}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${githubToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/vnd.github+json",
+        "User-Agent": "Zila-Agent/1.0",
+      },
+      body: JSON.stringify(contentPayload),
+    }
+  );
+
+  if (!contentRes.ok) {
+    const errData = await contentRes.json().catch(() => ({})) as any;
+    throw new Error(
+      `Failed to commit exercise to GitHub (${contentRes.status}): ${errData.message || "Unknown error"}`
+    );
+  }
+
+  const contentData = await contentRes.json() as any;
+  let commitHash = contentData.commit?.sha || "latest";
+
+  // Create Pull Request
+  onProgress?.(`Opening pull request on ${REPO_OWNER}/${REPO_NAME}...`);
+  let pullRequestUrl = "";
+
+  const prRes = await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${githubToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/vnd.github+json",
+      "User-Agent": "Zila-Agent/1.0",
+    },
+    body: JSON.stringify({
+      title: `[${cleanDomain.toUpperCase()} Day 0${payload.day}] ${payload.module} by @${githubUsername}`,
+      head: branchName,
+      base: defaultBranch,
+      body: `Automated exercise submission for **${cleanDomain}/${payload.level}/${payload.module}/Day ${payload.day}**.\n\n### Summary\n${payload.summary}\n\n### Practical Details\n${payload.practicalsDescription}\n\n### Challenges Encountered\n${payload.challenges}`,
+    }),
+  });
+
+  if (prRes.ok) {
+    const prData = await prRes.json() as any;
+    pullRequestUrl = prData.html_url;
   } else {
-    // Simulated verified PR for local testing
-    const simulatedPrNum = Math.floor(100 + Math.random() * 900);
-    pullRequestUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/pull/${simulatedPrNum}`;
+    const prErr = await prRes.json().catch(() => ({})) as any;
+    // If PR already exists for this branch, fetch the open PR URL
+    const existingPrsRes = await fetchImpl(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls?head=${encodeURIComponent(REPO_OWNER)}:${encodeURIComponent(branchName)}&state=all`,
+      {
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "Zila-Agent/1.0",
+        },
+      }
+    );
+    if (existingPrsRes.ok) {
+      const existingPrs = await existingPrsRes.json() as any[];
+      if (existingPrs.length > 0 && existingPrs[0].html_url) {
+        pullRequestUrl = existingPrs[0].html_url;
+      }
+    }
+
+    if (!pullRequestUrl) {
+      throw new Error(
+        `Failed to create Pull Request (${prRes.status}): ${prErr.message || "Unknown error"}`
+      );
+    }
   }
 
   onProgress?.(`Recording task submission on Zigex API...`);
