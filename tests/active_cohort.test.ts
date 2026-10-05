@@ -1,5 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import path from "node:path";
+import fs from "node:fs";
+
+process.env.ZILA_CONFIG_DIR = path.join(process.cwd(), ".zila_test_cohort");
+
 import {
   generateCohortSlug,
   mapDepartmentToDomain,
