@@ -58,6 +58,36 @@ test("Leaderboard loads real students from the same active cohort as group", asy
   assert.equal(data.entries[0].name, "Fonyuy Gita");
   assert.equal(data.entries[1].name, "Sanda Maurice");
   assert.equal(data.currentStudentEmail, "fonyuyjudegita@gmail.com");
+  assert.equal(data.entries[0].status, "none");
+});
+
+test("Leaderboard correctly maps pending, accepted, and rejected PR statuses", async () => {
+  const request = async <T>(endpoint: string): Promise<T> => {
+    if (endpoint === "/cohorts/group") {
+      return {
+        cohort: { id: "cohort-123", name: "AI/ML Track" },
+        peers: [],
+      } as T;
+    }
+    if (endpoint === "/profile/me") {
+      return {
+        profile: { user_id: "u1", full_name: "Alice", email: "alice@test.com" }
+      } as T;
+    }
+    return {
+      leaderboard: [
+        { rank: 1, studentId: "s1", studentName: "Alice", studentEmail: "alice@test.com", totalPoints: 100, latestScore: 90, status: "accepted" },
+        { rank: 2, studentId: "s2", studentName: "Bob", studentEmail: "bob@test.com", totalPoints: 80, latestScore: 75, status: "pending" },
+        { rank: 3, studentId: "s3", studentName: "Charlie", studentEmail: "charlie@test.com", totalPoints: 50, latestScore: 60, status: "rejected" },
+      ]
+    } as T;
+  };
+
+  const data = await fetchLeaderboardData(request, "alice@test.com");
+  assert.equal(data.entries.length, 3);
+  assert.equal(data.entries[0].status, "accepted");
+  assert.equal(data.entries[1].status, "pending");
+  assert.equal(data.entries[2].status, "rejected");
 });
 
 test("Leaderboard does not fabricate entries without an active group", async () => {
