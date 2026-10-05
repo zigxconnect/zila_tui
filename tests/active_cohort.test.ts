@@ -12,6 +12,7 @@ import {
   setActiveCohort,
   getActiveCohort,
   clearActiveCohort,
+  formatPrStatus,
 } from "../dist/utils/activeCohort.js";
 
 test("ActiveCohort - generateCohortSlug generates concise, clean slugs", () => {
@@ -67,4 +68,13 @@ test("ActiveCohort - persistent storage lifecycle (set, get, clear)", () => {
 
   clearActiveCohort();
   assert.equal(getActiveCohort(), null);
+});
+
+test("ActiveCohort - formatPrStatus standardizes pending, accepted, rejected statuses", () => {
+  assert.deepEqual(formatPrStatus("accepted"), { label: "Accepted", badge: "✔ Accepted", isResolved: true });
+  assert.deepEqual(formatPrStatus("approved"), { label: "Accepted", badge: "✔ Accepted", isResolved: true });
+  assert.deepEqual(formatPrStatus("rejected"), { label: "Rejected", badge: "✖ Rejected", isResolved: true });
+  assert.deepEqual(formatPrStatus("pending"), { label: "Pending", badge: "⏳ Pending", isResolved: false });
+  assert.deepEqual(formatPrStatus("submitted"), { label: "Pending", badge: "⏳ Pending", isResolved: false });
+  assert.deepEqual(formatPrStatus(undefined), { label: "None", badge: "—", isResolved: true });
 });
