@@ -8,15 +8,18 @@ export interface CohortOption {
   id: string;
   name: string;
   department?: string;
+  level?: string;
   enrollmentStatus?: string;
   supervisorName?: string;
+  supervisorEmail?: string;
+  githubRepoUrl?: string;
 }
 
 interface CohortsResponse {
   cohorts?: CohortOption[];
 }
 
-export type CohortPickerMode = "group" | "leaderboard";
+export type CohortPickerMode = "group" | "leaderboard" | "select";
 
 type CohortRequest = <T = unknown>(endpoint: string) => Promise<T>;
 
@@ -78,7 +81,12 @@ export const CohortPickerScreen: React.FC<CohortPickerScreenProps> = ({
     }
   });
 
-  const title = mode === "group" ? "Choose a cohort team" : "Choose a cohort leaderboard";
+  const title =
+    mode === "group"
+      ? "Choose a cohort team"
+      : mode === "leaderboard"
+        ? "Choose a cohort leaderboard"
+        : "Navigate into a cohort context";
 
   return (
     <Box flexDirection="column" paddingY={1}>
@@ -87,7 +95,7 @@ export const CohortPickerScreen: React.FC<CohortPickerScreenProps> = ({
         <Text color={theme.colors.retroSlateDark}>›</Text>
         <Text color={theme.colors.white} bold>{title}</Text>
       </Box>
-      <Text color={theme.colors.retroSlateDark}>Select with ↑/↓, open with enter, cancel with esc.</Text>
+      <Text color={theme.colors.retroSlateDark}>Select with ↑/↓, choose with enter, cancel with esc.</Text>
 
       {loading ? (
         <Box flexDirection="row" gap={1} marginTop={1}>
@@ -104,11 +112,18 @@ export const CohortPickerScreen: React.FC<CohortPickerScreenProps> = ({
             const selected = index === selectedIndex;
             return (
               <Box key={cohort.id} flexDirection="column" marginBottom={1}>
-                <Text color={selected ? theme.colors.retroGreenBright : theme.colors.white} bold={selected}>
-                  {`${selected ? "›" : " "} ${cohort.name}`}
-                </Text>
+                <Box flexDirection="row" gap={1}>
+                  <Text color={selected ? theme.colors.retroGreenBright : theme.colors.white} bold={selected}>
+                    {`${selected ? "›" : " "} ${cohort.name}`}
+                  </Text>
+                  {cohort.level && (
+                    <Text color={theme.colors.retroBlueBright}>
+                      {`[${cohort.level.toUpperCase()}]`}
+                    </Text>
+                  )}
+                </Box>
                 <Text color={theme.colors.retroSlateDark}>
-                  {`  ${cohort.department || "General"}${cohort.supervisorName ? ` · ${cohort.supervisorName}` : ""}`}
+                  {`    Domain: ${cohort.department || "General"}${cohort.supervisorName ? ` · Supervisor: ${cohort.supervisorName}` : ""}${cohort.githubRepoUrl ? " · Repo: linked" : ""}`}
                 </Text>
               </Box>
             );
@@ -118,3 +133,4 @@ export const CohortPickerScreen: React.FC<CohortPickerScreenProps> = ({
     </Box>
   );
 };
+
