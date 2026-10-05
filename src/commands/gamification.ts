@@ -1,5 +1,6 @@
 import type { ZilaCommand } from "./registry.js";
 import { loadAuth } from "../utils/auth.js";
+import { getActiveCohort } from "../utils/activeCohort.js";
 import { env } from "process";
 
 const API_BASE_URL = env.ZILA_API_URL || "http://localhost:5000";
@@ -139,7 +140,8 @@ export const leaderboardCommand: ZilaCommand = {
       }
 
       const targetArgs = args.filter((a) => !a.startsWith("-"));
-      const cohortId = targetArgs[0] || cohorts[0].id;
+      const activeCohort = getActiveCohort();
+      const cohortId = targetArgs[0] || activeCohort?.id || cohorts[0].id;
       const selectedCohort = cohorts.find((c: any) => c.id === cohortId) || cohorts[0];
 
       const response = await fetch(`${API_BASE_URL}/api/gamification/leaderboard/${selectedCohort.id}`, {
