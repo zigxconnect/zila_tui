@@ -15,6 +15,7 @@ interface CommandItem {
 }
 
 const COMMAND_CATALOG: CommandItem[] = [
+  { cmd: "select --cohorts", category: "cohort", desc: "Navigate into a cohort context (lil-zila/slug ›)" },
   { cmd: "group --cohorts", category: "cohort", desc: "Pick a cohort and view its team" },
   { cmd: "cohorts", category: "cohort", desc: "List cohorts and IDs for team switching" },
   { cmd: "downloads", category: "cohort", desc: "Clone course materials & repo" },
@@ -54,7 +55,7 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
           <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
           <Text color={theme.colors.white} bold>{"command reference"}</Text>
         </Box>
-        <Text color={theme.colors.retroSlateDark}>{"18 commands"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"19 commands"}</Text>
       </Box>
 
       {/* Divider */}
