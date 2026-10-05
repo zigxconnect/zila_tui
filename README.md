@@ -452,6 +452,11 @@ Run `zila github-auth` to open GitHub's device authorization page, enter the dis
 | Command | Description |
 |---|---|
 | `zila init` | Bootstrap the working environment |
+| `zila select --cohorts` | Interactively select and bind active cohort (prompt: `lil-zila/<cohort-slug> ›`) |
+| `zila select <id>` | Bind directly to cohort ID or `--current` to inspect |
+| `zila select --clear` | Clear active cohort binding and return to global prompt |
+| `zila submit-task` | Automated background GitHub PR submission pipeline across ML, Web, Cyber, App, Embedded |
+| `zila leaderboard` | View cohort leaderboard with **STATUS** (`⏳ Pending`, `✔ Accepted`, `✖ Rejected`) |
 | `zila monitor start` | Start the monitoring assistant |
 | `zila monitor stop` | Stop the monitoring assistant |
 | `zila monitor status` | Check monitor status |
