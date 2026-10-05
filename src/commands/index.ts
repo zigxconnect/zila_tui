@@ -37,8 +37,10 @@ import { statsScreenCommand } from "./stats-screen.js";
 import { downloadsCommand } from "./downloads.js";
 import { githubAuthCommand, githubStatusCommand, githubLogoutCommand } from "./githubAuth.js";
 import { cacheCommand } from "./cache.js";
+import { selectCohortCommand } from "./selectCohort.js";
 
 export function registerAllCommands(): void {
+  registerCommand(selectCohortCommand);
   registerCommand(exitCommand);
   registerCommand(helpCommand);
   registerCommand(initCommand);
