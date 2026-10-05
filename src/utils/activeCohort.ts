@@ -15,16 +15,37 @@ export interface ActiveCohort {
   selectedAt: string;
 }
 
-const ZILA_DIR = path.join(os.homedir(), ".zila");
-const ACTIVE_COHORT_FILE = path.join(ZILA_DIR, "active_cohort.json");
+export function getZilaDir(): string {
+  if (process.env.ZILA_CONFIG_DIR) {
+    if (!fs.existsSync(process.env.ZILA_CONFIG_DIR)) {
+      fs.mkdirSync(process.env.ZILA_CONFIG_DIR, { recursive: true });
+    }
+    return process.env.ZILA_CONFIG_DIR;
+  }
+  const defaultDir = path.join(os.homedir(), ".zila");
+  try {
+    if (!fs.existsSync(defaultDir)) {
+      fs.mkdirSync(defaultDir, { recursive: true });
+    }
+    return defaultDir;
+  } catch {
+    const fallbackDir = path.join(process.cwd(), ".zila");
+    if (!fs.existsSync(fallbackDir)) {
+      fs.mkdirSync(fallbackDir, { recursive: true });
+    }
+    return fallbackDir;
+  }
+}
+
+export function getActiveCohortFile(): string {
+  return path.join(getZilaDir(), "active_cohort.json");
+}
 
 /**
- * Ensures ~/.zila directory exists
+ * Ensures zila directory exists
  */
-function ensureZilaDir() {
-  if (!fs.existsSync(ZILA_DIR)) {
-    fs.mkdirSync(ZILA_DIR, { recursive: true });
-  }
+function ensureZilaDir(): string {
+  return getZilaDir();
 }
 
 /**
@@ -109,10 +130,10 @@ export function mapLevel(level?: string, title?: string): "beginner" | "intermed
  */
 export function getActiveCohort(): ActiveCohort | null {
   try {
-    if (!fs.existsSync(ACTIVE_COHORT_FILE)) {
+    if (!fs.existsSync(getActiveCohortFile())) {
       return null;
     }
-    const raw = fs.readFileSync(ACTIVE_COHORT_FILE, "utf8");
+    const raw = fs.readFileSync(getActiveCohortFile(), "utf8");
     const data = JSON.parse(raw);
     if (!data || !data.id || !data.name) {
       return null;
@@ -154,7 +175,7 @@ export function setActiveCohort(cohort: {
     selectedAt: new Date().toISOString(),
   };
 
-  fs.writeFileSync(ACTIVE_COHORT_FILE, JSON.stringify(active, null, 2), "utf8");
+  fs.writeFileSync(getActiveCohortFile(), JSON.stringify(active, null, 2), "utf8");
   return active;
 }
 
@@ -163,8 +184,8 @@ export function setActiveCohort(cohort: {
  */
 export function clearActiveCohort(): void {
   try {
-    if (fs.existsSync(ACTIVE_COHORT_FILE)) {
-      fs.unlinkSync(ACTIVE_COHORT_FILE);
+    if (fs.existsSync(getActiveCohortFile())) {
+      fs.unlinkSync(getActiveCohortFile());
     }
   } catch {}
 }
