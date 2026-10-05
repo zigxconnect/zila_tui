@@ -101,6 +101,24 @@ export const SAMPLE_COHORT_REPO = "https://github.com/iws3/sample_repo_zila.git"
 export const REPO_OWNER = "iws3";
 export const REPO_NAME = "sample_repo_zila";
 
+/**
+ * Extracts owner, repo name, and normalized git URL from any GitHub repository URL
+ */
+export function parseGitHubRepoUrl(url?: string): { owner: string; repo: string; url: string } {
+  const target = (url && url.trim()) || SAMPLE_COHORT_REPO;
+  const match = target.match(/github\.com[:/]([^/]+)\/([^/.]+)(?:\.git)?/i);
+  if (match && match[1] && match[2]) {
+    const owner = match[1];
+    const repo = match[2].replace(/\.git$/, "");
+    return {
+      owner,
+      repo,
+      url: `https://github.com/${owner}/${repo}.git`,
+    };
+  }
+  return { owner: REPO_OWNER, repo: REPO_NAME, url: SAMPLE_COHORT_REPO };
+}
+
 interface LocalQuotaRecord {
   date: string; // YYYY-MM-DD
   count: number;
@@ -314,10 +332,15 @@ export async function executeAutomatedTaskSubmission(
     );
   }
 
-  onProgress?.(`Connecting to GitHub repository ${REPO_OWNER}/${REPO_NAME}...`);
+  const repoInfo = parseGitHubRepoUrl(payload.githubRepoUrl);
+  const repoOwner = repoInfo.owner;
+  const repoName = repoInfo.repo;
+  const targetRepoUrl = repoInfo.url;
+
+  onProgress?.(`Connecting to GitHub repository ${repoOwner}/${repoName}...`);
 
   // Fetch repository metadata to obtain default branch
-  const repoRes = await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`, {
+  const repoRes = await fetchImpl(`https://api.github.com/repos/${repoOwner}/${repoName}`, {
     headers: {
       Authorization: `Bearer ${githubToken}`,
       Accept: "application/vnd.github+json",
@@ -328,7 +351,7 @@ export async function executeAutomatedTaskSubmission(
   if (!repoRes.ok) {
     const errData = await repoRes.json().catch(() => ({})) as any;
     throw new Error(
-      `GitHub API error (${repoRes.status}): ${errData.message || "Cannot access repository " + REPO_OWNER + "/" + REPO_NAME}`
+      `GitHub API error (${repoRes.status}): ${errData.message || "Cannot access repository " + repoOwner + "/" + repoName}`
     );
   }
 
@@ -337,7 +360,7 @@ export async function executeAutomatedTaskSubmission(
 
   // Fetch head commit SHA of default branch
   const branchRes = await fetchImpl(
-    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/branches/${encodeURIComponent(defaultBranch)}`,
+    `https://api.github.com/repos/${repoOwner}/${repoName}/branches/${encodeURIComponent(defaultBranch)}`,
     {
       headers: {
         Authorization: `Bearer ${githubToken}`,
@@ -362,7 +385,7 @@ export async function executeAutomatedTaskSubmission(
 
   // Create isolated branch ref (or continue if it already exists)
   onProgress?.(`Configuring automated branch: ${branchName}`);
-  await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/refs`, {
+  await fetchImpl(`https://api.github.com/repos/${repoOwner}/${repoName}/git/refs`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${githubToken}`,
@@ -377,7 +400,7 @@ export async function executeAutomatedTaskSubmission(
   let existingFileSha: string | undefined;
   try {
     const fileCheckRes = await fetchImpl(
-      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${contributorFilePath}?ref=${encodeURIComponent(branchName)}`,
+      `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${contributorFilePath}?ref=${encodeURIComponent(branchName)}`,
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
@@ -406,7 +429,7 @@ export async function executeAutomatedTaskSubmission(
   }
 
   const contentRes = await fetchImpl(
-    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${contributorFilePath}`,
+    `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${contributorFilePath}`,
     {
       method: "PUT",
       headers: {
@@ -430,10 +453,10 @@ export async function executeAutomatedTaskSubmission(
   let commitHash = contentData.commit?.sha || "latest";
 
   // Create Pull Request
-  onProgress?.(`Opening pull request on ${REPO_OWNER}/${REPO_NAME}...`);
+  onProgress?.(`Opening pull request on ${repoOwner}/${repoName}...`);
   let pullRequestUrl = "";
 
-  const prRes = await fetchImpl(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls`, {
+  const prRes = await fetchImpl(`https://api.github.com/repos/${repoOwner}/${repoName}/pulls`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${githubToken}`,
@@ -456,7 +479,7 @@ export async function executeAutomatedTaskSubmission(
     const prErr = await prRes.json().catch(() => ({})) as any;
     // If PR already exists for this branch, fetch the open PR URL
     const existingPrsRes = await fetchImpl(
-      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/pulls?head=${encodeURIComponent(REPO_OWNER)}:${encodeURIComponent(branchName)}&state=all`,
+      `https://api.github.com/repos/${repoOwner}/${repoName}/pulls?head=${encodeURIComponent(repoOwner)}:${encodeURIComponent(branchName)}&state=all`,
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
@@ -496,7 +519,7 @@ export async function executeAutomatedTaskSubmission(
         module: cleanModule,
         day: payload.day,
         githubPrUrl: pullRequestUrl,
-        githubRepoUrl: SAMPLE_COHORT_REPO,
+        githubRepoUrl: targetRepoUrl,
         githubBranch: branchName,
         commitHash,
         summary: payload.summary,
