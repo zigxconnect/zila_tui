@@ -28,6 +28,7 @@ if (cliArgs.length > 0) {
       startInfo: () => {},
       startChatGroup: () => {},
       startPeers: () => {},
+      startCohortPicker: () => {},
     };
     void cmd.handler(cliArgs.slice(1), output, mockContext as any);
   } else {
