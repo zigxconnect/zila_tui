@@ -14,6 +14,8 @@ interface LeaderboardEntry {
   studentEmail: string;
   points: number;
   latestScore: number;
+  status?: 'pending' | 'accepted' | 'rejected' | 'none';
+  latestPrUrl?: string | null;
 }
 
 interface GroupResponse {
@@ -34,6 +36,8 @@ interface LeaderboardResponse {
     studentEmail: string;
     totalPoints: number;
     latestScore: number;
+    status?: 'pending' | 'accepted' | 'rejected' | 'none';
+    latestPrUrl?: string | null;
   }>;
 }
 
@@ -109,6 +113,8 @@ export async function fetchLeaderboardData(
       studentEmail: entry.studentEmail,
       points: entry.totalPoints,
       latestScore: entry.latestScore,
+      status: entry.status || 'none',
+      latestPrUrl: entry.latestPrUrl || null,
     })),
   };
 }
@@ -197,14 +203,17 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
             <Box width={6}>
               <Text color={theme.colors.retroBlueBright} bold>{"RANK"}</Text>
             </Box>
-            <Box width={26}>
+            <Box width={24}>
               <Text color={theme.colors.retroBlueBright} bold>{"NAME"}</Text>
             </Box>
             <Box width={10}>
               <Text color={theme.colors.retroBlueBright} bold>{"POINTS"}</Text>
             </Box>
-            <Box width={12}>
+            <Box width={10}>
               <Text color={theme.colors.retroBlueBright} bold>{"LATEST"}</Text>
+            </Box>
+            <Box width={14}>
+              <Text color={theme.colors.retroBlueBright} bold>{"STATUS"}</Text>
             </Box>
           </Box>
 
@@ -217,12 +226,25 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
               ? theme.colors.retroGreenBright
               : theme.colors.retroSlateDark;
 
+            const renderStatus = () => {
+              if (entry.status === 'accepted') {
+                return <Text color={theme.colors.retroGreenBright} bold>{"✔ Accepted"}</Text>;
+              }
+              if (entry.status === 'rejected') {
+                return <Text color="#ef4444" bold>{"✖ Rejected"}</Text>;
+              }
+              if (entry.status === 'pending') {
+                return <Text color={theme.colors.retroAmber} bold>{"⏳ Pending"}</Text>;
+              }
+              return <Text color={theme.colors.retroSlateDark}>{"—"}</Text>;
+            };
+
             return (
               <Box key={entry.studentId || entry.studentEmail} flexDirection="row" gap={0}>
                 <Box width={6}>
                   <Text color={rankColor} bold>{rankBadge(entry.rank).padEnd(4)}</Text>
                 </Box>
-                <Box width={26}>
+                <Box width={24}>
                   <Text color={isYou ? theme.colors.retroGreenBright : theme.colors.white} bold={isYou}>
                     {isYou ? `› ${entry.name}` : `  ${entry.name}`}
                   </Text>
@@ -232,8 +254,11 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
                     {`${entry.points} pts`}
                   </Text>
                 </Box>
-                <Box width={12}>
+                <Box width={10}>
                   <Text color={theme.colors.retroSlateDark}>{`${entry.latestScore}%`}</Text>
+                </Box>
+                <Box width={14}>
+                  {renderStatus()}
                 </Box>
               </Box>
             );
