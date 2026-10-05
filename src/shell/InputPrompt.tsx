@@ -5,14 +5,17 @@ import { Spinner } from "../ui/Spinner.js";
 
 interface InputPromptProps {
   running: boolean;
+  cohortSlug?: string;
   onSubmit: (input: string) => void;
 }
 
-export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) => {
+export const InputPrompt: React.FC<InputPromptProps> = ({ running, cohortSlug, onSubmit }) => {
   const [input, setInput] = useState("");
   const [cursorVisible, setCursorVisible] = useState(true);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+  const promptLabel = cohortSlug ? `lil-zila/${cohortSlug}` : "lil-zila";
 
   React.useEffect(() => {
     const interval = setInterval(() => setCursorVisible((v) => !v), 500);
@@ -56,7 +59,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
   if (running) {
     return (
       <Box marginTop={1} flexDirection="row" gap={1} alignItems="center">
-        <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+        <Text color={theme.colors.retroBlue} bold>{promptLabel}</Text>
         <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
         <Spinner style="classic" color={theme.colors.retroBlueBright} label="running…" />
       </Box>
@@ -67,7 +70,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({ running, onSubmit }) =
     <Box marginTop={1} flexDirection="column">
       {/* Prompt */}
       <Box flexDirection="row" alignItems="center" gap={1}>
-        <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
+        <Text color={theme.colors.retroBlue} bold>{promptLabel}</Text>
         <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
         <Text color={theme.colors.white}>{input}</Text>
         {cursorVisible
