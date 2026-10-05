@@ -26,6 +26,8 @@ export const submitReportCommand: ZilaCommand = {
   },
 };
 
+import { getActiveCohort } from "../utils/activeCohort.js";
+
 export const submitTaskCommand: ZilaCommand = {
   name: "submit-task",
   aliases: ["zila-submit", "submit", "task-submit"],
@@ -41,16 +43,29 @@ export const submitTaskCommand: ZilaCommand = {
       output("lil-zila › automated github pr pipeline", "info");
       output("─".repeat(72), "dim");
 
+      const activeCohort = getActiveCohort();
+      if (activeCohort) {
+        output(`Active Cohort: ${activeCohort.name} [Domain: ${activeCohort.domainKey.toUpperCase()}, Level: ${activeCohort.level.toUpperCase()}]`, "success");
+      }
+
       const getArg = (flag: string, fallback: string) => {
         const idx = args.indexOf(flag);
-        return idx !== -1 && args[idx + 1] ? args[idx + 1]! : fallback;
+        if (idx !== -1 && args[idx + 1]) return args[idx + 1]!;
+        const prefix = flag + "=";
+        const matching = args.find((a) => a.startsWith(prefix));
+        return matching ? matching.slice(prefix.length) : fallback;
       };
 
-      const domain = getArg("--domain", "ml");
-      const level = (getArg("--level", "beginner") as "beginner" | "intermediate" | "advance");
+      const defaultDomain = activeCohort?.domainKey || "ml";
+      const defaultLevel = (activeCohort?.level === "advanced" ? "advance" : (activeCohort?.level || "beginner"));
+      const defaultRepo = activeCohort?.githubRepoUrl || "";
+
+      const domain = getArg("--domain", defaultDomain);
+      const level = (getArg("--level", defaultLevel) as "beginner" | "intermediate" | "advance");
       const module = getArg("--module", "1_python");
       const day = Number(getArg("--day", "1")) || 1;
       const summary = getArg("--summary", `Exercise completed for ${module} Day ${day}`);
+      const repoUrl = getArg("--repo", defaultRepo);
 
       const quota = checkDailyPrQuota();
       if (!quota.allowed) {
@@ -71,6 +86,7 @@ export const submitTaskCommand: ZilaCommand = {
           summary,
           practicalsDescription: "Practical code and exercises implemented in contributors directory.",
           challenges: "None reported.",
+          githubRepoUrl: repoUrl || undefined,
         };
 
         const res = await executeAutomatedTaskSubmission(payload, (step) => output(`› ${step}`, "dim"));
