@@ -15,15 +15,35 @@ import {
 import { theme } from "../ui/theme.js";
 import { Cursor } from "../ui/Cursor.js";
 
+import { getActiveCohort } from "../utils/activeCohort.js";
+
 interface SubmitTaskScreenProps {
   onComplete: () => void;
 }
 
 export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }) => {
+  const activeCohort = getActiveCohort();
   const domains = Object.keys(CURRICULUM_DOMAINS);
-  const [domainIndex, setDomainIndex] = useState(0); // 0: ml, 1: web, 2: cyber, 3: embeded, 4: app, 5: cloud
-  const [levelIndex, setLevelIndex] = useState(0); // 0: beginner, 1: intermediate, 2: advance
-  const [module, setModule] = useState("1_python");
+  const levels: Array<"beginner" | "intermediate" | "advance"> = ["beginner", "intermediate", "advance"];
+
+  const initialDomainIdx = activeCohort?.domainKey
+    ? Math.max(0, domains.indexOf(activeCohort.domainKey))
+    : 0;
+  const initialLevelIdx = activeCohort?.level
+    ? Math.max(
+        0,
+        levels.indexOf(
+          (activeCohort.level === "advanced" ? "advance" : activeCohort.level) as any
+        )
+      )
+    : 0;
+
+  const [domainIndex, setDomainIndex] = useState(initialDomainIdx);
+  const [levelIndex, setLevelIndex] = useState(initialLevelIdx);
+  const currentDomainKey = domains[domainIndex] || "ml";
+  const currentLevel = levels[levelIndex] || "beginner";
+  const initialModule = getTrackModules(currentDomainKey, currentLevel)[0] || "1_python";
+  const [module, setModule] = useState(initialModule);
   const [day, setDay] = useState("1");
   const [summary, setSummary] = useState("");
   const [practicals, setPracticals] = useState("");
@@ -37,10 +57,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const [result, setResult] = useState<AutomatedPrResult | null>(null);
   const [error, setError] = useState("");
 
-  const levels: Array<"beginner" | "intermediate" | "advance"> = ["beginner", "intermediate", "advance"];
-  const currentDomainKey = domains[domainIndex] || "ml";
   const currentDomainDef = CURRICULUM_DOMAINS[currentDomainKey] || CURRICULUM_DOMAINS.ml!;
-  const currentLevel = levels[levelIndex] || "beginner";
   const quota = checkDailyPrQuota();
 
   useEffect(() => {
@@ -75,6 +92,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
         practicalsDescription: practicals || "Implementation completed according to curriculum specification.",
         challenges: challenges || "None reported.",
         deploymentUrl: deploymentUrl || undefined,
+        githubRepoUrl: activeCohort?.githubRepoUrl || undefined,
       };
 
       const res = await executeAutomatedTaskSubmission(payload, (step) => setProgressMsg(step));
@@ -222,6 +240,19 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
           {`PR quota: ${quota.countToday}/2 used today`}
         </Text>
       </Box>
+
+      {/* Active cohort indicator */}
+      {activeCohort ? (
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroSlateDark}>{"Cohort Context:"}</Text>
+          <Text color={theme.colors.retroCyanBright} bold>{`[${activeCohort.name}]`}</Text>
+          <Text color={theme.colors.retroGreenBright}>{"(Auto-selected from your placement)"}</Text>
+        </Box>
+      ) : (
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroSlateDark}>{"Cohort Context: [None - Type 'select --cohorts' to bind]"}</Text>
+        </Box>
+      )}
 
       {/* Divider */}
       <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
