@@ -189,3 +189,26 @@ export function clearActiveCohort(): void {
     }
   } catch {}
 }
+
+/**
+ * Format PR status with standard emoji badges
+ */
+export function formatPrStatus(status?: 'pending' | 'accepted' | 'rejected' | 'none' | string): {
+  label: string;
+  badge: string;
+  isResolved: boolean;
+} {
+  switch (status) {
+    case 'accepted':
+    case 'approved':
+      return { label: 'Accepted', badge: '✔ Accepted', isResolved: true };
+    case 'rejected':
+      return { label: 'Rejected', badge: '✖ Rejected', isResolved: true };
+    case 'pending':
+    case 'submitted':
+    case 'under_review':
+      return { label: 'Pending', badge: '⏳ Pending', isResolved: false };
+    default:
+      return { label: 'None', badge: '—', isResolved: true };
+  }
+}
