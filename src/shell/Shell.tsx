@@ -27,6 +27,11 @@ import {
 } from "../commands/registry.js";
 import { registerAllCommands } from "../commands/index.js";
 import { levenshtein } from "../utils/string.js";
+import {
+  getActiveCohort,
+  setActiveCohort,
+  type ActiveCohort,
+} from "../utils/activeCohort.js";
 
 registerAllCommands();
 
@@ -55,6 +60,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [showAchievements, setShowAchievements] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [cohortPickerMode, setCohortPickerMode] = useState<CohortPickerMode | null>(null);
+  const [activeCohort, setActiveCohortState] = useState<ActiveCohort | null>(() => getActiveCohort());
 
   const pushLine = useCallback(
     (text: string, type: OutputLine["type"] = "default") => {
@@ -91,7 +97,9 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
 
   async function handleCommand(rawInput: string, echo: boolean) {
     if (!rawInput) return;
-    if (echo) pushLine(`lil-zila > ${rawInput}`, "dim");
+    const currentCohort = getActiveCohort();
+    const promptPrefix = currentCohort ? `lil-zila/${currentCohort.slug}` : "lil-zila";
+    if (echo) pushLine(`${promptPrefix} > ${rawInput}`, "dim");
 
     setRunning(true);
     const [cmdName = "", ...args] = rawInput.trim().split(/\s+/);
@@ -129,6 +137,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
     }
 
     setRunning(false);
+    setActiveCohortState(getActiveCohort());
   }
 
   useInput(
@@ -257,13 +266,30 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
           onSelect={(cohort) => {
             const mode = cohortPickerMode;
             setCohortPickerMode(null);
-            pushLine(`Selected cohort: ${cohort.name}`, "success");
-            void handleCommand(
-              mode === "group"
-                ? `group --cohort ${cohort.id}`
-                : `leaderboard --text ${cohort.id}`,
-              false,
-            );
+            if (mode === "select") {
+              const activated = setActiveCohort({
+                id: cohort.id,
+                name: cohort.name,
+                department: cohort.department,
+                level: cohort.level,
+                supervisorName: cohort.supervisorName,
+                supervisorEmail: cohort.supervisorEmail,
+                githubRepoUrl: cohort.githubRepoUrl,
+              });
+              setActiveCohortState(activated);
+              pushLine(`Entered cohort context: ${activated.name}`, "success");
+              pushLine(`Prompt updated: lil-zila/${activated.slug} ›`, "default");
+              pushLine(`Domain: [${activated.domainKey.toUpperCase()}], Level: [${activated.level.toUpperCase()}]`, "dim");
+              pushLine(`All tasks and PR submissions will automatically use this cohort.`, "dim");
+            } else {
+              pushLine(`Selected cohort: ${cohort.name}`, "success");
+              void handleCommand(
+                mode === "group"
+                  ? `group --cohort ${cohort.id}`
+                  : `leaderboard --text ${cohort.id}`,
+                false,
+              );
+            }
           }}
         />
       ) : showLeaderboard ? (
@@ -278,10 +304,11 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
           {history.length === 0 && <LilZilaBanner />}
           <InputPrompt
             running={running}
+            cohortSlug={activeCohort?.slug}
             onSubmit={(input) => handleCommand(input, true)}
           />
           <Box marginTop={0} flexDirection="row" gap={2}>
-            <Text color={theme.colors.retroSlateDark}>{"help · group · tasks · docs · stats · cache · exit"}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"help · select · group · tasks · docs · stats · exit"}</Text>
           </Box>
         </>
       )}
