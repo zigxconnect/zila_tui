@@ -38,8 +38,10 @@ import { downloadsCommand } from "./downloads.js";
 import { githubAuthCommand, githubStatusCommand, githubLogoutCommand } from "./githubAuth.js";
 import { cacheCommand } from "./cache.js";
 import { selectCohortCommand } from "./selectCohort.js";
+import { quotaCommand } from "./quota.js";
 
 export function registerAllCommands(): void {
+  registerCommand(quotaCommand);
   registerCommand(selectCohortCommand);
   registerCommand(exitCommand);
   registerCommand(helpCommand);
