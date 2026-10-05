@@ -156,22 +156,27 @@ export const leaderboardCommand: ZilaCommand = {
       const data = (await response.json()) as { leaderboard: any[] };
       const { leaderboard } = data;
 
-      output("─".repeat(72), "dim");
+      output("─".repeat(78), "dim");
       output(`lil-zila › leaderboard · ${selectedCohort.name}`, "info");
-      output("─".repeat(72), "dim");
-      output("RANK  INTERN NAME               POINTS      LATEST SPRINT", "info");
-      output("─".repeat(72), "dim");
+      output("─".repeat(78), "dim");
+      output("RANK  INTERN NAME               POINTS      LATEST      STATUS", "info");
+      output("─".repeat(78), "dim");
 
       leaderboard.forEach((entry: any) => {
         const isCurrent = entry.studentEmail === authRecord.email;
         const rankStr = `#${entry.rank}`.padEnd(6);
         const nameStr = (isCurrent ? `› ${entry.studentName}` : `  ${entry.studentName}`).padEnd(26);
         const ptsStr = `${entry.totalPoints} pts`.padEnd(12);
-        const scoreStr = `${entry.latestScore}%`;
-        output(`${rankStr}${nameStr}${ptsStr}${scoreStr}`, isCurrent ? "success" : "dim");
+        const scoreStr = `${entry.latestScore}%`.padEnd(12);
+        let statusBadge = "—";
+        if (entry.status === "accepted") statusBadge = "✔ Accepted";
+        else if (entry.status === "rejected") statusBadge = "✖ Rejected";
+        else if (entry.status === "pending") statusBadge = "⏳ Pending";
+
+        output(`${rankStr}${nameStr}${ptsStr}${scoreStr}${statusBadge}`, isCurrent ? "success" : "dim");
       });
 
-      output("─".repeat(72), "dim");
+      output("─".repeat(78), "dim");
     } catch (error: any) {
       output(`! Error retrieving leaderboard: ${error.message}`, "error");
     }
