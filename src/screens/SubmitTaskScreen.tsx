@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { loadAuth } from "../utils/auth.js";
+import { loadAuth, zilaApi } from "../utils/auth.js";
 import { loadGitHubAuth } from "../utils/githubAuth.js";
 import {
   executeAutomatedTaskSubmission,
@@ -15,7 +15,7 @@ import {
 import { theme } from "../ui/theme.js";
 import { Cursor } from "../ui/Cursor.js";
 
-import { getActiveCohort } from "../utils/activeCohort.js";
+import { getActiveCohort, mapDepartmentToDomain, mapLevel } from "../utils/activeCohort.js";
 
 interface SubmitTaskScreenProps {
   onComplete: () => void;
@@ -23,26 +23,13 @@ interface SubmitTaskScreenProps {
 
 export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }) => {
   const activeCohort = getActiveCohort();
-  const domains = Object.keys(CURRICULUM_DOMAINS);
-  const levels: Array<"beginner" | "intermediate" | "advance"> = ["beginner", "intermediate", "advance"];
 
-  const initialDomainIdx = activeCohort?.domainKey
-    ? Math.max(0, domains.indexOf(activeCohort.domainKey))
-    : 0;
-  const initialLevelIdx = activeCohort?.level
-    ? Math.max(
-        0,
-        levels.indexOf(
-          (activeCohort.level === "advanced" ? "advance" : activeCohort.level) as any
-        )
-      )
-    : 0;
+  const [currentDomainKey, setCurrentDomainKey] = useState<string>(activeCohort?.domainKey || "ml");
+  const [currentLevel, setCurrentLevel] = useState<"beginner" | "intermediate" | "advance">(
+    ((activeCohort?.level === "advanced" ? "advance" : activeCohort?.level) as any) || "beginner"
+  );
 
-  const [domainIndex, setDomainIndex] = useState(initialDomainIdx);
-  const [levelIndex, setLevelIndex] = useState(initialLevelIdx);
-  const currentDomainKey = domains[domainIndex] || "ml";
-  const currentLevel = levels[levelIndex] || "beginner";
-  const initialModule = getTrackModules(currentDomainKey, currentLevel)[0] || "1_python";
+  const initialModule = getTrackModules(currentDomainKey, currentLevel)[0] || "1_fundamentals";
   const [module, setModule] = useState(initialModule);
   const [day, setDay] = useState("1");
   const [summary, setSummary] = useState("");
@@ -50,12 +37,32 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const [challenges, setChallenges] = useState("");
   const [deploymentUrl, setDeploymentUrl] = useState("");
 
-  const [activeField, setActiveField] = useState(0); // 0: domain, 1: level, 2: module, 3: day, 4: summary, 5: practicals, 6: challenges, 7: deploymentUrl
+  const [activeField, setActiveField] = useState(0); // 0: module, 1: day, 2: summary, 3: practicals, 4: challenges, 5: deploymentUrl
   const [cursorOn, setCursorOn] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [progressMsg, setProgressMsg] = useState("");
   const [result, setResult] = useState<AutomatedPrResult | null>(null);
   const [error, setError] = useState("");
+
+  // Automatically fetch student placement program & level directly from endpoint if not cached
+  useEffect(() => {
+    if (!activeCohort) {
+      zilaApi<{ cohorts: any[] }>("/cohorts/my-cohorts")
+        .then((res) => {
+          if (res?.cohorts && res.cohorts.length > 0) {
+            const first = res.cohorts[0];
+            const dom = mapDepartmentToDomain(first.department, first.name);
+            const lvl = mapLevel(first.level, first.name);
+            setCurrentDomainKey(dom);
+            const mappedLvl = lvl === "advanced" ? "advance" : lvl;
+            setCurrentLevel(mappedLvl);
+            const mods = getTrackModules(mappedLvl, dom);
+            if (mods.length > 0) setModule(mods[0]!);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   const currentDomainDef = CURRICULUM_DOMAINS[currentDomainKey] || CURRICULUM_DOMAINS.ml!;
   const quota = checkDailyPrQuota();
@@ -117,46 +124,22 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     }
 
     if (key.tab) {
-      setActiveField((prev) => (prev + 1) % 8);
+      setActiveField((prev) => (prev + 1) % 6);
       return;
     }
 
     if (key.upArrow) {
-      setActiveField((prev) => (prev > 0 ? prev - 1 : 7));
+      setActiveField((prev) => (prev > 0 ? prev - 1 : 5));
       return;
     }
 
     if (key.downArrow) {
-      setActiveField((prev) => (prev < 7 ? prev + 1 : 0));
-      return;
-    }
-
-    // Toggle domain with left/right
-    if (activeField === 0 && (key.leftArrow || key.rightArrow)) {
-      setDomainIndex((prev) => {
-        const nextIdx = key.rightArrow ? (prev + 1) % domains.length : prev > 0 ? prev - 1 : domains.length - 1;
-        const nextDom = domains[nextIdx] || "ml";
-        const modules = getTrackModules(currentLevel, nextDom);
-        setModule(modules[0] || `1_${nextDom}_fundamentals`);
-        return nextIdx;
-      });
-      return;
-    }
-
-    // Toggle level with left/right
-    if (activeField === 1 && (key.leftArrow || key.rightArrow)) {
-      setLevelIndex((prev) => {
-        const nextIdx = key.rightArrow ? (prev + 1) % 3 : prev > 0 ? prev - 1 : 2;
-        const nextLvl = levels[nextIdx] || "beginner";
-        const modules = getTrackModules(nextLvl, currentDomainKey);
-        setModule(modules[0] || `1_${currentDomainKey}_fundamentals`);
-        return nextIdx;
-      });
+      setActiveField((prev) => (prev < 5 ? prev + 1 : 0));
       return;
     }
 
     // Toggle day with left/right
-    if (activeField === 3 && (key.leftArrow || key.rightArrow)) {
+    if (activeField === 1 && (key.leftArrow || key.rightArrow)) {
       setDay((prev) => {
         const d = Number(prev) || 1;
         const next = key.rightArrow ? (d < 4 ? d + 1 : 1) : d > 1 ? d - 1 : 4;
@@ -166,17 +149,15 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     }
 
     if (key.return) {
-      if (activeField < 7) setActiveField((prev) => prev + 1);
+      if (activeField < 5) setActiveField((prev) => prev + 1);
       else void sendSubmission();
       return;
     }
 
     // Text inputs
     const setters = [
-      () => {}, // domain
-      () => {}, // level
       setModule,
-      setDay,
+      () => {}, // day (toggled via arrows)
       setSummary,
       setPracticals,
       setChallenges,
@@ -184,7 +165,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     ];
 
     const currentSetter = setters[activeField];
-    if (currentSetter && activeField !== 0 && activeField !== 1) {
+    if (currentSetter && activeField !== 1) {
       if (key.backspace || key.delete) {
         currentSetter((prev: string) => prev.slice(0, -1));
       } else if (char) {
@@ -203,8 +184,6 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const pathPreview = `contributors/${username}/${currentDomainKey}/${currentLevel}/${cleanModule}/day_${dayNumber}/exercise.md`;
 
   const fieldLabels = [
-    "Curriculum Domain:",
-    "Track Level:",
     "Curriculum Module:",
     "Curriculum Day:",
     "Exercise Summary:",
@@ -214,8 +193,6 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   ];
 
   const fieldValues = [
-    `[ ${currentDomainKey.toUpperCase()}: ${currentDomainDef.name} ] (use ←/→ to cycle)`,
-    `[ ${currentLevel.toUpperCase()} ] (use ←/→ to toggle)`,
     module,
     `Day 0${dayNumber} (use ←/→ to toggle)`,
     summary,
@@ -298,6 +275,27 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
         </Box>
       ) : (
         <>
+          {/* Locked Program Domain & Track Level (Direct from endpoint / cohort) */}
+          <Box flexDirection="row" gap={1} marginBottom={0}>
+            <Box width={26}>
+              <Text color={theme.colors.retroSlateDark}>{"  Curriculum Domain:"}</Text>
+            </Box>
+            <Text color={theme.colors.retroCyanBright} bold>
+              {`[ ${currentDomainKey.toUpperCase()}: ${currentDomainDef.name} ]`}
+            </Text>
+            <Text color={theme.colors.retroGreenBright}>{"(Fixed from cohort)"}</Text>
+          </Box>
+
+          <Box flexDirection="row" gap={1} marginBottom={0}>
+            <Box width={26}>
+              <Text color={theme.colors.retroSlateDark}>{"  Track Level:"}</Text>
+            </Box>
+            <Text color={theme.colors.retroCyanBright} bold>
+              {`[ ${currentLevel.toUpperCase()} ]`}
+            </Text>
+            <Text color={theme.colors.retroGreenBright}>{"(Fixed from cohort)"}</Text>
+          </Box>
+
           {/* Form Fields */}
           {fieldLabels.map((label, index) => {
             const isSelected = activeField === index;
@@ -314,7 +312,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
                 <Text color={isSelected ? theme.colors.white : theme.colors.text}>
                   {val || (isSelected ? "" : "—")}
                 </Text>
-                {isSelected && !submitting && index !== 0 && index !== 1 && index !== 3 && <Cursor on={cursorOn} />}
+                {isSelected && !submitting && index !== 1 && <Cursor on={cursorOn} />}
               </Box>
             );
           })}
