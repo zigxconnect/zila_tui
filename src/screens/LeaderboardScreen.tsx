@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
 import { loadAuth, zilaApi } from "../utils/auth.js";
+import { getActiveCohort } from "../utils/activeCohort.js";
 
 interface LeaderboardScreenProps {
   onClose: () => void;
@@ -64,9 +65,24 @@ export async function fetchLeaderboardData(
   request: ApiRequest = zilaApi,
   authenticatedEmail = loadAuth()?.email ?? "",
 ): Promise<LeaderboardData> {
-  const group = await request<GroupResponse>("/cohorts/group");
-  const cohortId = group.cohort?.id ?? group.chatContext?.cohortId;
-  const cohortName = group.cohort?.name ?? group.chatContext?.cohortName ?? null;
+  const activeCohort = getActiveCohort();
+  let cohortId = activeCohort?.id;
+  let cohortName = activeCohort?.name ?? null;
+  let limit = 20;
+
+  if (cohortId) {
+    const chatGroup = await request<GroupResponse>(`/cohorts/${encodeURIComponent(cohortId)}/chat-group`).catch(() => null);
+    const peers = chatGroup?.peers ?? chatGroup?.chatContext?.members ?? [];
+    if (peers.length > 0) {
+      limit = Math.max(peers.length + 1, 10);
+    }
+  } else {
+    const group = await request<GroupResponse>("/cohorts/group").catch(() => null);
+    cohortId = group?.cohort?.id ?? group?.chatContext?.cohortId;
+    cohortName = group?.cohort?.name ?? group?.chatContext?.cohortName ?? null;
+    const peers = group?.peers ?? group?.chatContext?.members ?? [];
+    limit = Math.max(peers.length + 1, 1);
+  }
 
   if (!cohortId) {
     return {
@@ -79,8 +95,6 @@ export async function fetchLeaderboardData(
     };
   }
 
-  const peers = group.peers ?? group.chatContext?.members ?? [];
-  const limit = Math.max(peers.length + 1, 1);
   const [response, profileResponse] = await Promise.all([
     request<LeaderboardResponse>(
       `/gamification/leaderboard/${encodeURIComponent(cohortId)}?limit=${limit}`,
