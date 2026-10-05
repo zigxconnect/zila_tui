@@ -79,6 +79,7 @@ export const submitTaskCommand: ZilaCommand = {
 
       try {
         const payload: TaskSubmissionPayload = {
+          cohortId: activeCohort?.id || undefined,
           domain,
           level,
           module,

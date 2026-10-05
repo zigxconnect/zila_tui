@@ -14,6 +14,7 @@ export interface TaskSubmissionPayload {
   challenges: string;
   deploymentUrl?: string;
   githubRepoUrl?: string;
+  cohortId?: string; // Active cohort ID — ensures correct enrollment is used
 }
 
 export interface AutomatedPrResult {
@@ -514,6 +515,7 @@ export async function executeAutomatedTaskSubmission(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        cohortId: payload.cohortId,
         domain: cleanDomain,
         level: payload.level,
         module: cleanModule,

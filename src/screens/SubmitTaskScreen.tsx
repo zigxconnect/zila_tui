@@ -91,6 +91,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     setProgressMsg("Initiating automated GitHub PR pipeline...");
     try {
       const payload: TaskSubmissionPayload = {
+        cohortId: activeCohort?.id || undefined,
         domain: currentDomainKey,
         level: currentLevel,
         module: module.trim() || "1_fundamentals",
