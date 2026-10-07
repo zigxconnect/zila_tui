@@ -204,6 +204,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
 
       <Text color={theme.colors.retroSlateDark}>
         {data?.cohortName ?? (loading ? "Loading your group..." : "No active cohort")}
+        {data?.cohortDomain ? ` · [Track: ${data.cohortDomain.toUpperCase()}] · [Level: ${(data.cohortLevel || "beginner").toUpperCase()}]` : ""}
       </Text>
 
       {error ? (
