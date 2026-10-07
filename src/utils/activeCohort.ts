@@ -67,11 +67,14 @@ export function generateCohortSlug(name: string, dept?: string): string {
     clean = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 16);
   }
 
-  // Common concise abbreviations
-  if (clean === "ml" || clean.includes("machine-learning") || clean.includes("ai")) return "ai-ml";
+  // Embedded & IoT check first so training program never falsely triggers AI
+  if (clean.includes("embedded") || clean.includes("iot")) return "embedded";
+
+  // Standalone token matching for AI/ML (avoids matching 'training' or 'domain')
+  const hasAiToken = /(^|-)ai(-|$)/.test(clean) || clean.includes("machine-learning");
+  if (clean === "ml" || hasAiToken) return "ai-ml";
   if (clean === "web" || clean.includes("web")) return "web-dev";
   if (clean === "cyber" || clean.includes("cyber")) return "cyber";
-  if (clean === "embedded" || clean.includes("iot")) return "embedded";
   if (clean === "app" || clean.includes("mobile")) return "mobile-app";
   if (clean === "cloud" || clean.includes("devops")) return "cloud";
 
