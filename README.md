@@ -456,7 +456,8 @@ Run `zila github-auth` to open GitHub's device authorization page, enter the dis
 | `zila select <id>` | Bind directly to cohort ID or `--current` to inspect |
 | `zila select --clear` | Clear active cohort binding and return to global prompt |
 | `zila submit-task` | Automated background GitHub PR submission pipeline across ML, Web, Cyber, App, Embedded |
-| `zila leaderboard` | View cohort leaderboard with **STATUS** (`⏳ Pending`, `✔ Accepted`, `✖ Rejected`) |
+| `zila leaderboard` | View cohort leaderboard with isolated points and **STATUS** (`⏳ Pending`, `✔ Accepted`, `✖ Rejected`) |
+| `zila quota [--reset]` | View or reset daily PR submission quota (2 PRs per calendar day) |
 | `zila monitor start` | Start the monitoring assistant |
 | `zila monitor stop` | Stop the monitoring assistant |
 | `zila monitor status` | Check monitor status |
