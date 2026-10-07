@@ -1,12 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-dotenv.config();
+// Load .env from the installed package directory (works from any CWD)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const pkgEnv = path.resolve(__dirname, "../../.env");
+const homeEnv = path.join(os.homedir(), ".zila", ".env");
+dotenv.config({ path: pkgEnv });
+dotenv.config({ path: homeEnv }); // user override in ~/.zila/.env
 
 const rawUrl = process.env.ZILA_API_URL || "http://localhost:5000";
 export const API_BASE = process.env.API_BASE || (rawUrl.endsWith("/api") ? rawUrl : `${rawUrl}/api`);
+
 const ZILA_DIR = path.join(os.homedir(), ".zila");
 const AUTH_PATH = path.join(ZILA_DIR, "auth.json");
 const TOKEN_EXPIRY_DAYS = 30;
