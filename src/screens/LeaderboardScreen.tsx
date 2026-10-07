@@ -51,7 +51,10 @@ interface ProfileResponse {
 }
 
 interface LeaderboardData {
+  cohortId: string | null;
   cohortName: string | null;
+  cohortDomain?: string;
+  cohortLevel?: string;
   currentStudentId: string | null;
   currentStudentName: string | null;
   currentStudentEmail: string;
@@ -86,7 +89,10 @@ export async function fetchLeaderboardData(
 
   if (!cohortId) {
     return {
+      cohortId: null,
       cohortName: null,
+      cohortDomain: undefined,
+      cohortLevel: undefined,
       currentStudentId: null,
       currentStudentName: null,
       currentStudentEmail: authenticatedEmail,
@@ -110,7 +116,10 @@ export async function fetchLeaderboardData(
     || profile.email.trim().toLowerCase() === normalizedCurrentEmail;
 
   return {
+    cohortId,
     cohortName,
+    cohortDomain: activeCohort?.domainKey,
+    cohortLevel: activeCohort?.level,
     currentStudentId,
     currentStudentName,
     currentStudentEmail,
