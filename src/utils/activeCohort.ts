@@ -67,6 +67,12 @@ export function generateCohortSlug(name: string, dept?: string): string {
     clean = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 16);
   }
 
+  // Specific cohort naming matches for concise terminal prompt
+  if (clean.includes("tyros")) return "the-tyros";
+  if (clean.includes("50-days")) return "50-days-code";
+  if (clean.includes("weekend")) return "weekend-code";
+  if (clean.includes("design")) return "design";
+
   // Embedded & IoT check first so training program never falsely triggers AI
   if (clean.includes("embedded") || clean.includes("iot")) return "embedded";
 
