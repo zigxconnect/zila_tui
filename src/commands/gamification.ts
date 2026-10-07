@@ -159,7 +159,10 @@ export const leaderboardCommand: ZilaCommand = {
       const { leaderboard } = data;
 
       output("─".repeat(78), "dim");
-      output(`lil-zila › leaderboard · ${selectedCohort.name}`, "info");
+      const deptStr = selectedCohort.department && selectedCohort.department.toLowerCase() !== "general"
+        ? ` [${selectedCohort.department.toUpperCase()}]`
+        : "";
+      output(`lil-zila › leaderboard · ${selectedCohort.name}${deptStr}`, "info");
       output("─".repeat(78), "dim");
       output("RANK  INTERN NAME               POINTS      LATEST      STATUS", "info");
       output("─".repeat(78), "dim");
