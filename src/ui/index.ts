@@ -38,6 +38,8 @@ export type { RetroSpinnerStyle } from "./Spinner.js";
 export { Divider }             from "./Divider.js";
 export type { DividerProps }   from "./Divider.js";
 
+export { PipelineLoader }      from "./PipelineLoader.js";
+
 export { StatusLine }          from "./StatusLine.js";
 export type { StatusLineProps, StatusType } from "./StatusLine.js";
 

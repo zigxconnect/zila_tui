@@ -14,6 +14,7 @@ import {
 } from "../utils/githubPrAutomation.js";
 import { theme } from "../ui/theme.js";
 import { Cursor } from "../ui/Cursor.js";
+import { PipelineLoader } from "../ui/PipelineLoader.js";
 
 import { getActiveCohort, mapDepartmentToDomain, mapLevel } from "../utils/activeCohort.js";
 
@@ -325,8 +326,11 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
           )}
 
           {submitting && (
-            <Box marginTop={1}>
-              <Text color={theme.colors.retroBlueBright} bold>{`[PIPELINE] ${progressMsg}`}</Text>
+            <Box marginTop={1} flexDirection="column" gap={0}>
+              <PipelineLoader
+                label={`[PIPELINE] ${progressMsg}`}
+                width={60}
+              />
             </Box>
           )}
 
