@@ -49,31 +49,29 @@ Zila provides:
 
 ## 2. End-to-End System Architecture
 
-```
-┌────────────────────────────────────────────────────────┐
-│                   ZIGEX WEB PLATFORM                   │
-│   Student Directory · Admin Records · Payment Toggle   │
-└───────────────────────────┬────────────────────────────┘
-                            │ REST / Supabase Auth
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│                        ZILA-API                        │
-│   Neon PostgreSQL · Prisma ORM · Webhooks · Resend     │
-│   - Strict Cohort Points Isolation                     │
-│   - GitHub Sync Engine (PR tracking & Merge Guards)    │
-│   - 6-Task Evaluation Quota & Payment Verification     │
-└───────────────────────────▲────────────────────────────┘
-                            │ JSON API (Bearer JWT)
-                            │
-┌───────────────────────────┴────────────────────────────┐
-│                  LIL-ZILA TUI AGENT                    │
-│   Terminal Shell · Interactive REPL · Git Automation   │
-│   - Dependency Diagnostics & Auto-Installer            │
-│   - Multi-Provider Agent (`agent --setup`)             │
-│   - Claude Code-Style Interactive Shell (`lil-agent`)  │
-│   - Animated Blue Horizontal Pipeline Loader           │
-│   - Contributor Logbook Enrichment & Honest Grader     │
-└────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph WEB["ZIGEX WEB PLATFORM"]
+        WebPlatform["Student Directory · Admin Records · Payment Toggle"]
+    end
+
+    subgraph API["ZILA-API CORE (Express + Prisma)"]
+        ApiCore["Neon PostgreSQL · Webhooks · Resend Email"]
+        ApiCore --> Isolation["Strict Cohort Points Isolation"]
+        ApiCore --> Sync["GitHub Sync Engine & PR Duplicate Guard"]
+        ApiCore --> Quota["6-Free-Task Quota & Payment Verification"]
+    end
+
+    subgraph TUI["LIL-ZILA TUI AGENT (@zigex/zila)"]
+        Terminal["Terminal Shell · Interactive REPL · Git Automation"]
+        Terminal --> Setup["Dependency Diagnostics & Auto-Installer"]
+        Terminal --> AI["agent --setup & lil-agent Shell"]
+        Terminal --> Pipeline["submit-task with Blue Horizontal Loader"]
+        Terminal --> Grader["Logbook Enrichment & Honest Grader"]
+    end
+
+    WEB -->|REST / Supabase Auth| API
+    TUI -->|JSON API / Bearer JWT| API
 ```
 
 ---

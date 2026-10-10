@@ -35,26 +35,30 @@
 
 ## 1. Milestone Overview & Strategic Roadmap
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        ZILA STRATEGIC IMPLEMENTATION PHASES                            │
-│                                                                                        │
-│  [PHASE 1] Environment Health & Auto-Installer (`zila init --all`)                     │
-│  ├── Multi-platform dependency inspector (Node, Python, Git)                           │
-│  └── Unattended automated installer scripts                                            │
-│                                                                                        │
-│  [PHASE 2] AI Provider Setup & Interactive Shell (`agent --setup`, `lil-agent`)       │
-│  ├── Arrow-driven provider wizard (Gemini, Groq, Claude, OpenAI, OpenRouter)           │
-│  └── Retro Claude Code-style interactive chat shell                                    │
-│                                                                                        │
-│  [PHASE 3] Semantic Integrity & Contributor Logbook Engine                             │
-│  ├── Code comment instruction extractor & semantic diff checker                       │
-│  └── Automated contributor logbook generator & 0.0 - 1.0 honest grader                 │
-│                                                                                        │
-│  [PHASE 4] Business Model Enforcement & Penalty Split Backend                          │
-│  ├── 6-task free evaluation quota guard                                                │
-│  └── Deadline penalty fee logic (90% Zigex / 10% Host Company)                         │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph P1["PHASE 1: Environment Health & Auto-Installer"]
+        P1A["Multi-platform dependency inspector"] --> P1B["Unattended installer scripts (--all, --node, --python, --git)"]
+    end
+
+    subgraph P2["PHASE 2: AI Provider Setup & Interactive Shell"]
+        P2A["Arrow-driven wizard: agent --setup"] --> P2B["Provider key validation (Gemini, Groq, Claude, OpenAI)"]
+        P2B --> P2C["Interactive REPL shell: lil-agent"]
+    end
+
+    subgraph P3["PHASE 3: Semantic Integrity & Logbook Engine"]
+        P3A["Code comment supervisor prompt extractor"] --> P3B["Git diff ground-truth validator"]
+        P3B --> P3C["Auto-enriched contributor logbook & 0.0 - 1.0 grader"]
+    end
+
+    subgraph P4["PHASE 4: Business Model & Revenue Split"]
+        P4A["6-task free evaluation quota middleware"] --> P4B["Zigex Admin payment toggle integration"]
+        P4B --> P4C["Late penalty calculator (90% Zigex / 10% Host Company)"]
+    end
+
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
 ```
 
 ---

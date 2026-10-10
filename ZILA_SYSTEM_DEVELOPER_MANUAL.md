@@ -57,35 +57,45 @@ The project revolves around three guiding tenets:
 
 The system operates across three tightly integrated tiers:
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                          ZIGEX WEB PLATFORM                            │
-│  - Student Registration & Cohort Placements                            │
-│  - Admin Section -> Student Records -> Payment Status Toggle           │
-│  - Supervisor Reviews & Company Partner Portals                        │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │ HTTPS / REST / Supabase JWT
-                                   ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                        ZILA-API (Express + Prisma)                     │
-│  - Neon Serverless PostgreSQL & Supabase Auth Integration              │
-│  - Cohort Isolation & Gamification Engine                              │
-│  - Resend Email Dispatcher (Merge & Notification Alerts)               │
-│  - GitHub PR Sync Service (State Machine, Quotas & Scoring)            │
-│  - Payment Compliance & Evaluation Guard Middleware                    │
-└──────────────────────────────────▲─────────────────────────────────────┘
-                                   │
-                                   │ JSON API (Bearer Token)
-                                   │
-┌──────────────────────────────────┴─────────────────────────────────────┐
-│                       LIL-ZILA TUI AGENT (@zigex/zila)                 │
-│  - Interactive Shell (Ink, React, TypeScript)                          │
-│  - Pre-flight Dependency Checker & Auto-installer (Node, Python, Git) │
-│  - Multi-Provider Agent Configuration (`agent --setup`)                │
-│  - Claude Code-Inspired Interactive Chat Shell (`lil-agent`)           │
-│  - Automated PR Dispatcher & Blue Horizontal Pipeline Loader           │
-│  - Local Git Watcher, Logbook Generator & Truth Verification Engine    │
-└────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph WEB["ZIGEX WEB PLATFORM"]
+        WebAdmin["Admin Section: Student Records & Payment Toggle"]
+        WebCohort["Student Registration & Cohort Placements"]
+        WebSupervisor["Supervisor Dashboard & Company Portal"]
+    end
+
+    subgraph API["ZILA-API CORE (Express + Prisma)"]
+        AuthMiddleware["Supabase Auth & Cohort Resolver"]
+        SyncEngine["GitHub PR Sync Service (State Machine)"]
+        Gamification["Cohort-Isolated Gamification Engine"]
+        BillingGuard["Payment & 6-Free-Task Quota Guard"]
+        EmailService["Resend Transactional Email Dispatcher"]
+        NeonDB[("Neon Serverless PostgreSQL")]
+    end
+
+    subgraph TUI["LIL-ZILA TUI AGENT (@zigex/zila)"]
+        CLI["Terminal CLI & Retro Ink Shell"]
+        Preflight["Dependency Checker & Auto-installer"]
+        AgentSetup["AI Provider Setup Wizard (agent --setup)"]
+        LilAgent["Claude Code-Style Shell (lil-agent)"]
+        SubmitPipeline["PR Pipeline & Blue Horizontal Loader"]
+        TruthEngine["Comment Parser, Diff Checker & Logbook Generator"]
+    end
+
+    subgraph GITHUB["GITHUB REPOSITORIES"]
+        CohortRepo["Cohort Repository (sample_repo_zila)"]
+        PullRequests["Student Pull Requests (PR #8, #9...)"]
+    end
+
+    WEB -->|HTTPS / REST / Supabase JWT| API
+    TUI -->|JSON API / Bearer Token| API
+    SubmitPipeline -->|git push / create PR| GITHUB
+    GITHUB -->|Webhooks / Polling Sync| SyncEngine
+    SyncEngine -->|Award Cohort Points| Gamification
+    SyncEngine -->|Dispatch Alerts| EmailService
+    Gamification --> NeonDB
+    BillingGuard --> NeonDB
 ```
 
 ### 2.1 The Zigex Web Platform & Admin Dashboard
@@ -250,6 +260,39 @@ This launches the full TUI with the animated horizontal blue loader:
 `[PIPELINE] Connecting to GitHub repository...`
 `[───────━━━━━━━━━━────────────────────────────────────────────────]`
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Student
+    participant TUI as Lil-Zila TUI
+    participant Agent as AI Truth Engine
+    participant Git as Local Git
+    participant GitHub as Remote GitHub
+    participant API as Zila-API Core
+    actor Supervisor
+    participant Email as Resend Email
+
+    Student->>TUI: zila submit-task
+    TUI->>TUI: Render Blue Horizontal Loader
+    TUI->>Agent: Parse supervisor comments in exercise file
+    TUI->>Git: Generate staged diff (starter vs implementation)
+    Agent->>Agent: Compare student diff against rubric requirements
+    Agent->>TUI: Produce honest mark (0.0 - 1.0) & feedback
+    TUI->>Git: Append verified entry to contributors/<user>/logbook.md
+    TUI->>Git: Append evaluation summary to exercise.md
+    TUI->>Git: Commit & push contributor branch
+    TUI->>GitHub: Create Pull Request
+    TUI->>API: POST /api/tasks/auto-submit (status: submitted)
+    API-->>TUI: HTTP 201 (Leaderboard: ⏳ Pending)
+    
+    Supervisor->>GitHub: Review & Merge Pull Request
+    GitHub->>API: Webhook (event: pull_request closed, merged: true)
+    API->>API: Deduplicate & increment cohort gamification points
+    API->>API: Update submission status to approved (Leaderboard: ✔ Accepted)
+    API->>Email: Send Task Accepted email with rubric points
+    Email-->>Student: Deliver HTML notification to inbox
+```
+
 ### 6.2 Supervisor Instruction Parsing from Code Comments
 Supervisor instructions are authored at the top of the assigned template file as structured comments. For example, in `contributors/<username>/<domain>/<module>/day_1/exercise.py`:
 
@@ -381,7 +424,33 @@ interface PenaltyDistribution {
 }
 ```
 
+```mermaid
+flowchart TD
+    SubmitAttempt["Student submits task via zila submit-task"] --> CheckCount{"Count existing submissions < 6?"}
+    
+    CheckCount -- Yes (1 to 6) --> AllowFree["Proceed with automated evaluation (Free Tier)"]
+    AllowFree --> PipelineRun["Run PR pipeline & leaderboard update"]
+
+    CheckCount -- No (>= 6) --> CheckPayment{"Admin hasPaid toggle = true?"}
+    CheckPayment -- Yes --> AllowPaid["Evaluation unlocked (Paid Intern)"]
+    AllowPaid --> PipelineRun
+
+    CheckPayment -- No --> PauseEval["HTTP 402: Evaluation paused (Free Quota Exceeded)"]
+    PauseEval --> StudentCheckout["Student redirected to Zigex Checkout"]
+    
+    StudentCheckout --> CheckDeadline{"Payment completed before deadline?"}
+    CheckDeadline -- Yes --> StandardTuition["Standard tuition fee charged"]
+    StandardTuition --> AdminToggleOn["hasPaid set to true ➔ Evaluation resumed"]
+
+    CheckDeadline -- No --> LatePenalty["Standard tuition + Late penalty fee applied"]
+    LatePenalty --> SplitCalc["Compute Penalty Split Formula"]
+    SplitCalc --> ZigexShare["90% to Zigex Platform (Cloud + AI Token inference)"]
+    SplitCalc --> CompanyShare["10% to Host Company / Partner Organization"]
+    SplitCalc --> AdminToggleOn
+```
+
 ---
+
 
 ## 8. Data Models, Database Schema & State Serialization
 
