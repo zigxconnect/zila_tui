@@ -18,6 +18,8 @@ export interface ShellContext {
   startAchievements?: () => void;
   startLeaderboard?: () => void;
   startCohortPicker?: (mode: CohortPickerMode) => void;
+  startAgentSetup?: () => void;
+  startLilAgent?: () => void;
   clearHistory: () => void;
 }
 

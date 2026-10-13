@@ -135,7 +135,7 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
       {step === "enter_key" && (
         <Box flexDirection="column">
           <Box marginBottom={1}>
-            <Text color={theme.colors.retroSlateLight}>
+            <Text color={theme.colors.retroSlate}>
               Configuring <Text bold color={theme.colors.retroBlueBright}>{selectedProvider.name}</Text>:
             </Text>
           </Box>
@@ -148,11 +148,11 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
             <Text color={theme.colors.retroBlueBright} bold>
               ❯{" "}
             </Text>
-            <Text color={theme.colors.retroYellow}>{maskedKey || "..."}</Text>
+            <Text color={theme.colors.retroAmber}>{maskedKey || "..."}</Text>
           </Box>
           {errorMessage && (
             <Box marginTop={1}>
-              <Text color={theme.colors.retroRed} bold>
+              <Text color={theme.colors.retroMagenta} bold>
                 ✖ {errorMessage}
               </Text>
             </Box>
@@ -162,7 +162,7 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
 
       {step === "validating" && (
         <Box flexDirection="column" marginY={1}>
-          <Text color={theme.colors.retroYellow} bold>
+          <Text color={theme.colors.retroAmber} bold>
             ⏳ {statusMessage}
           </Text>
         </Box>
@@ -179,7 +179,7 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
             </Text>
           </Box>
           <Box marginTop={1}>
-            <Text color={theme.colors.retroSlateLight}>
+            <Text color={theme.colors.retroSlate}>
               Press Enter to return. Type 'lil-agent' in terminal to chat with your assistant!
             </Text>
           </Box>
@@ -188,7 +188,7 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
 
       {step === "error" && (
         <Box flexDirection="column" marginY={1}>
-          <Text color={theme.colors.retroRed} bold>
+          <Text color={theme.colors.retroMagenta} bold>
             ✖ Validation Failed: {errorMessage}
           </Text>
           <Box marginTop={1}>

@@ -67,7 +67,7 @@ export function extractWorkspaceContext(cwd: string = process.cwd()): WorkspaceC
 
   return {
     cohortName: activeCohort?.name,
-    domain: activeCohort?.domain,
+    domain: activeCohort?.domainKey,
     gitBranch,
     recentCommits,
     exerciseFile,

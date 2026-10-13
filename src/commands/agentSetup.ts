@@ -6,7 +6,7 @@ export const agentSetupCommand: ZilaCommand = {
   aliases: ["ai-setup"],
   description: "Configure multi-provider autonomous AI pair programmer (Gemini, Groq, Claude, OpenAI)",
   usage: "agent [--setup | --status | --clear]",
-  category: "assistant",
+  category: "agent",
   available: true,
   handler: async (args, output, shell) => {
     if (args.includes("--status")) {

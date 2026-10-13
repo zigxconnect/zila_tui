@@ -148,7 +148,7 @@ Behavior Guidelines:
         <Text color={theme.colors.retroBlueBright} bold>
           lil-agent · Claude Code-Style Interactive Shell
         </Text>
-        <Text color={theme.colors.retroSlateLight}>
+        <Text color={theme.colors.retroSlate}>
           {config ? `[${config.provider.toUpperCase()}]` : "[UNCONFIGURED]"}
         </Text>
       </Box>
@@ -180,14 +180,14 @@ Behavior Guidelines:
               <Text color={theme.colors.retroGreen} bold>
                 🤖 Lil-Agent:
               </Text>
-              <Text color={theme.colors.retroSlateLight}>{m.content}</Text>
+              <Text color={theme.colors.retroSlate}>{m.content}</Text>
             </Box>
           );
         })}
 
         {isThinking && (
           <Box marginTop={1}>
-            <Text color={theme.colors.retroYellow} bold>
+            <Text color={theme.colors.retroAmber} bold>
               ⏳ Lil-Agent is thinking...
             </Text>
           </Box>

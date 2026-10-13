@@ -15,6 +15,8 @@ import { StatsScreen } from "../screens/StatsScreen.js";
 import { LeaderboardScreen } from "../screens/LeaderboardScreen.js";
 import { CohortPickerScreen, type CohortPickerMode } from "../screens/CohortPickerScreen.js";
 import { AchievementsScreen } from "../screens/AchievementsScreen.js";
+import { AgentSetupScreen } from "../screens/AgentSetupScreen.js";
+import { LilAgentShellScreen } from "../screens/LilAgentShellScreen.js";
 import { LilZilaBanner } from "../ui/LilZilaBanner.js";
 import { RetroStatusBar } from "../ui/RetroStatusBar.js";
 import { RetroKeyboardLegend } from "../ui/RetroKeyboardLegend.js";
@@ -59,6 +61,8 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [showStats, setShowStats] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showAgentSetup, setShowAgentSetup] = useState(false);
+  const [showLilAgent, setShowLilAgent] = useState(false);
   const [cohortPickerMode, setCohortPickerMode] = useState<CohortPickerMode | null>(null);
   const [activeCohort, setActiveCohortState] = useState<ActiveCohort | null>(() => getActiveCohort());
 
@@ -91,6 +95,8 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
     startStats: () => setShowStats(true),
     startAchievements: () => setShowAchievements(true),
     startLeaderboard: () => setShowLeaderboard(true),
+    startAgentSetup: () => setShowAgentSetup(true),
+    startLilAgent: () => setShowLilAgent(true),
     startCohortPicker: (mode) => setCohortPickerMode(mode),
     clearHistory: () => setHistory([]),
   };
@@ -299,6 +305,20 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             pushLine("Welcome back to lil-zila.", "success");
           }}
         />
+      ) : showAgentSetup ? (
+        <AgentSetupScreen
+          onClose={() => {
+            setShowAgentSetup(false);
+            pushLine("Welcome back to lil-zila.", "success");
+          }}
+        />
+      ) : showLilAgent ? (
+        <LilAgentShellScreen
+          onClose={() => {
+            setShowLilAgent(false);
+            pushLine("Welcome back to lil-zila.", "success");
+          }}
+        />
       ) : (
         <>
           {history.length === 0 && <LilZilaBanner />}
@@ -308,7 +328,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             onSubmit={(input) => handleCommand(input, true)}
           />
           <Box marginTop={0} flexDirection="row" gap={2}>
-            <Text color={theme.colors.retroSlateDark}>{"help · select · group · tasks · docs · stats · exit"}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"help · agent · lil-agent · select · tasks · leaderboard · exit"}</Text>
           </Box>
         </>
       )}

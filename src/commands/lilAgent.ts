@@ -5,7 +5,7 @@ export const lilAgentCommand: ZilaCommand = {
   aliases: ["chat", "ai"],
   description: "Launch Claude Code-style interactive AI pair programmer shell",
   usage: "lil-agent",
-  category: "assistant",
+  category: "agent",
   available: true,
   handler: async (_args, _output, shell) => {
     if (shell?.startLilAgent) {
