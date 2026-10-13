@@ -91,14 +91,14 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor={theme.colors.retroBlueBright}
+      borderColor={theme.colors.retroBlue}
       paddingX={2}
       paddingY={1}
-      width={78}
+      width={90}
     >
-      <Box marginBottom={1}>
+      <Box marginBottom={1} borderStyle="single" borderColor={theme.colors.retroBlueBright} paddingX={1}>
         <Text color={theme.colors.retroBlueBright} bold>
-          lil-zila › configure autonomous ai agent
+          ◈ ZIGEX · CONFIGURE AUTONOMOUS AI AGENT
         </Text>
       </Box>
 

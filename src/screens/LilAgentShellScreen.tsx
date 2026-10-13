@@ -28,9 +28,12 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     const ctx = extractWorkspaceContext();
     setWorkspaceContext(ctx);
 
-    const welcomeMsg = config
-      ? `Welcome to lil-agent! Connected to ${config.provider.toUpperCase()} (${config.model}).\nAsk questions about your code, debugging, or task instructions.`
-      : "No AI provider configured yet. Type 'exit' and run 'agent --setup' to connect Gemini, Groq, Claude or OpenAI.";
+    const isGemini = !config || config.provider === "gemini";
+    const activeModelName = config ? config.model : "gemini-1.5 / gemini-2.5-flash";
+
+    const welcomeMsg = isGemini
+      ? `Connected to Zigex Autonomous AI Agent · Engine: Google Gemini (${activeModelName}).\nAsk questions about your code, debugging, or task instructions.`
+      : `Connected to Zigex Autonomous AI Agent · Engine: ${config?.provider.toUpperCase()} (${config?.model}).\nAsk questions about your code, debugging, or task instructions.`;
 
     setMessages([
       {
@@ -87,7 +90,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     setStatusText("Analyzing context & generating response...");
 
     try {
-      const systemPrompt = `You are Lil-Zila, an expert autonomous AI pair programmer mentoring a student engineer.
+      const systemPrompt = `You are Lil-Zila, the official Zigex autonomous AI pair programming mentor for intern engineers.
 Current Workspace Context:
 - Active Cohort: ${workspaceContext?.cohortName || "General Curriculum"}
 - Domain: ${workspaceContext?.domain || "Engineering"}
@@ -96,9 +99,9 @@ Current Workspace Context:
 ${workspaceContext?.exerciseFile ? `- Active Exercise File (${workspaceContext.exerciseFile.path}):\n${workspaceContext.exerciseFile.content}` : ""}
 
 Behavior Guidelines:
-1. Act as a Socratic mentor: explain principles, identify bugs, and provide hints.
-2. Be concise, direct and encouraging.
-3. Keep terminal output clean and formatted.`;
+1. Act as a patient Zigex technical mentor: explain engineering principles, identify bugs, and provide hints.
+2. Be concise, direct, professional, and encouraging.
+3. Keep terminal output clean, well-formatted, and aligned with Zigex engineering standards.`;
 
       const chatHistory: ChatMessage[] = [
         { role: "system", content: systemPrompt },
@@ -133,43 +136,64 @@ Behavior Guidelines:
     }
   }
 
+  const modelBadge = config?.model || "gemini-2.5-flash";
+
   return (
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor={theme.colors.retroBlueBright}
-      paddingX={1}
+      borderColor={theme.colors.retroBlue}
+      paddingX={2}
       paddingY={1}
-      width={80}
-      height={24}
+      width={100}
+      height={30}
     >
-      {/* Header */}
-      <Box flexDirection="row" justifyContent="space-between" borderStyle="single" borderColor={theme.colors.retroSlateDark} paddingX={1}>
-        <Text color={theme.colors.retroBlueBright} bold>
-          lil-agent · Claude Code-Style Interactive Shell
-        </Text>
-        <Text color={theme.colors.retroSlate}>
-          {config ? `[${config.provider.toUpperCase()}]` : "[UNCONFIGURED]"}
-        </Text>
+      {/* Zigex Header */}
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        borderStyle="single"
+        borderColor={theme.colors.retroBlueBright}
+        paddingX={2}
+        marginBottom={1}
+      >
+        <Box flexDirection="row" alignItems="center">
+          <Text color={theme.colors.retroBlueBright} bold>
+            ◈ ZIGEX LIL-AGENT
+          </Text>
+          <Text color={theme.colors.retroSlateDark}> │ </Text>
+          <Text color={theme.colors.retroCyan} bold>
+            Autonomous Developer Shell
+          </Text>
+        </Box>
+        <Box flexDirection="row" alignItems="center">
+          <Text color={theme.colors.retroGreen} bold>
+            ● Connected:{" "}
+          </Text>
+          <Text color={theme.colors.retroWhite} bold>
+            Google Gemini ({modelBadge})
+          </Text>
+        </Box>
       </Box>
 
       {/* Messages Stream */}
-      <Box flexDirection="column" flexGrow={1} overflow="hidden" paddingY={1}>
-        {messages.slice(-8).map((m) => {
+      <Box flexDirection="column" flexGrow={1} overflow="hidden" paddingY={0}>
+        {messages.slice(-10).map((m) => {
           if (m.role === "system") {
             return (
-              <Box key={m.id} marginY={0}>
-                <Text color={theme.colors.retroSlateDark} italic>
-                  {m.content}
+              <Box key={m.id} marginY={0} paddingX={1} borderStyle="single" borderColor={theme.colors.retroSlateDark}>
+                <Text color={theme.colors.retroCyan} italic>
+                  ℹ {m.content}
                 </Text>
               </Box>
             );
           }
           if (m.role === "user") {
             return (
-              <Box key={m.id} marginTop={1}>
+              <Box key={m.id} marginTop={1} flexDirection="row">
                 <Text color={theme.colors.retroBlueBright} bold>
-                  ❯ You:{" "}
+                  ❯ Intern:{" "}
                 </Text>
                 <Text color={theme.colors.retroWhite}>{m.content}</Text>
               </Box>
@@ -178,7 +202,7 @@ Behavior Guidelines:
           return (
             <Box key={m.id} marginTop={1} flexDirection="column">
               <Text color={theme.colors.retroGreen} bold>
-                🤖 Lil-Agent:
+                🤖 Zigex Agent:
               </Text>
               <Text color={theme.colors.retroSlate}>{m.content}</Text>
             </Box>
@@ -188,14 +212,21 @@ Behavior Guidelines:
         {isThinking && (
           <Box marginTop={1}>
             <Text color={theme.colors.retroAmber} bold>
-              ⏳ Lil-Agent is thinking...
+              ⏳ Zigex Agent is analyzing code and generating response...
             </Text>
           </Box>
         )}
       </Box>
 
       {/* Input Prompt */}
-      <Box flexDirection="row" alignItems="center" borderStyle="single" borderColor={theme.colors.retroSlateDark} paddingX={1}>
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        borderStyle="round"
+        borderColor={theme.colors.retroBlueBright}
+        paddingX={1}
+        marginTop={1}
+      >
         <Text color={theme.colors.retroBlueBright} bold>
           ❯{" "}
         </Text>
@@ -203,14 +234,14 @@ Behavior Guidelines:
           {inputText}
         </Text>
         <Text color={theme.colors.retroBlueBright} bold>
-          _
+          █
         </Text>
       </Box>
 
       {/* Status Bar */}
-      <Box flexDirection="row" justifyContent="space-between" marginTop={0}>
+      <Box flexDirection="row" justifyContent="space-between" marginTop={0} paddingX={1}>
         <Text color={theme.colors.retroSlateDark} dimColor>
-          esc / 'exit' to quit · 'clear' to reset chat
+          esc or 'exit' to quit · 'clear' to reset chat · Zigex Developer Productivity Layer
         </Text>
         <Text color={theme.colors.retroSlateDark} dimColor>
           Status: {statusText}

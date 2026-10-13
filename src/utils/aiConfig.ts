@@ -23,9 +23,9 @@ export const SUPPORTED_PROVIDERS: ProviderMetadata[] = [
   {
     id: "gemini",
     name: "Google Gemini",
-    defaultModel: "gemini-1.5-flash",
+    defaultModel: "gemini-2.5-flash",
     recommended: true,
-    description: "Fast, generous free tier & high context window",
+    description: "Gemini 2.5 Flash — Ultra-fast, high-precision reasoning (Recommended)",
   },
   {
     id: "groq",
@@ -53,22 +53,22 @@ export const SUPPORTED_PROVIDERS: ProviderMetadata[] = [
   },
 ];
 
-const CONFIG_DIR = path.join(os.homedir(), ".zila");
-const CONFIG_FILE = path.join(CONFIG_DIR, "agent_config.json");
+import { getZilaDir } from "./activeCohort.js";
 
 export function getAgentConfigPath(): string {
-  return CONFIG_FILE;
+  return path.join(getZilaDir(), "agent_config.json");
 }
 
 export function loadAgentConfig(): AIProviderConfig | null {
   try {
-    if (!fs.existsSync(CONFIG_FILE)) {
+    const configPath = getAgentConfigPath();
+    if (!fs.existsSync(configPath)) {
       // Check environment variables as fallbacks
       if (process.env.GEMINI_API_KEY) {
         return {
           provider: "gemini",
           apiKey: process.env.GEMINI_API_KEY,
-          model: "gemini-1.5-flash",
+          model: "gemini-2.5-flash",
           configuredAt: new Date().toISOString(),
         };
       }
@@ -107,7 +107,7 @@ export function loadAgentConfig(): AIProviderConfig | null {
       return null;
     }
 
-    const raw = fs.readFileSync(CONFIG_FILE, "utf8");
+    const raw = fs.readFileSync(configPath, "utf8");
     const data = JSON.parse(raw);
     if (data?.provider && data?.apiKey) {
       return data as AIProviderConfig;
@@ -119,14 +119,16 @@ export function loadAgentConfig(): AIProviderConfig | null {
 }
 
 export function saveAgentConfig(config: AIProviderConfig): void {
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  const dir = getZilaDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf8");
+  fs.writeFileSync(getAgentConfigPath(), JSON.stringify(config, null, 2), "utf8");
 }
 
 export function clearAgentConfig(): void {
-  if (fs.existsSync(CONFIG_FILE)) {
-    fs.unlinkSync(CONFIG_FILE);
+  const filePath = getAgentConfigPath();
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
   }
 }

@@ -12,7 +12,7 @@ test("SUPPORTED_PROVIDERS contains gemini, groq, claude, openai and openrouter",
 
   const gemini = SUPPORTED_PROVIDERS.find((p) => p.id === "gemini");
   assert.equal(gemini?.recommended, true);
-  assert.equal(gemini?.defaultModel, "gemini-1.5-flash");
+  assert.equal(gemini?.defaultModel, "gemini-2.5-flash");
 });
 
 test("saveAgentConfig and loadAgentConfig properly store and load configuration", () => {

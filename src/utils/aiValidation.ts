@@ -47,7 +47,7 @@ async function validateGemini(apiKey: string): Promise<ValidationResult> {
     const errorMsg = (body as any)?.error?.message || `HTTP ${res.status}`;
     return { valid: false, message: `Gemini validation failed: ${errorMsg}` };
   }
-  return { valid: true, message: "Google Gemini credentials verified", modelDetected: "gemini-1.5-flash" };
+  return { valid: true, message: "Google Gemini credentials verified", modelDetected: "gemini-2.5-flash" };
 }
 
 async function validateGroq(apiKey: string): Promise<ValidationResult> {

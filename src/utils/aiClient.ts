@@ -64,7 +64,7 @@ async function callGemini(
   messages: ChatMessage[],
   options: ChatCompletionOptions,
 ): Promise<string> {
-  const model = config.model || "gemini-1.5-flash";
+  const model = config.model || "gemini-2.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
 
   // Map messages to Gemini format
