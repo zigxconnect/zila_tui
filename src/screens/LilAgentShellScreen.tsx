@@ -134,51 +134,55 @@ Behavior Guidelines:
   const modelBadge = config?.model || "gemini-2.5-flash";
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor={theme.colors.retroBlue}
-      paddingX={2}
-      paddingY={1}
-      width={100}
-      height={30}
-    >
-      {/* Zigex Header */}
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        borderStyle="single"
-        borderColor={theme.colors.retroBlueBright}
-        paddingX={2}
-        marginBottom={1}
-      >
-        <Box flexDirection="row" alignItems="center">
-          <Text color={theme.colors.retroBlueBright} bold>
-            ◈ ZIGEX LIL-AGENT
+    <Box flexDirection="column" paddingY={1}>
+      {/* Top rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
+
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>
+            lil-agent
           </Text>
-          <Text color={theme.colors.retroSlateDark}> │ </Text>
-          <Text color={theme.colors.retroCyan} bold>
-            Autonomous Developer Shell
+          <Text color={theme.colors.retroSlateDark}>›</Text>
+          <Text color={theme.colors.white} bold>
+            autonomous developer shell
           </Text>
         </Box>
-        <Box flexDirection="row" alignItems="center">
-          <Text color={theme.colors.retroGreen} bold>
-            ● Connected:{" "}
-          </Text>
-          <Text color={theme.colors.retroWhite} bold>
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroGreenBright}>●</Text>
+          <Text color={theme.colors.white} bold>
             Zigex AI Engine (v2.5)
           </Text>
         </Box>
       </Box>
 
+      {/* Workspace Context Bar */}
+      <Box flexDirection="row" justifyContent="space-between">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroSlateDark}>Cohort:</Text>
+          <Text color={theme.colors.retroCyanBright} bold>
+            [{workspaceContext?.cohortName || "General"}]
+          </Text>
+          <Text color={theme.colors.retroSlateDark}>·</Text>
+          <Text color={theme.colors.retroSlateDark}>Branch:</Text>
+          <Text color={theme.colors.retroSlate}>
+            {workspaceContext?.gitBranch || "local"}
+          </Text>
+        </Box>
+        <Text color={theme.colors.retroSlateDark}>esc to exit</Text>
+      </Box>
+
+      {/* Divider */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
+
       {/* Messages Stream */}
-      <Box flexDirection="column" flexGrow={1} overflow="hidden" paddingY={0}>
-        {messages.slice(-10).map((m) => {
+      <Box flexDirection="column" paddingY={0}>
+        {messages.slice(-8).map((m) => {
           if (m.role === "system") {
             return (
-              <Box key={m.id} marginY={0} paddingX={1} borderStyle="single" borderColor={theme.colors.retroSlateDark}>
-                <Text color={theme.colors.retroCyan} italic>
+              <Box key={m.id} marginY={0}>
+                <Text color={theme.colors.retroSlateDark}>
                   ℹ {m.content}
                 </Text>
               </Box>
@@ -187,59 +191,61 @@ Behavior Guidelines:
           if (m.role === "user") {
             return (
               <Box key={m.id} marginTop={1} flexDirection="row">
-                <Text color={theme.colors.retroBlueBright} bold>
+                <Text color={theme.colors.retroCyanBright} bold>
                   ❯ Intern:{" "}
                 </Text>
-                <Text color={theme.colors.retroWhite}>{m.content}</Text>
+                <Text color={theme.colors.white}>{m.content}</Text>
               </Box>
             );
           }
           return (
             <Box key={m.id} marginTop={1} flexDirection="column">
-              <Text color={theme.colors.retroGreen} bold>
-                🤖 Zigex Agent:
-              </Text>
-              <Text color={theme.colors.retroSlate}>{m.content}</Text>
+              <Box flexDirection="row" gap={1}>
+                <Text color={theme.colors.retroBlueBright} bold>
+                  🤖 Lil-Zila:
+                </Text>
+              </Box>
+              <Box paddingLeft={3}>
+                <Text color={theme.colors.retroWhite}>{m.content}</Text>
+              </Box>
             </Box>
           );
         })}
 
         {isThinking && (
-          <Box marginTop={1}>
-            <Text color={theme.colors.retroAmber} bold>
-              ⏳ Zigex Agent is analyzing code and generating response...
+          <Box marginTop={1} paddingLeft={3}>
+            <Text color={theme.colors.retroAmberBright}>
+              ⏳ Lil-Zila is thinking and analyzing code...
             </Text>
           </Box>
         )}
       </Box>
 
+      {/* Bottom Separator */}
+      <Box marginTop={1}>
+        <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
+      </Box>
+
       {/* Input Prompt */}
-      <Box
-        flexDirection="row"
-        alignItems="center"
-        borderStyle="round"
-        borderColor={theme.colors.retroBlueBright}
-        paddingX={1}
-        marginTop={1}
-      >
+      <Box flexDirection="row" alignItems="center">
         <Text color={theme.colors.retroBlueBright} bold>
           ❯{" "}
         </Text>
-        <Text color={theme.colors.retroWhite}>
+        <Text color={theme.colors.white}>
           {inputText}
         </Text>
-        <Text color={theme.colors.retroBlueBright} bold>
+        <Text color={theme.colors.retroCyanBright} bold>
           █
         </Text>
       </Box>
 
       {/* Status Bar */}
-      <Box flexDirection="row" justifyContent="space-between" marginTop={0} paddingX={1}>
-        <Text color={theme.colors.retroSlateDark} dimColor>
-          esc or 'exit' to quit · 'clear' to reset chat · Zigex Developer Productivity Layer
+      <Box flexDirection="row" justifyContent="space-between" marginTop={0}>
+        <Text color={theme.colors.retroSlateDark}>
+          esc exit · 'clear' reset · Zigex Engineering Assistant
         </Text>
-        <Text color={theme.colors.retroSlateDark} dimColor>
-          Status: {statusText}
+        <Text color={statusText === "Error" ? theme.colors.error : theme.colors.retroSlateDark}>
+          {statusText === "Ready" ? "● Ready" : statusText}
         </Text>
       </Box>
     </Box>

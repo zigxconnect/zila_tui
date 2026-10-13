@@ -88,25 +88,32 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
   const maskedKey = apiKey.length > 0 ? "*".repeat(Math.min(apiKey.length, 36)) : "";
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor={theme.colors.retroBlue}
-      paddingX={2}
-      paddingY={1}
-      width={90}
-    >
-      <Box marginBottom={1} borderStyle="single" borderColor={theme.colors.retroBlueBright} paddingX={1}>
-        <Text color={theme.colors.retroBlueBright} bold>
-          ◈ ZIGEX · CONFIGURE AUTONOMOUS AI AGENT
-        </Text>
+    <Box flexDirection="column" paddingY={1}>
+      {/* Top rule */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
+
+      {/* Header */}
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>
+            agent
+          </Text>
+          <Text color={theme.colors.retroSlateDark}>›</Text>
+          <Text color={theme.colors.white} bold>
+            configure intelligence engine
+          </Text>
+        </Box>
+        <Text color={theme.colors.retroSlateDark}>esc to exit</Text>
       </Box>
+
+      {/* Divider */}
+      <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
 
       {step === "select_provider" && (
         <Box flexDirection="column">
           <Box marginBottom={1}>
             <Text color={theme.colors.retroSlateDark}>
-              Select your preferred intelligence provider (↑/↓ arrows, Enter to select, Esc to exit):
+              Select provider (↑/↓ arrows, Enter to select, Esc to cancel):
             </Text>
           </Box>
 
@@ -114,13 +121,13 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
             const isSelected = idx === selectedIndex;
             return (
               <Box key={prov.id} flexDirection="row" marginY={0}>
-                <Text color={isSelected ? theme.colors.retroBlueBright : theme.colors.retroSlateDark} bold={isSelected}>
+                <Text color={isSelected ? theme.colors.retroCyanBright : theme.colors.retroSlateDark} bold={isSelected}>
                   {isSelected ? "❯ " : "  "}
                   {`[${idx + 1}] `}
                   {prov.name}
                 </Text>
                 {prov.recommended && (
-                  <Text color={theme.colors.retroGreen} bold>
+                  <Text color={theme.colors.retroGreenBright} bold>
                     {" "}
                     (Recommended)
                   </Text>
@@ -136,23 +143,26 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
         <Box flexDirection="column">
           <Box marginBottom={1}>
             <Text color={theme.colors.retroSlate}>
-              Configuring <Text bold color={theme.colors.retroBlueBright}>{selectedProvider.name}</Text>:
+              Configuring <Text bold color={theme.colors.white}>{selectedProvider.name}</Text>:
             </Text>
           </Box>
           <Box marginBottom={1}>
             <Text color={theme.colors.retroSlateDark}>
-              Paste your API key below and press Enter (input is masked for security):
+              Paste your API key below and press Enter (masked for security):
             </Text>
           </Box>
           <Box flexDirection="row">
             <Text color={theme.colors.retroBlueBright} bold>
               ❯{" "}
             </Text>
-            <Text color={theme.colors.retroAmber}>{maskedKey || "..."}</Text>
+            <Text color={theme.colors.retroAmberBright}>{maskedKey || "..."}</Text>
+            <Text color={theme.colors.retroCyanBright} bold>
+              █
+            </Text>
           </Box>
           {errorMessage && (
             <Box marginTop={1}>
-              <Text color={theme.colors.retroMagenta} bold>
+              <Text color={theme.colors.error} bold>
                 ✖ {errorMessage}
               </Text>
             </Box>
@@ -162,7 +172,7 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
 
       {step === "validating" && (
         <Box flexDirection="column" marginY={1}>
-          <Text color={theme.colors.retroAmber} bold>
+          <Text color={theme.colors.retroAmberBright} bold>
             ⏳ {statusMessage}
           </Text>
         </Box>
@@ -170,17 +180,17 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
 
       {step === "success" && (
         <Box flexDirection="column" marginY={1}>
-          <Text color={theme.colors.retroGreen} bold>
+          <Text color={theme.colors.retroGreenBright} bold>
             {statusMessage}
           </Text>
           <Box marginTop={1}>
-            <Text color={theme.colors.retroBlueBright} bold>
+            <Text color={theme.colors.white} bold>
               Agent Setup Completed: 100%
             </Text>
           </Box>
           <Box marginTop={1}>
-            <Text color={theme.colors.retroSlate}>
-              Press Enter to return. Type 'lil-agent' in terminal to chat with your assistant!
+            <Text color={theme.colors.retroSlateDark}>
+              Press Enter to return. Type 'lil-agent' at prompt to start chatting!
             </Text>
           </Box>
         </Box>
@@ -188,7 +198,7 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
 
       {step === "error" && (
         <Box flexDirection="column" marginY={1}>
-          <Text color={theme.colors.retroMagenta} bold>
+          <Text color={theme.colors.error} bold>
             ✖ Validation Failed: {errorMessage}
           </Text>
           <Box marginTop={1}>
@@ -199,9 +209,18 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
         </Box>
       )}
 
-      <Box marginTop={1} borderStyle="single" borderColor={theme.colors.retroSlateDark} paddingX={1}>
-        <Text color={theme.colors.retroSlateDark} dimColor>
+      {/* Bottom rule */}
+      <Box marginTop={1}>
+        <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
+      </Box>
+
+      {/* Footer */}
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={theme.colors.retroSlateDark}>
           esc cancel · enter confirm · ↑/↓ navigate providers
+        </Text>
+        <Text color={theme.colors.retroSlateDark}>
+          Zigex Key Vault
         </Text>
       </Box>
     </Box>
