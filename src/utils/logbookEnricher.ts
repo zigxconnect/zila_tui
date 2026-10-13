@@ -62,3 +62,44 @@ ${payload.evaluation.requirementVerifications
     appended: true,
   };
 }
+
+/**
+ * Resolves the path to the student's personal logbook file.
+ */
+export function getContributorLogbookPath(username?: string, repoRoot?: string): string {
+  const root = repoRoot || process.cwd();
+  if (username) {
+    return path.join(root, "contributors", username, "logbook.md");
+  }
+  // Try searching for any contributor logbook in root/contributors/*
+  const contribDir = path.join(root, "contributors");
+  if (fs.existsSync(contribDir)) {
+    const entries = fs.readdirSync(contribDir, { withFileTypes: true });
+    for (const ent of entries) {
+      if (ent.isDirectory()) {
+        const candidate = path.join(contribDir, ent.name, "logbook.md");
+        if (fs.existsSync(candidate)) return candidate;
+      }
+    }
+  }
+  return path.join(root, "contributors", "default", "logbook.md");
+}
+
+/**
+ * Reads the content of the student's logbook. Returns empty string if not found.
+ */
+export function readContributorLogbook(username?: string, repoRoot?: string): { path: string; content: string; exists: boolean } {
+  const logPath = getContributorLogbookPath(username, repoRoot);
+  if (fs.existsSync(logPath)) {
+    return {
+      path: logPath,
+      content: fs.readFileSync(logPath, "utf8"),
+      exists: true,
+    };
+  }
+  return {
+    path: logPath,
+    content: "",
+    exists: false,
+  };
+}

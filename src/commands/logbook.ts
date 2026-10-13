@@ -197,11 +197,22 @@ export const logbookCommand: ZilaCommand = {
   name: "logbook",
   aliases: ["log"],
   description: "Generate your weekly internship logbook",
-  usage: "logbook [--week N]",
+  usage: "logbook [--week N] [--view]",
   category: "workflow",
   available: true,
 
-  handler: async (args, output) => {
+  handler: async (args, output, shell) => {
+    if (args.includes("--view") || args.includes("-v") || args.includes("view")) {
+      if (shell?.toggleLogbookSidebar) {
+        shell.toggleLogbookSidebar(true);
+        output("Opened Contributor Audit Ledger logbook sidebar on the right.", "success");
+        output("Type 'close logbook' to hide the sidebar.", "dim");
+      } else {
+        output("Logbook sidebar view is supported inside the interactive workstation shell.", "dim");
+      }
+      return;
+    }
+
     const ws = await loadWorkspace();
     if (!ws) {
       output("No workspace found. Run  zila init  first.", "error");

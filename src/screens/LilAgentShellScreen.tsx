@@ -5,6 +5,8 @@ import { loadAgentConfig } from "../utils/aiConfig.js";
 import { generateChatResponse, type ChatMessage } from "../utils/aiClient.js";
 import { extractWorkspaceContext, type WorkspaceContext } from "../utils/contextExtractor.js";
 
+import { LogbookSidebar } from "./LogbookSidebar.js";
+
 interface LilAgentShellScreenProps {
   onClose: () => void;
 }
@@ -22,6 +24,7 @@ interface SlashCommandItem {
 
 const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/help", desc: "Display interactive command directory & tips" },
+  { cmd: "/logbook", desc: "Toggle right-hand Contributor Audit Ledger logbook sidebar" },
   { cmd: "/about", desc: "System telemetry, architecture & pair mentor profile" },
   { cmd: "/status", desc: "Check engine connection, git branch & active cohort" },
   { cmd: "/clear", desc: "Wipe terminal conversation history" },
@@ -35,6 +38,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
   const [statusText, setStatusText] = useState("Ready");
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceContext | null>(null);
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
+  const [showLogbookSidebar, setShowLogbookSidebar] = useState(false);
 
   const config = loadAgentConfig();
 
@@ -125,6 +129,53 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         return;
       }
 
+      const lowerTrimmed = trimmed.toLowerCase();
+      if (
+        lowerTrimmed === "close logbook" ||
+        lowerTrimmed === "close-logbook" ||
+        lowerTrimmed === "hide logbook"
+      ) {
+        setShowLogbookSidebar(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-${Date.now()}`,
+            role: "user",
+            content: trimmed,
+          },
+          {
+            id: `agent-${Date.now()}`,
+            role: "assistant",
+            content: "Closed Contributor Audit Ledger logbook sidebar.",
+          },
+        ]);
+        setInputText("");
+        return;
+      }
+
+      if (
+        lowerTrimmed === "logbook --view" ||
+        lowerTrimmed === "logbook -v" ||
+        lowerTrimmed === "view logbook"
+      ) {
+        setShowLogbookSidebar(true);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-${Date.now()}`,
+            role: "user",
+            content: trimmed,
+          },
+          {
+            id: `agent-${Date.now()}`,
+            role: "assistant",
+            content: "Opened Contributor Audit Ledger logbook sidebar on the right. Type 'close logbook' to hide.",
+          },
+        ]);
+        setInputText("");
+        return;
+      }
+
       if (trimmed.startsWith("/")) {
         handleSlashCommand(trimmed);
         return;
@@ -152,6 +203,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       reply = [
         "◈ Zigex Lil-Agent Command Reference:",
         "  /help     — Display this interactive help directory",
+        "  /logbook  — Toggle right-hand Contributor Audit Ledger logbook sidebar",
         "  /about    — System telemetry, architecture & pair mentor profile",
         "  /status   — Check engine connection, git context & active cohort",
         "  /clear    — Wipe terminal conversation history",
@@ -160,6 +212,11 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         "💡 Tip: You can ask anything naturally without slashes, e.g.:",
         "   'explain this error', 'how do I structure day 3 task?', 'review my commit'",
       ].join("\n");
+    } else if (rawCmd === "/logbook") {
+      setShowLogbookSidebar((prev) => !prev);
+      reply = !showLogbookSidebar
+        ? "Opened Contributor Audit Ledger logbook sidebar on the right. Type 'close logbook' to hide."
+        : "Closed Contributor Audit Ledger logbook sidebar.";
     } else if (rawCmd === "/about") {
       reply = [
         "◈ About Lil-Zila Autonomous Pair Engineer:",
@@ -264,7 +321,7 @@ Behavior Guidelines:
 
   const modelBadge = config?.model || "gemini-2.5-flash";
 
-  return (
+  const mainContent = (
     <Box flexDirection="column" paddingY={1}>
       {/* Top rule */}
       <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
@@ -431,7 +488,7 @@ Behavior Guidelines:
       {/* Status Bar */}
       <Box flexDirection="row" justifyContent="space-between" marginTop={1} paddingX={1}>
         <Text color={theme.colors.retroSlateDark}>
-          type /help for commands · /about info · /status context · esc exit
+          type /help for commands · /logbook toggle ledger · esc exit
         </Text>
         <Text color={statusText === "Error" ? theme.colors.error : theme.colors.retroGreenBright}>
           {statusText === "Ready" ? "● Ready" : statusText}
@@ -439,4 +496,17 @@ Behavior Guidelines:
       </Box>
     </Box>
   );
+
+  if (showLogbookSidebar) {
+    return (
+      <Box flexDirection="row" width="100%">
+        <Box flexDirection="column" flexGrow={1} marginRight={1}>
+          {mainContent}
+        </Box>
+        <LogbookSidebar width={46} height={28} />
+      </Box>
+    );
+  }
+
+  return mainContent;
 };

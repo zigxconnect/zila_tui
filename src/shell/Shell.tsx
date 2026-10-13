@@ -17,6 +17,7 @@ import { CohortPickerScreen, type CohortPickerMode } from "../screens/CohortPick
 import { AchievementsScreen } from "../screens/AchievementsScreen.js";
 import { AgentSetupScreen } from "../screens/AgentSetupScreen.js";
 import { LilAgentShellScreen } from "../screens/LilAgentShellScreen.js";
+import { LogbookSidebar } from "../screens/LogbookSidebar.js";
 import { LilZilaBanner } from "../ui/LilZilaBanner.js";
 import { RetroStatusBar } from "../ui/RetroStatusBar.js";
 import { RetroKeyboardLegend } from "../ui/RetroKeyboardLegend.js";
@@ -63,6 +64,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAgentSetup, setShowAgentSetup] = useState(false);
   const [showLilAgent, setShowLilAgent] = useState(false);
+  const [showLogbookSidebar, setShowLogbookSidebar] = useState(false);
   const [cohortPickerMode, setCohortPickerMode] = useState<CohortPickerMode | null>(null);
   const [activeCohort, setActiveCohortState] = useState<ActiveCohort | null>(() => getActiveCohort());
 
@@ -97,6 +99,9 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
     startLeaderboard: () => setShowLeaderboard(true),
     startAgentSetup: () => setShowAgentSetup(true),
     startLilAgent: () => setShowLilAgent(true),
+    toggleLogbookSidebar: (show) => {
+      setShowLogbookSidebar((prev) => (typeof show === "boolean" ? show : !prev));
+    },
     startCohortPicker: (mode) => setCohortPickerMode(mode),
     clearHistory: () => setHistory([]),
   };
@@ -106,6 +111,19 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
     const currentCohort = getActiveCohort();
     const promptPrefix = currentCohort ? `lil-zila/${currentCohort.slug}` : "lil-zila";
     if (echo) pushLine(`${promptPrefix} > ${rawInput}`, "dim");
+
+    const trimmedInput = rawInput.trim().toLowerCase();
+
+    // Check for 'close logbook' or 'close-logbook'
+    if (
+      trimmedInput === "close logbook" ||
+      trimmedInput === "close-logbook" ||
+      trimmedInput === "hide logbook"
+    ) {
+      setShowLogbookSidebar(false);
+      pushLine("Closed Contributor Audit Ledger logbook sidebar.", "dim");
+      return;
+    }
 
     setRunning(true);
     const [cmdName = "", ...args] = rawInput.trim().split(/\s+/);
@@ -320,17 +338,26 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
           }}
         />
       ) : (
-        <>
-          {history.length === 0 && <LilZilaBanner />}
-          <InputPrompt
-            running={running}
-            cohortSlug={activeCohort?.slug}
-            onSubmit={(input) => handleCommand(input, true)}
-          />
-          <Box marginTop={0} flexDirection="row" gap={2}>
-            <Text color={theme.colors.retroSlateDark}>{"help · agent · lil-agent · select · tasks · leaderboard · exit"}</Text>
+        <Box flexDirection="row" width="100%">
+          <Box flexDirection="column" flexGrow={1} marginRight={showLogbookSidebar ? 1 : 0}>
+            {history.length === 0 && <LilZilaBanner />}
+            <InputPrompt
+              running={running}
+              cohortSlug={activeCohort?.slug}
+              onSubmit={(input) => handleCommand(input, true)}
+            />
+            <Box marginTop={0} flexDirection="row" gap={2}>
+              <Text color={theme.colors.retroSlateDark}>
+                {showLogbookSidebar
+                  ? "help · close logbook · agent · lil-agent · select · tasks · exit"
+                  : "help · logbook --view · agent · lil-agent · select · tasks · exit"}
+              </Text>
+            </Box>
           </Box>
-        </>
+          {showLogbookSidebar && (
+            <LogbookSidebar width={46} height={24} />
+          )}
+        </Box>
       )}
     </Box>
   );

@@ -20,6 +20,7 @@ export interface ShellContext {
   startCohortPicker?: (mode: CohortPickerMode) => void;
   startAgentSetup?: () => void;
   startLilAgent?: () => void;
+  toggleLogbookSidebar?: (show?: boolean) => void;
   clearHistory: () => void;
 }
 
