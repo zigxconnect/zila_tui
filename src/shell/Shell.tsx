@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useInput, useStdout } from "ink";
 import { theme } from "../ui/theme.js";
 import { SplashScreen } from "../screens/SplashScreen.js";
 import { ExitScreen } from "../screens/ExitScreen.js";
@@ -67,6 +67,13 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
   const [showLogbookSidebar, setShowLogbookSidebar] = useState(false);
   const [cohortPickerMode, setCohortPickerMode] = useState<CohortPickerMode | null>(null);
   const [activeCohort, setActiveCohortState] = useState<ActiveCohort | null>(() => getActiveCohort());
+
+  const { stdout } = useStdout();
+  const termCols = stdout?.columns || process.stdout.columns || 120;
+  const termRows = stdout?.rows || process.stdout.rows || 36;
+  const splitLeftWidth = Math.floor(termCols * 0.52);
+  const splitRightWidth = termCols - splitLeftWidth - 2;
+  const fullHeight = Math.max(20, termRows - 4);
 
   const pushLine = useCallback(
     (text: string, type: OutputLine["type"] = "default") => {
@@ -365,29 +372,44 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
           }}
         />
       ) : (
-        <Box flexDirection="row" width="100%" marginTop={1}>
-          <Box flexDirection="column" flexGrow={1} marginRight={showLogbookSidebar ? 1 : 0}>
-            {history.length > 0 && (
-              <Box marginBottom={1} flexDirection="column">
-                <OutputHistory history={history} />
+        <Box
+          flexDirection="row"
+          width="100%"
+          height={showLogbookSidebar ? fullHeight : undefined}
+          marginTop={1}
+        >
+          <Box
+            flexDirection="column"
+            width={showLogbookSidebar ? splitLeftWidth : undefined}
+            flexGrow={showLogbookSidebar ? undefined : 1}
+            marginRight={showLogbookSidebar ? 1 : 0}
+            justifyContent={showLogbookSidebar ? "space-between" : undefined}
+          >
+            <Box flexDirection="column">
+              {history.length > 0 && (
+                <Box marginBottom={1} flexDirection="column">
+                  <OutputHistory history={history} />
+                </Box>
+              )}
+              {history.length === 0 && <LilZilaBanner />}
+            </Box>
+            <Box flexDirection="column">
+              <InputPrompt
+                running={running}
+                cohortSlug={activeCohort?.slug}
+                onSubmit={(input) => handleCommand(input, true)}
+              />
+              <Box marginTop={0} flexDirection="row" gap={2}>
+                <Text color={theme.colors.retroSlateDark}>
+                  {showLogbookSidebar
+                    ? "help · close logbook · agent · lil-agent · select · tasks · exit"
+                    : "help · logbook --view · agent · lil-agent · select · tasks · exit"}
+                </Text>
               </Box>
-            )}
-            {history.length === 0 && <LilZilaBanner />}
-            <InputPrompt
-              running={running}
-              cohortSlug={activeCohort?.slug}
-              onSubmit={(input) => handleCommand(input, true)}
-            />
-            <Box marginTop={0} flexDirection="row" gap={2}>
-              <Text color={theme.colors.retroSlateDark}>
-                {showLogbookSidebar
-                  ? "help · close logbook · agent · lil-agent · select · tasks · exit"
-                  : "help · logbook --view · agent · lil-agent · select · tasks · exit"}
-              </Text>
             </Box>
           </Box>
           {showLogbookSidebar && (
-            <LogbookSidebar width={46} height={26} />
+            <LogbookSidebar width={splitRightWidth} height={fullHeight} />
           )}
         </Box>
       )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useInput, useStdout } from "ink";
 import { theme } from "../ui/theme.js";
 import { loadAgentConfig } from "../utils/aiConfig.js";
 import { generateChatResponse, type ChatMessage } from "../utils/aiClient.js";
@@ -323,54 +323,68 @@ Behavior Guidelines:
     }
   }
 
+  const { stdout } = useStdout();
+  const termCols = stdout?.columns || process.stdout.columns || 120;
+  const termRows = stdout?.rows || process.stdout.rows || 36;
+  const splitLeftWidth = Math.floor(termCols * 0.52);
+  const splitRightWidth = termCols - splitLeftWidth - 2;
+  const fullHeight = Math.max(20, termRows - 3);
+  const activeLineWidth = Math.max(24, (showLogbookSidebar ? splitLeftWidth : termCols) - 4);
+
   const modelBadge = config?.model || "gemini-2.5-flash";
 
   const mainContent = (
-    <Box flexDirection="column" paddingY={1}>
-      {/* Top rule */}
-      <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
+    <Box
+      flexDirection="column"
+      height={showLogbookSidebar ? fullHeight : undefined}
+      justifyContent={showLogbookSidebar ? "space-between" : undefined}
+      paddingY={0}
+    >
+      <Box flexDirection="column">
+        {/* Top rule */}
+        <Text color={theme.colors.retroBlue}>{"─".repeat(activeLineWidth)}</Text>
 
-      {/* Header */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroBlue} bold>
-            lil-agent
-          </Text>
-          <Text color={theme.colors.retroSlateDark}>›</Text>
-          <Text color={theme.colors.white} bold>
-            autonomous developer shell
-          </Text>
+        {/* Header */}
+        <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+          <Box flexDirection="row" gap={1}>
+            <Text color={theme.colors.retroBlue} bold>
+              lil-agent
+            </Text>
+            <Text color={theme.colors.retroSlateDark}>›</Text>
+            <Text color={theme.colors.white} bold>
+              autonomous developer shell
+            </Text>
+          </Box>
+          <Box flexDirection="row" gap={1}>
+            <Text color={theme.colors.retroGreenBright}>●</Text>
+            <Text color={theme.colors.white} bold>
+              Zigex AI Engine (v2.5)
+            </Text>
+          </Box>
         </Box>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright}>●</Text>
-          <Text color={theme.colors.white} bold>
-            Zigex AI Engine (v2.5)
-          </Text>
+
+        {/* Workspace Context Bar */}
+        <Box flexDirection="row" justifyContent="space-between">
+          <Box flexDirection="row" gap={1}>
+            <Text color={theme.colors.retroSlateDark}>Cohort:</Text>
+            <Text color={theme.colors.retroCyanBright} bold>
+              [{workspaceContext?.cohortName || "General"}]
+            </Text>
+            <Text color={theme.colors.retroSlateDark}>·</Text>
+            <Text color={theme.colors.retroSlateDark}>Branch:</Text>
+            <Text color={theme.colors.retroSlate}>
+              {workspaceContext?.gitBranch || "local"}
+            </Text>
+          </Box>
+          <Text color={theme.colors.retroSlateDark}>esc to exit</Text>
         </Box>
-      </Box>
 
-      {/* Workspace Context Bar */}
-      <Box flexDirection="row" justifyContent="space-between">
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroSlateDark}>Cohort:</Text>
-          <Text color={theme.colors.retroCyanBright} bold>
-            [{workspaceContext?.cohortName || "General"}]
-          </Text>
-          <Text color={theme.colors.retroSlateDark}>·</Text>
-          <Text color={theme.colors.retroSlateDark}>Branch:</Text>
-          <Text color={theme.colors.retroSlate}>
-            {workspaceContext?.gitBranch || "local"}
-          </Text>
-        </Box>
-        <Text color={theme.colors.retroSlateDark}>esc to exit</Text>
-      </Box>
+        {/* Divider */}
+        <Text color={theme.colors.retroBlue}>{"─".repeat(activeLineWidth)}</Text>
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>{"─".repeat(78)}</Text>
-
-      {/* Messages Stream */}
-      <Box flexDirection="column" paddingY={0}>
-        {messages.slice(-8).map((m) => {
+        {/* Messages Stream */}
+        <Box flexDirection="column" paddingY={0}>
+          {messages.slice(showLogbookSidebar ? -5 : -8).map((m) => {
           if (m.role === "system") {
             return (
               <Box key={m.id} marginY={0}>
@@ -412,7 +426,10 @@ Behavior Guidelines:
           </Box>
         )}
       </Box>
+    </Box>
 
+    {/* Bottom Input Area */}
+    <Box flexDirection="column">
       {/* Claude Code Style Autocomplete Popup */}
       {isSlashActive && matchingSlashCommands.length > 0 && (
         <Box
@@ -499,15 +516,21 @@ Behavior Guidelines:
         </Text>
       </Box>
     </Box>
+  </Box>
   );
 
   if (showLogbookSidebar) {
     return (
-      <Box flexDirection="row" width="100%">
-        <Box flexDirection="column" flexGrow={1} marginRight={1}>
+      <Box flexDirection="row" width="100%" height={fullHeight}>
+        <Box
+          flexDirection="column"
+          width={splitLeftWidth}
+          marginRight={1}
+          height={fullHeight}
+        >
           {mainContent}
         </Box>
-        <LogbookSidebar width={46} height={28} />
+        <LogbookSidebar width={splitRightWidth} height={fullHeight} />
       </Box>
     );
   }
