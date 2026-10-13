@@ -110,6 +110,14 @@ export function loadAgentConfig(): AIProviderConfig | null {
     const raw = fs.readFileSync(configPath, "utf8");
     const data = JSON.parse(raw);
     if (data?.provider && data?.apiKey) {
+      if (data.provider === "gemini" && (data.model === "gemini-1.5-flash" || !data.model)) {
+        data.model = "gemini-2.5-flash";
+        try {
+          fs.writeFileSync(configPath, JSON.stringify(data, null, 2), "utf8");
+        } catch {
+          // Ignore write errors on read
+        }
+      }
       return data as AIProviderConfig;
     }
     return null;

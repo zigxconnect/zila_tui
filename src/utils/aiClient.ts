@@ -64,7 +64,10 @@ async function callGemini(
   messages: ChatMessage[],
   options: ChatCompletionOptions,
 ): Promise<string> {
-  const model = config.model || "gemini-2.5-flash";
+  let model = config.model || "gemini-2.5-flash";
+  if (model === "gemini-1.5-flash") {
+    model = "gemini-2.5-flash";
+  }
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
 
   // Map messages to Gemini format
@@ -97,7 +100,12 @@ async function callGemini(
 
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}));
-    throw new Error(`Gemini API Error: ${(errorBody as any)?.error?.message || res.statusText}`);
+    const rawMsg = (errorBody as any)?.error?.message || res.statusText;
+    // Sanitize provider mentions so the interface stays 100% Zigex-branded
+    const sanitizedMsg = rawMsg
+      .replace(/Gemini/gi, "Agent")
+      .replace(/models\/[a-zA-Z0-9.-]+/gi, "the specified model");
+    throw new Error(`Agent Engine Error: ${sanitizedMsg}`);
   }
 
   const data: any = await res.json();

@@ -28,12 +28,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     const ctx = extractWorkspaceContext();
     setWorkspaceContext(ctx);
 
-    const isGemini = !config || config.provider === "gemini";
-    const activeModelName = config ? config.model : "gemini-1.5 / gemini-2.5-flash";
-
-    const welcomeMsg = isGemini
-      ? `Connected to Zigex Autonomous AI Agent · Engine: Google Gemini (${activeModelName}).\nAsk questions about your code, debugging, or task instructions.`
-      : `Connected to Zigex Autonomous AI Agent · Engine: ${config?.provider.toUpperCase()} (${config?.model}).\nAsk questions about your code, debugging, or task instructions.`;
+    const welcomeMsg = `Connected to Zigex Autonomous AI Agent · Engine: Active\nAsk questions about your code, debugging, or task instructions.`;
 
     setMessages([
       {
@@ -172,7 +167,7 @@ Behavior Guidelines:
             ● Connected:{" "}
           </Text>
           <Text color={theme.colors.retroWhite} bold>
-            Google Gemini ({modelBadge})
+            Zigex AI Engine (v2.5)
           </Text>
         </Box>
       </Box>
