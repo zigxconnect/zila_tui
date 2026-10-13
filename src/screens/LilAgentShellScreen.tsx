@@ -15,14 +15,39 @@ interface DisplayMessage {
   content: string;
 }
 
+interface SlashCommandItem {
+  cmd: string;
+  desc: string;
+}
+
+const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
+  { cmd: "/help", desc: "Display interactive command directory & tips" },
+  { cmd: "/about", desc: "System telemetry, architecture & pair mentor profile" },
+  { cmd: "/status", desc: "Check engine connection, git branch & active cohort" },
+  { cmd: "/clear", desc: "Wipe terminal conversation history" },
+  { cmd: "/exit", desc: "Return to the primary Zigex workstation shell" },
+];
+
 export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClose }) => {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [statusText, setStatusText] = useState("Ready");
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceContext | null>(null);
+  const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
 
   const config = loadAgentConfig();
+
+  const isSlashActive = inputText.startsWith("/");
+  const matchingSlashCommands = isSlashActive
+    ? AVAILABLE_SLASH_COMMANDS.filter((sc) =>
+        sc.cmd.toLowerCase().startsWith(inputText.trim().toLowerCase()),
+      )
+    : [];
+
+  useEffect(() => {
+    setSelectedSlashIndex(0);
+  }, [inputText]);
 
   useEffect(() => {
     const ctx = extractWorkspaceContext();
@@ -41,6 +66,10 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
 
   useInput((input, key) => {
     if (key.escape) {
+      if (isSlashActive) {
+        setInputText("");
+        return;
+      }
       onClose();
       return;
     }
@@ -49,7 +78,39 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       return;
     }
 
+    // Up/Down navigation inside autocomplete menu
+    if (isSlashActive && matchingSlashCommands.length > 0) {
+      if (key.upArrow) {
+        setSelectedSlashIndex((prev) =>
+          prev > 0 ? prev - 1 : matchingSlashCommands.length - 1,
+        );
+        return;
+      }
+      if (key.downArrow) {
+        setSelectedSlashIndex((prev) =>
+          prev < matchingSlashCommands.length - 1 ? prev + 1 : 0,
+        );
+        return;
+      }
+      if (key.tab) {
+        const picked = matchingSlashCommands[selectedSlashIndex];
+        if (picked) {
+          setInputText(picked.cmd);
+        }
+        return;
+      }
+    }
+
     if (key.return) {
+      // If menu is open and user presses enter on a highlighted option:
+      if (isSlashActive && matchingSlashCommands.length > 0) {
+        const picked = matchingSlashCommands[selectedSlashIndex];
+        if (picked) {
+          handleSlashCommand(picked.cmd);
+          return;
+        }
+      }
+
       const trimmed = inputText.trim();
       if (!trimmed) return;
 
@@ -291,14 +352,68 @@ Behavior Guidelines:
         )}
       </Box>
 
+      {/* Claude Code Style Autocomplete Popup */}
+      {isSlashActive && matchingSlashCommands.length > 0 && (
+        <Box
+          flexDirection="column"
+          borderStyle="single"
+          borderColor={theme.colors.retroBlueBright}
+          paddingX={1}
+          paddingY={0}
+          marginTop={1}
+        >
+          <Box flexDirection="row" justifyContent="space-between" marginBottom={0}>
+            <Text color={theme.colors.retroCyanBright} bold>
+              COMMANDS
+            </Text>
+            <Text color={theme.colors.retroSlateDark}>
+              ↑/↓ to navigate · Tab to complete · Enter to run
+            </Text>
+          </Box>
+          {matchingSlashCommands.map((item, idx) => {
+            const isSelected = idx === selectedSlashIndex;
+            return (
+              <Box key={item.cmd} flexDirection="row" gap={1}>
+                <Box width={12}>
+                  <Text
+                    color={
+                      isSelected
+                        ? theme.colors.retroCyanBright
+                        : theme.colors.retroWhite
+                    }
+                    bold={isSelected}
+                  >
+                    {isSelected ? "❯ " : "  "}
+                    {item.cmd}
+                  </Text>
+                </Box>
+                <Text
+                  color={
+                    isSelected
+                      ? theme.colors.white
+                      : theme.colors.retroSlateDark
+                  }
+                >
+                  {item.desc}
+                </Text>
+              </Box>
+            );
+          })}
+        </Box>
+      )}
+
       {/* Claude Code Style Input Container */}
       <Box
         flexDirection="column"
         borderStyle="round"
-        borderColor={theme.colors.retroBlueBright}
+        borderColor={
+          isSlashActive
+            ? theme.colors.retroCyanBright
+            : theme.colors.retroBlueBright
+        }
         paddingX={2}
         paddingY={0}
-        marginTop={1}
+        marginTop={isSlashActive && matchingSlashCommands.length > 0 ? 0 : 1}
       >
         <Box flexDirection="row" alignItems="center">
           <Text color={theme.colors.retroCyanBright} bold>
