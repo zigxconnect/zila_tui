@@ -112,21 +112,51 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
     const promptPrefix = currentCohort ? `lil-zila/${currentCohort.slug}` : "lil-zila";
     if (echo) pushLine(`${promptPrefix} > ${rawInput}`, "dim");
 
-    const trimmedInput = rawInput.trim().toLowerCase();
+    let parts = rawInput.trim().split(/\s+/);
+    if (
+      parts[0]?.toLowerCase() === "zila" ||
+      parts[0]?.toLowerCase() === "lil-zila"
+    ) {
+      parts = parts.slice(1);
+    }
+
+    if (parts.length === 0) {
+      pushLine("ZILA CLI Workstation. Type 'help' to see all available commands.", "dim");
+      return;
+    }
+
+    const normalizedCmd = parts.join(" ").toLowerCase();
 
     // Check for 'close logbook' or 'close-logbook'
     if (
-      trimmedInput === "close logbook" ||
-      trimmedInput === "close-logbook" ||
-      trimmedInput === "hide logbook"
+      normalizedCmd === "close logbook" ||
+      normalizedCmd === "close-logbook" ||
+      normalizedCmd === "hide logbook" ||
+      normalizedCmd === "exit logbook"
     ) {
       setShowLogbookSidebar(false);
       pushLine("Closed Contributor Audit Ledger logbook sidebar.", "dim");
       return;
     }
 
+    // Direct toggle for logbook view
+    if (
+      normalizedCmd === "logbook --view" ||
+      normalizedCmd === "logbook -v" ||
+      normalizedCmd === "logbook view" ||
+      normalizedCmd === "view logbook" ||
+      normalizedCmd === "view --logbook" ||
+      normalizedCmd === "show logbook" ||
+      normalizedCmd === "open logbook"
+    ) {
+      setShowLogbookSidebar(true);
+      pushLine("Opened Contributor Audit Ledger logbook sidebar on the right.", "success");
+      pushLine("Type 'close logbook' to hide the sidebar.", "dim");
+      return;
+    }
+
     setRunning(true);
-    const [cmdName = "", ...args] = rawInput.trim().split(/\s+/);
+    const [cmdName = "", ...args] = parts;
     const cmd = findCommand(cmdName);
 
     if (cmd) {
@@ -210,9 +240,6 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
         currentScreen={running ? "BUSY" : "READY"}
         network="online"
       />
-      <Box marginTop={1} flexDirection="column">
-        <OutputHistory history={history} />
-      </Box>
 
       {showHelp ? (
         <HelpScreen
@@ -338,8 +365,13 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
           }}
         />
       ) : (
-        <Box flexDirection="row" width="100%">
+        <Box flexDirection="row" width="100%" marginTop={1}>
           <Box flexDirection="column" flexGrow={1} marginRight={showLogbookSidebar ? 1 : 0}>
+            {history.length > 0 && (
+              <Box marginBottom={1} flexDirection="column">
+                <OutputHistory history={history} />
+              </Box>
+            )}
             {history.length === 0 && <LilZilaBanner />}
             <InputPrompt
               running={running}
@@ -355,7 +387,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             </Box>
           </Box>
           {showLogbookSidebar && (
-            <LogbookSidebar width={46} height={24} />
+            <LogbookSidebar width={46} height={26} />
           )}
         </Box>
       )}

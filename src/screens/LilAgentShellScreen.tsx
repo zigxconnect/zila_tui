@@ -156,7 +156,11 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       if (
         lowerTrimmed === "logbook --view" ||
         lowerTrimmed === "logbook -v" ||
-        lowerTrimmed === "view logbook"
+        lowerTrimmed === "logbook view" ||
+        lowerTrimmed === "view logbook" ||
+        lowerTrimmed === "view --logbook" ||
+        lowerTrimmed === "open logbook" ||
+        lowerTrimmed === "show logbook"
       ) {
         setShowLogbookSidebar(true);
         setMessages((prev) => [

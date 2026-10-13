@@ -10,7 +10,7 @@
   "preferGlobal": true,
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test tests/*.test.ts",
+    "test": "npm run build && node --test --test-concurrency=1 tests/*.test.ts",
     "dev": "tsc -w",
     "start": "node ./dist/cli.js"
   },

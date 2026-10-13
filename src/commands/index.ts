@@ -10,7 +10,7 @@ import { searchCommand }    from "./search.js";
 import { evaluateCommand }  from "./evaluate.js";
 import { clearCommand }     from "./clear.js";
 import { monitorCommand }   from "./monitor/index.js";
-import { logbookCommand }   from "./logbook.js";
+import { logbookCommand, viewCommand }   from "./logbook.js";
 import {
   zaskCommand,
   submitReportCommand,
@@ -59,6 +59,7 @@ export function registerAllCommands(): void {
   registerCommand(clearCommand);
   registerCommand(monitorCommand);
   registerCommand(logbookCommand);
+  registerCommand(viewCommand);
   registerCommand(zaskCommand);
   registerCommand(submitReportCommand);
   registerCommand(submitTaskCommand);

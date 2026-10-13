@@ -193,22 +193,74 @@ async function generateLogbook(
   return lines.join("\n");
 }
 
+import { readContributorLogbook } from "../utils/logbookEnricher.js";
+import { loadGitHubAuth } from "../utils/githubAuth.js";
+import { loadAuth } from "../utils/auth.js";
+
+export const viewCommand: ZilaCommand = {
+  name: "view",
+  aliases: ["show", "open"],
+  description: "View Contributor Audit Ledger logbook sidebar or inspection panels",
+  usage: "view [--logbook] | view logbook",
+  category: "workflow",
+  available: true,
+
+  handler: async (args, output, shell) => {
+    if (shell?.toggleLogbookSidebar) {
+      shell.toggleLogbookSidebar(true);
+      output("Opened Contributor Audit Ledger logbook sidebar on the right.", "success");
+      output("Type 'close logbook' to hide the sidebar.", "dim");
+    } else {
+      const gh = loadGitHubAuth();
+      const zigAuth = loadAuth();
+      const candidateUser =
+        gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
+      const data = readContributorLogbook(candidateUser);
+      if (data.exists && data.content) {
+        output(data.content, "default");
+      } else {
+        output("No verified logbook entries yet in contributors audit ledger.", "warning");
+        output(`Expected location: ${data.path}`, "dim");
+        output("Entries are automatically enriched upon completing daily task evaluations (zila submit-task).", "dim");
+      }
+    }
+  },
+};
+
 export const logbookCommand: ZilaCommand = {
   name: "logbook",
-  aliases: ["log"],
-  description: "Generate your weekly internship logbook",
+  aliases: ["log", "ledger"],
+  description: "Generate your weekly internship logbook or view Contributor Audit Ledger",
   usage: "logbook [--week N] [--view]",
   category: "workflow",
   available: true,
 
   handler: async (args, output, shell) => {
-    if (args.includes("--view") || args.includes("-v") || args.includes("view")) {
+    const isView =
+      args.includes("--view") ||
+      args.includes("-v") ||
+      args.includes("view") ||
+      args.includes("--logbook") ||
+      args.includes("logbook");
+
+    if (isView) {
       if (shell?.toggleLogbookSidebar) {
         shell.toggleLogbookSidebar(true);
         output("Opened Contributor Audit Ledger logbook sidebar on the right.", "success");
         output("Type 'close logbook' to hide the sidebar.", "dim");
       } else {
-        output("Logbook sidebar view is supported inside the interactive workstation shell.", "dim");
+        const gh = loadGitHubAuth();
+        const zigAuth = loadAuth();
+        const candidateUser =
+          gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
+        const data = readContributorLogbook(candidateUser);
+        if (data.exists && data.content) {
+          output(data.content, "default");
+        } else {
+          output("No verified logbook entries yet in contributors audit ledger.", "warning");
+          output(`Expected location: ${data.path}`, "dim");
+          output("Entries are automatically enriched upon completing daily task evaluations (zila submit-task).", "dim");
+        }
       }
       return;
     }
