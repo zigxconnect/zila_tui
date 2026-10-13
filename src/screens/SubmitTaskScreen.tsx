@@ -8,6 +8,7 @@ import {
   DAY_WEIGHTS,
   CURRICULUM_DOMAINS,
   getTrackModules,
+  detectLocalGitRepoUrl,
   type TaskSubmissionPayload,
   type AutomatedPrResult,
   SAMPLE_COHORT_REPO,
@@ -91,6 +92,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     setSubmitting(true);
     setProgressMsg("Initiating automated GitHub PR pipeline...");
     try {
+      const detectedRepo = detectLocalGitRepoUrl();
       const payload: TaskSubmissionPayload = {
         cohortId: activeCohort?.id || undefined,
         domain: currentDomainKey,
@@ -101,7 +103,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
         practicalsDescription: practicals || "Implementation completed according to curriculum specification.",
         challenges: challenges || "None reported.",
         deploymentUrl: deploymentUrl || undefined,
-        githubRepoUrl: activeCohort?.githubRepoUrl || undefined,
+        githubRepoUrl: detectedRepo || activeCohort?.githubRepoUrl || undefined,
       };
 
       const res = await executeAutomatedTaskSubmission(payload, (step) => setProgressMsg(step));
@@ -232,6 +234,23 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
           <Text color={theme.colors.retroSlateDark}>{"Cohort Context: [None - Type 'select --cohorts' to bind]"}</Text>
         </Box>
       )}
+
+      {/* Contributing Repo indicator */}
+      {(() => {
+        const localDetected = detectLocalGitRepoUrl();
+        const activeTarget = localDetected || activeCohort?.githubRepoUrl;
+        if (!activeTarget) return null;
+        const cleanName = activeTarget.replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "");
+        return (
+          <Box flexDirection="row" gap={1}>
+            <Text color={theme.colors.retroSlateDark}>{"Contributing Repo:"}</Text>
+            <Text color={theme.colors.retroCyanBright} bold>{`[${cleanName}]`}</Text>
+            <Text color={theme.colors.retroGreenBright}>
+              {localDetected ? "(Auto-detected from local git origin)" : "(Cohort default repo)"}
+            </Text>
+          </Box>
+        );
+      })()}
 
       {/* Divider */}
       <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>

@@ -9,7 +9,9 @@ import {
   type CommitEvent,
   type FileEvent,
 } from "../utils/monitor.js";
-import { zilaApi } from "../utils/auth.js";
+import { zilaApi, loadAuth } from "../utils/auth.js";
+import { loadGitHubAuth } from "../utils/githubAuth.js";
+import { readContributorLogbook, syncContributorLogbookFromGitHub } from "../utils/logbookEnricher.js";
 
 interface ZigexProfile {
   full_name?: string;
@@ -193,29 +195,37 @@ async function generateLogbook(
   return lines.join("\n");
 }
 
-import { readContributorLogbook } from "../utils/logbookEnricher.js";
-import { loadGitHubAuth } from "../utils/githubAuth.js";
-import { loadAuth } from "../utils/auth.js";
-
 export const viewCommand: ZilaCommand = {
   name: "view",
   aliases: ["show", "open"],
   description: "View Contributor Audit Ledger logbook sidebar or inspection panels",
-  usage: "view [--logbook] | view logbook",
+  usage: "view [--logbook] | view logbook [--sync]",
   category: "workflow",
   available: true,
 
   handler: async (args, output, shell) => {
+    const gh = loadGitHubAuth();
+    const zigAuth = loadAuth();
+    const candidateUser =
+      gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
+
+    let data = readContributorLogbook(candidateUser);
+    if (args.includes("--sync") || !data.exists || !data.content || !data.content.includes("### 📝 Submission:")) {
+      try {
+        const syncRes = await syncContributorLogbookFromGitHub(candidateUser);
+        if (syncRes.synced > 0) {
+          data = readContributorLogbook(candidateUser);
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
     if (shell?.toggleLogbookSidebar) {
       shell.toggleLogbookSidebar(true);
       output("Opened Contributor Audit Ledger logbook sidebar on the right.", "success");
       output("Type 'close logbook' to hide the sidebar.", "dim");
     } else {
-      const gh = loadGitHubAuth();
-      const zigAuth = loadAuth();
-      const candidateUser =
-        gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
-      const data = readContributorLogbook(candidateUser);
       if (data.exists && data.content) {
         output(data.content, "default");
       } else {
@@ -231,7 +241,7 @@ export const logbookCommand: ZilaCommand = {
   name: "logbook",
   aliases: ["log", "ledger"],
   description: "Generate your weekly internship logbook or view Contributor Audit Ledger",
-  usage: "logbook [--week N] [--view]",
+  usage: "logbook [--week N] [--view] [--sync]",
   category: "workflow",
   available: true,
 
@@ -241,19 +251,33 @@ export const logbookCommand: ZilaCommand = {
       args.includes("-v") ||
       args.includes("view") ||
       args.includes("--logbook") ||
-      args.includes("logbook");
+      args.includes("logbook") ||
+      args.includes("--sync") ||
+      args.includes("sync");
 
     if (isView) {
+      const gh = loadGitHubAuth();
+      const zigAuth = loadAuth();
+      const candidateUser =
+        gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
+
+      let data = readContributorLogbook(candidateUser);
+      if (args.includes("--sync") || args.includes("sync") || !data.exists || !data.content || !data.content.includes("### 📝 Submission:")) {
+        try {
+          const syncRes = await syncContributorLogbookFromGitHub(candidateUser);
+          if (syncRes.synced > 0) {
+            data = readContributorLogbook(candidateUser);
+          }
+        } catch {
+          // non-fatal
+        }
+      }
+
       if (shell?.toggleLogbookSidebar) {
         shell.toggleLogbookSidebar(true);
         output("Opened Contributor Audit Ledger logbook sidebar on the right.", "success");
         output("Type 'close logbook' to hide the sidebar.", "dim");
       } else {
-        const gh = loadGitHubAuth();
-        const zigAuth = loadAuth();
-        const candidateUser =
-          gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
-        const data = readContributorLogbook(candidateUser);
         if (data.exists && data.content) {
           output(data.content, "default");
         } else {

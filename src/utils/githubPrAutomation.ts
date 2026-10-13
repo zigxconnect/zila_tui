@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { execSync } from "node:child_process";
 import { API_BASE, loadAuth } from "./auth.js";
 import { loadGitHubAuth, type GitHubAuthRecord } from "./githubAuth.js";
+import { enrichContributorLogbook } from "./logbookEnricher.js";
 
 export interface TaskSubmissionPayload {
   domain?: string; // ml, web, cyber, embeded, app, cloud, or custom!
@@ -103,10 +105,34 @@ export const REPO_OWNER = "iws3";
 export const REPO_NAME = "sample_repo_zila";
 
 /**
+ * Automatically inspects the current workspace's git remote origin to identify the contributing repository
+ */
+export function detectLocalGitRepoUrl(cwd: string = process.cwd()): string | undefined {
+  try {
+    const rawRemote = execSync("git remote get-url origin", {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    if (rawRemote && (rawRemote.includes("github.com") || rawRemote.startsWith("git@"))) {
+      const match = rawRemote.match(/github\.com[:/]([^/]+)\/([^/.]+)(?:\.git)?/i);
+      if (match && match[1] && match[2]) {
+        return `https://github.com/${match[1]}/${match[2]}.git`;
+      }
+      return rawRemote;
+    }
+  } catch {
+    // not in a git repo or no remote origin
+  }
+  return undefined;
+}
+
+/**
  * Extracts owner, repo name, and normalized git URL from any GitHub repository URL
  */
-export function parseGitHubRepoUrl(url?: string): { owner: string; repo: string; url: string } {
-  const target = (url && url.trim()) || SAMPLE_COHORT_REPO;
+export function parseGitHubRepoUrl(url?: string, cwd?: string): { owner: string; repo: string; url: string } {
+  const localDetected = !url ? detectLocalGitRepoUrl(cwd) : undefined;
+  const target = (url && url.trim()) || localDetected || SAMPLE_COHORT_REPO;
   const match = target.match(/github\.com[:/]([^/]+)\/([^/.]+)(?:\.git)?/i);
   if (match && match[1] && match[2]) {
     const owner = match[1];
@@ -543,9 +569,39 @@ export async function executeAutomatedTaskSubmission(
 
   const dayInfo = DAY_WEIGHTS[payload.day] || { weight: 1, percentage: 12.5 };
 
+  // 8. Enrich contributor logbook immediately
+  try {
+    enrichContributorLogbook({
+      username: githubUsername,
+      taskTitle: `[${cleanDomain.toUpperCase()} Day 0${payload.day}] ${payload.module}`,
+      prUrl: pullRequestUrl,
+      evaluation: {
+        score: dayInfo.percentage / 100,
+        weightedScore: dayInfo.percentage,
+        honestSummary: payload.summary,
+        requirementVerifications: [
+          {
+            requirement: `Module ${payload.module} Day 0${payload.day} Exercise`,
+            status: "PASS",
+            explanation: `Successfully committed ${contributorFilePath} and opened PR ${pullRequestUrl}`,
+          },
+          {
+            requirement: "Practical Implementation Report",
+            status: "PASS",
+            explanation: payload.practicalsDescription,
+          },
+        ],
+        supervisorRecommendation: `Good progress on Day 0${payload.day}. Score: ${dayInfo.percentage}%.`,
+      },
+      repoRoot: process.cwd(),
+    });
+  } catch {
+    // non-fatal
+  }
+
   return {
     pullRequestUrl,
-    repositoryUrl: SAMPLE_COHORT_REPO,
+    repositoryUrl: targetRepoUrl,
     branchName,
     contributorFilePath,
     dayWeight: dayInfo.weight,

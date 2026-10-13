@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useStdout, useInput } from "ink";
 import { theme } from "../ui/theme.js";
-import { readContributorLogbook } from "../utils/logbookEnricher.js";
+import { readContributorLogbook, syncContributorLogbookFromGitHub } from "../utils/logbookEnricher.js";
 import { loadGitHubAuth } from "../utils/githubAuth.js";
 import { loadAuth } from "../utils/auth.js";
 
@@ -37,6 +37,17 @@ export const LogbookSidebar: React.FC<LogbookSidebarProps> = ({
       gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
     const data = readContributorLogbook(candidateUser);
     setLogbookData(data);
+
+    if (!data.exists || !data.content || !data.content.includes("### 📝 Submission:")) {
+      syncContributorLogbookFromGitHub(candidateUser)
+        .then((res) => {
+          if (res.synced > 0) {
+            const refreshed = readContributorLogbook(candidateUser);
+            setLogbookData(refreshed);
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const rawLines = logbookData.exists
