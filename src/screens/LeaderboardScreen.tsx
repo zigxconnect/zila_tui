@@ -8,7 +8,7 @@ interface LeaderboardScreenProps {
   onClose: () => void;
 }
 
-interface LeaderboardEntry {
+export interface LeaderboardEntry {
   rank: number;
   name: string;
   studentId: string;
@@ -50,7 +50,7 @@ interface ProfileResponse {
   };
 }
 
-interface LeaderboardData {
+export interface LeaderboardData {
   cohortId: string | null;
   cohortName: string | null;
   cohortDomain?: string;

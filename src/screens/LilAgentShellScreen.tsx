@@ -6,8 +6,14 @@ import { generateChatResponse, type ChatMessage } from "../utils/aiClient.js";
 import { extractWorkspaceContext, type WorkspaceContext } from "../utils/contextExtractor.js";
 import { formatPlanOverview } from "../commands/plan.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
+import { checkDailyPrQuota } from "../utils/githubPrAutomation.js";
 
 import { LogbookSidebar } from "./LogbookSidebar.js";
+import { LeaderboardSidebar } from "./LeaderboardSidebar.js";
+import { GroupSidebar } from "./GroupSidebar.js";
+import { CohortsSidebar } from "./CohortsSidebar.js";
+import { SubmitReportScreen } from "./SubmitReportScreen.js";
+import { SubmitTaskScreen } from "./SubmitTaskScreen.js";
 
 interface LilAgentShellScreenProps {
   onClose: () => void;
@@ -24,13 +30,23 @@ interface SlashCommandItem {
   desc: string;
 }
 
+type SidebarMode = "logbook" | "leaderboard" | "group" | "cohorts" | null;
+type ModalMode = "submit-report" | "submit-task" | null;
+
 const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/help", desc: "Display interactive command directory & tips" },
-  { cmd: "/plan", desc: "View program enrollment, tuition plan & evaluation quota" },
+  { cmd: "/leaderboard", desc: "Open cohort rankings & PR evaluation leaderboard on the right" },
+  { cmd: "/group", desc: "Open cohort team & fellow interns roster on the right" },
+  { cmd: "/cohorts", desc: "Browse enrolled programs and cohort workspaces on the right" },
   { cmd: "/logbook", desc: "Toggle right-hand Contributor Audit Ledger logbook sidebar" },
+  { cmd: "/submit-report", desc: "Open interactive daily sprint engineering report modal" },
+  { cmd: "/submit-task", desc: "Launch automated task submission & PR evaluation pipeline" },
+  { cmd: "/plan", desc: "View program enrollment, tuition plan & evaluation quota" },
+  { cmd: "/quota", desc: "Check daily GitHub PR & tuition submission quota" },
   { cmd: "/about", desc: "System telemetry, architecture & pair mentor profile" },
   { cmd: "/status", desc: "Check engine connection, git branch & active cohort" },
   { cmd: "/clear", desc: "Wipe terminal conversation history" },
+  { cmd: "/close", desc: "Close any active right-hand sidebar" },
   { cmd: "/exit", desc: "Return to the primary Zigex workstation shell" },
 ];
 
@@ -41,7 +57,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
   const [statusText, setStatusText] = useState("Ready");
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceContext | null>(null);
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
-  const [showLogbookSidebar, setShowLogbookSidebar] = useState(false);
+  const [activeSidebar, setActiveSidebar] = useState<SidebarMode>(null);
+  const [activeModal, setActiveModal] = useState<ModalMode>(null);
 
   const config = loadAgentConfig();
 
@@ -133,12 +150,47 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       }
 
       const lowerTrimmed = trimmed.toLowerCase();
+
+      // Interactive modal triggers
       if (
+        lowerTrimmed === "/submit-report" ||
+        lowerTrimmed === "submit-report" ||
+        lowerTrimmed === "/report" ||
+        lowerTrimmed === "report"
+      ) {
+        setActiveModal("submit-report");
+        setInputText("");
+        return;
+      }
+
+      if (
+        lowerTrimmed === "/submit-task" ||
+        lowerTrimmed === "submit-task" ||
+        lowerTrimmed === "/submit" ||
+        lowerTrimmed === "submit" ||
+        lowerTrimmed === "zila-submit" ||
+        lowerTrimmed === "/zila-submit"
+      ) {
+        setActiveModal("submit-task");
+        setInputText("");
+        return;
+      }
+
+      // Close sidebar commands
+      if (
+        lowerTrimmed === "close" ||
+        lowerTrimmed === "/close" ||
+        lowerTrimmed === "hide" ||
+        lowerTrimmed === "close sidebar" ||
+        lowerTrimmed === "close-sidebar" ||
         lowerTrimmed === "close logbook" ||
         lowerTrimmed === "close-logbook" ||
-        lowerTrimmed === "hide logbook"
+        lowerTrimmed === "hide logbook" ||
+        lowerTrimmed === "close leaderboard" ||
+        lowerTrimmed === "close group" ||
+        lowerTrimmed === "close cohorts"
       ) {
-        setShowLogbookSidebar(false);
+        setActiveSidebar(null);
         setMessages((prev) => [
           ...prev,
           {
@@ -149,37 +201,55 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
           {
             id: `agent-${Date.now()}`,
             role: "assistant",
-            content: "Closed Contributor Audit Ledger logbook sidebar.",
+            content: "Closed right-hand sidebar.",
           },
         ]);
         setInputText("");
         return;
       }
 
+      // Direct shortcuts for sidebars
       if (
+        lowerTrimmed === "leaderboard" ||
+        lowerTrimmed === "/leaderboard" ||
+        lowerTrimmed === "rankings" ||
+        lowerTrimmed === "/rankings"
+      ) {
+        handleSlashCommand("/leaderboard");
+        return;
+      }
+
+      if (
+        lowerTrimmed === "group" ||
+        lowerTrimmed === "/group" ||
+        lowerTrimmed === "peers" ||
+        lowerTrimmed === "/peers"
+      ) {
+        handleSlashCommand("/group");
+        return;
+      }
+
+      if (
+        lowerTrimmed === "cohorts" ||
+        lowerTrimmed === "/cohorts" ||
+        lowerTrimmed === "programs" ||
+        lowerTrimmed === "/programs"
+      ) {
+        handleSlashCommand("/cohorts");
+        return;
+      }
+
+      if (
+        lowerTrimmed === "logbook" ||
+        lowerTrimmed === "/logbook" ||
         lowerTrimmed === "logbook --view" ||
         lowerTrimmed === "logbook -v" ||
         lowerTrimmed === "logbook view" ||
         lowerTrimmed === "view logbook" ||
-        lowerTrimmed === "view --logbook" ||
-        lowerTrimmed === "open logbook" ||
-        lowerTrimmed === "show logbook"
+        lowerTrimmed === "show logbook" ||
+        lowerTrimmed === "open logbook"
       ) {
-        setShowLogbookSidebar(true);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: "user",
-            content: trimmed,
-          },
-          {
-            id: `agent-${Date.now()}`,
-            role: "assistant",
-            content: "Opened Contributor Audit Ledger logbook sidebar on the right. Type 'close logbook' to hide.",
-          },
-        ]);
-        setInputText("");
+        handleSlashCommand("/logbook");
         return;
       }
 
@@ -190,6 +260,11 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         lowerTrimmed === "my-plan"
       ) {
         handleSlashCommand("/plan");
+        return;
+      }
+
+      if (lowerTrimmed === "quota" || lowerTrimmed === "/quota") {
+        handleSlashCommand("/quota");
         return;
       }
 
@@ -219,25 +294,69 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     if (rawCmd === "/help") {
       reply = [
         "◈ Zigex Lil-Agent Command Reference:",
-        "  /help     — Display this interactive help directory",
-        "  /plan     — View program enrollment, tuition plan & evaluation quota",
-        "  /logbook  — Toggle right-hand Contributor Audit Ledger logbook sidebar",
-        "  /about    — System telemetry, architecture & pair mentor profile",
-        "  /status   — Check engine connection, git context & active cohort",
-        "  /clear    — Wipe terminal conversation history",
-        "  /exit     — Return to the primary Zigex workstation shell",
+        "  /help          — Display this interactive help directory",
+        "  /leaderboard   — Open cohort rankings & PR evaluation leaderboard on the right",
+        "  /group         — Open cohort team & fellow interns roster on the right",
+        "  /cohorts       — Browse enrolled programs and cohort workspaces on the right",
+        "  /logbook       — Toggle right-hand Contributor Audit Ledger logbook sidebar",
+        "  /submit-report — Open interactive daily sprint engineering report modal",
+        "  /submit-task   — Launch automated task submission & PR evaluation pipeline",
+        "  /plan          — View program enrollment, tuition plan & evaluation quota",
+        "  /quota         — Check daily GitHub PR & tuition submission quota",
+        "  /about         — System telemetry, architecture & pair mentor profile",
+        "  /status        — Check engine connection, git context & active cohort",
+        "  /clear         — Wipe terminal conversation history",
+        "  /close         — Close any active right-hand sidebar",
+        "  /exit          — Return to the primary Zigex workstation shell",
         "",
         "💡 Tip: You can ask anything naturally without slashes, e.g.:",
         "   'explain this error', 'how do I structure day 3 task?', 'review my commit'",
       ].join("\n");
+    } else if (rawCmd === "/leaderboard" || rawCmd === "leaderboard" || rawCmd === "rankings" || rawCmd === "/rankings") {
+      setActiveSidebar((prev) => (prev === "leaderboard" ? null : "leaderboard"));
+      reply = activeSidebar !== "leaderboard"
+        ? "Opened Cohort Leaderboard on the right. Type 'close' or /leaderboard to toggle."
+        : "Closed Cohort Leaderboard.";
+    } else if (rawCmd === "/group" || rawCmd === "group" || rawCmd === "peers" || rawCmd === "/peers") {
+      setActiveSidebar((prev) => (prev === "group" ? null : "group"));
+      reply = activeSidebar !== "group"
+        ? "Opened Cohort Team & Intern Roster on the right. Type 'close' or /group to toggle."
+        : "Closed Cohort Team Roster.";
+    } else if (rawCmd === "/cohorts" || rawCmd === "cohorts" || rawCmd === "programs" || rawCmd === "/programs") {
+      setActiveSidebar((prev) => (prev === "cohorts" ? null : "cohorts"));
+      reply = activeSidebar !== "cohorts"
+        ? "Opened Enrolled Programs & Cohorts on the right. Type 'close' or /cohorts to toggle."
+        : "Closed Enrolled Programs & Cohorts.";
+    } else if (rawCmd === "/logbook" || rawCmd === "logbook" || rawCmd === "ledger") {
+      setActiveSidebar((prev) => (prev === "logbook" ? null : "logbook"));
+      reply = activeSidebar !== "logbook"
+        ? "Opened Contributor Audit Ledger logbook sidebar on the right. Type 'close' to hide."
+        : "Closed Contributor Audit Ledger logbook sidebar.";
+    } else if (rawCmd === "/submit-report" || rawCmd === "submit-report" || rawCmd === "/report" || rawCmd === "report") {
+      setActiveModal("submit-report");
+      setInputText("");
+      return;
+    } else if (rawCmd === "/submit-task" || rawCmd === "submit-task" || rawCmd === "/submit" || rawCmd === "submit" || rawCmd === "zila-submit" || rawCmd === "/zila-submit") {
+      setActiveModal("submit-task");
+      setInputText("");
+      return;
+    } else if (rawCmd === "/close" || rawCmd === "close" || rawCmd === "hide") {
+      setActiveSidebar(null);
+      reply = "Closed right-hand sidebar.";
+    } else if (rawCmd === "/quota" || rawCmd === "quota") {
+      const q = checkDailyPrQuota();
+      const currentCohort = getActiveCohort();
+      reply = [
+        "◈ Daily PR & Evaluation Quota:",
+        `  PR Submissions Today: ${q.countToday}/2 used (${q.remainingToday} available)`,
+        `  Plan / Tuition:       ${currentCohort?.isPaid ? "PAID (Unlimited Evaluations)" : `FREE TRIAL (${currentCohort?.tasksSubmittedCount || 0}/5 used)`}`,
+        `  Status:               ${q.message}`,
+        "",
+        "Tip: Run 'quota --reset' to clear your local daily PR quota.",
+      ].join("\n");
     } else if (rawCmd === "/plan" || rawCmd === "plan" || rawCmd === "my-plan") {
       setStatusText("Fetching program plan & tuition status...");
       reply = await formatPlanOverview();
-    } else if (rawCmd === "/logbook") {
-      setShowLogbookSidebar((prev) => !prev);
-      reply = !showLogbookSidebar
-        ? "Opened Contributor Audit Ledger logbook sidebar on the right. Type 'close logbook' to hide."
-        : "Closed Contributor Audit Ledger logbook sidebar.";
     } else if (rawCmd === "/about") {
       reply = [
         "◈ About Lil-Zila Autonomous Pair Engineer:",
@@ -259,6 +378,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         `  Active Cohort: ${workspaceContext?.cohortName || "None selected"}`,
         `  Domain:        ${(workspaceContext?.domain || "general").toUpperCase()}`,
         `  Plan & Status: ${planStatus}`,
+        `  Active Sidebar:${activeSidebar ? activeSidebar.toUpperCase() : "None"}`,
         `  Git Branch:    ${workspaceContext?.gitBranch || "local"}`,
         `  Recent Commits: ${workspaceContext?.recentCommits.length ? workspaceContext.recentCommits[0] : "none"}`,
         `  Exercise File: ${workspaceContext?.exerciseFile ? workspaceContext.exerciseFile.path : "None detected in workspace"}`,
@@ -352,21 +472,58 @@ Behavior Guidelines:
     }
   }
 
+  if (activeModal === "submit-report") {
+    return (
+      <SubmitReportScreen
+        onComplete={() => {
+          setActiveModal(null);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `agent-${Date.now()}`,
+              role: "assistant",
+              content: "Report submission workflow finished. Type /logbook or /leaderboard to view updated records.",
+            },
+          ]);
+        }}
+      />
+    );
+  }
+
+  if (activeModal === "submit-task") {
+    return (
+      <SubmitTaskScreen
+        onComplete={() => {
+          setActiveModal(null);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `agent-${Date.now()}`,
+              role: "assistant",
+              content: "Automated task submission pipeline finished. Type /logbook or /leaderboard to view updated records.",
+            },
+          ]);
+        }}
+      />
+    );
+  }
+
   const { stdout } = useStdout();
   const termCols = stdout?.columns || process.stdout.columns || 120;
   const termRows = stdout?.rows || process.stdout.rows || 36;
+  const isSplitActive = activeSidebar !== null;
   const splitLeftWidth = Math.floor(termCols * 0.52);
   const splitRightWidth = termCols - splitLeftWidth - 2;
   const fullHeight = Math.max(20, termRows - 3);
-  const activeLineWidth = Math.max(24, (showLogbookSidebar ? splitLeftWidth : termCols) - 4);
+  const activeLineWidth = Math.max(24, (isSplitActive ? splitLeftWidth : termCols) - 4);
 
   const modelBadge = config?.model || "gemini-2.5-flash";
 
   const mainContent = (
     <Box
       flexDirection="column"
-      height={showLogbookSidebar ? fullHeight : undefined}
-      justifyContent={showLogbookSidebar ? "space-between" : undefined}
+      height={isSplitActive ? fullHeight : undefined}
+      justifyContent={isSplitActive ? "space-between" : undefined}
       paddingY={0}
     >
       <Box flexDirection="column">
@@ -413,7 +570,7 @@ Behavior Guidelines:
 
         {/* Messages Stream */}
         <Box flexDirection="column" paddingY={0}>
-          {messages.slice(showLogbookSidebar ? -5 : -8).map((m) => {
+          {messages.slice(isSplitActive ? -5 : -8).map((m) => {
           if (m.role === "system") {
             return (
               <Box key={m.id} marginY={0}>
@@ -481,7 +638,7 @@ Behavior Guidelines:
             const isSelected = idx === selectedSlashIndex;
             return (
               <Box key={item.cmd} flexDirection="row" gap={1}>
-                <Box width={12}>
+                <Box width={15}>
                   <Text
                     color={
                       isSelected
@@ -538,7 +695,9 @@ Behavior Guidelines:
       {/* Status Bar */}
       <Box flexDirection="row" justifyContent="space-between" marginTop={1} paddingX={1}>
         <Text color={theme.colors.retroSlateDark}>
-          type /help for commands · /logbook toggle ledger · esc exit
+          {isSplitActive
+            ? "type 'close' to hide sidebar · /help commands · esc exit"
+            : "type /help · /leaderboard · /group · /plan · esc exit"}
         </Text>
         <Text color={statusText === "Error" ? theme.colors.error : theme.colors.retroGreenBright}>
           {statusText === "Ready" ? "● Ready" : statusText}
@@ -548,7 +707,7 @@ Behavior Guidelines:
   </Box>
   );
 
-  if (showLogbookSidebar) {
+  if (isSplitActive) {
     return (
       <Box flexDirection="row" width="100%" height={fullHeight}>
         <Box
@@ -559,7 +718,18 @@ Behavior Guidelines:
         >
           {mainContent}
         </Box>
-        <LogbookSidebar width={splitRightWidth} height={fullHeight} />
+        {activeSidebar === "logbook" && (
+          <LogbookSidebar width={splitRightWidth} height={fullHeight} />
+        )}
+        {activeSidebar === "leaderboard" && (
+          <LeaderboardSidebar width={splitRightWidth} height={fullHeight} />
+        )}
+        {activeSidebar === "group" && (
+          <GroupSidebar width={splitRightWidth} height={fullHeight} />
+        )}
+        {activeSidebar === "cohorts" && (
+          <CohortsSidebar width={splitRightWidth} height={fullHeight} />
+        )}
       </Box>
     );
   }
