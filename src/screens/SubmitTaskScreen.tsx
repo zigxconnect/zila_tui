@@ -16,6 +16,7 @@ import {
 import { theme } from "../ui/theme.js";
 import { Cursor } from "../ui/Cursor.js";
 import { PipelineLoader } from "../ui/PipelineLoader.js";
+import { ZigexLoader } from "../ui/Spinner.js";
 
 import { getActiveCohort, setActiveCohort, mapDepartmentToDomain, mapLevel } from "../utils/activeCohort.js";
 
@@ -403,6 +404,9 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
 
           {submitting && (
             <Box marginTop={1} flexDirection="column" gap={0}>
+              <Box marginBottom={1}>
+                <ZigexLoader suffix={progressMsg || "evaluating task pipeline"} />
+              </Box>
               <PipelineLoader
                 label={`[PIPELINE] ${progressMsg}`}
                 width={60}

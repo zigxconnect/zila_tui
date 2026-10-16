@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
+import { ZigexLoader } from "../ui/Spinner.js";
 import { loadAuth, zilaApi } from "../utils/auth.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
 
@@ -210,9 +211,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onClose })
       {error ? (
         <Text color={theme.colors.retroGreenBright}>{`Unable to load leaderboard: ${error}`}</Text>
       ) : loading ? (
-        <Text color={theme.colors.retroBlueBright}>
-          {`${theme.spinner.frames[spinnerFrame]} Fetching your cohort leaderboard...`}
-        </Text>
+        <ZigexLoader suffix="cohort leaderboard" />
       ) : data?.cohortName === null ? (
         <Text color={theme.colors.retroSlateDark}>
           Join an active cohort to see its leaderboard.

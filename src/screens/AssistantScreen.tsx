@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Box, Text, useInput, Static } from "ink";
 import { theme } from "../ui/theme.js";
-import { Spinner } from "../ui/Spinner.js";
+import { Spinner, ZigexLoader } from "../ui/Spinner.js";
 import { loadWorkspace } from "../utils/workspace.js";
 import { isGitRepo, getRepoName, getRepoStats } from "../assistant/gatherer.js";
 import { initClient } from "../assistant/config.js";
@@ -257,9 +257,8 @@ const LiveFeed: React.FC<{ question: string; events: AgentEvent[] }> = ({ questi
         })}
 
         {/* Thinking animation */}
-        <Box flexDirection="row" gap={1} marginTop={1}>
-          <Spinner style="classic" color={theme.colors.retroBlueBright} />
-          <Text color={theme.colors.retroSlateDark}>{"thinking…"}</Text>
+        <Box marginTop={1}>
+          <ZigexLoader suffix="analyzing codebase" />
         </Box>
       </Box>
     </Box>

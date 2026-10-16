@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
-import { Spinner } from "../ui/Spinner.js";
+import { Spinner, ZigexLoader } from "../ui/Spinner.js";
 import { requestOtp, verifyOtp, saveToken, loadAuth } from "../utils/auth.js";
 
 type Step = "email" | "otp" | "verifying" | "requesting" | "done" | "error";
@@ -179,10 +179,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onComplete }) => {
       {/* Loading indicator */}
       {isLoading && (
         <Box flexDirection="row" gap={1} marginBottom={1} alignItems="center">
-          <Spinner style="classic" color={theme.colors.retroBlueBright} />
-          <Text color={theme.colors.retroSlateDark}>
-            {step === "requesting" ? "Requesting verification code..." : "Verifying credentials..."}
-          </Text>
+          <ZigexLoader suffix={step === "requesting" ? "verification code" : "credentials"} />
         </Box>
       )}
 

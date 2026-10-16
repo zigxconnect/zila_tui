@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useStdout, useInput } from "ink";
 import { theme } from "../ui/theme.js";
+import { ZigexLoader } from "../ui/Spinner.js";
 import { fetchLeaderboardData, LeaderboardEntry, LeaderboardData } from "./LeaderboardScreen.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
 
@@ -135,9 +136,7 @@ export const LeaderboardSidebar: React.FC<LeaderboardSidebarProps> = ({
       <Box flexDirection="column" flexGrow={1} overflow="hidden">
         {loading && (
           <Box paddingY={1}>
-            <Text color={theme.colors.retroAmberBright}>
-              Loading real-time leaderboard...
-            </Text>
+            <ZigexLoader suffix="cohort leaderboard" />
           </Box>
         )}
 

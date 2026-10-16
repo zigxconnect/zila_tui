@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
-import { Spinner } from "../ui/Spinner.js";
+import { Spinner, ZigexLoader } from "../ui/Spinner.js";
 import { zilaApi, loadAuth, AuthRequiredError, AuthExpiredError } from "../utils/auth.js";
 
 interface Profile {
@@ -114,9 +114,8 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ onComplete }) => {
 
   if (loading) {
     return (
-      <Box flexDirection="row" paddingY={1} alignItems="center" gap={1}>
-        <Spinner style="classic" color={theme.colors.retroBlueBright} />
-        <Text color={theme.colors.retroSlateDark}>{"Retrieving profile from Zigex..."}</Text>
+      <Box flexDirection="row" paddingY={1} alignItems="center">
+        <ZigexLoader suffix="profile from Zigex" />
       </Box>
     );
   }

@@ -14,6 +14,7 @@ import { GroupSidebar } from "./GroupSidebar.js";
 import { CohortsSidebar } from "./CohortsSidebar.js";
 import { SubmitReportScreen } from "./SubmitReportScreen.js";
 import { SubmitTaskScreen } from "./SubmitTaskScreen.js";
+import { ZigexLoader } from "../ui/Spinner.js";
 
 interface LilAgentShellScreenProps {
   onClose: () => void;
@@ -606,9 +607,7 @@ Behavior Guidelines:
 
         {isThinking && (
           <Box marginTop={1} paddingLeft={3}>
-            <Text color={theme.colors.retroAmberBright}>
-              ⏳ Lil-Zila is thinking and analyzing code...
-            </Text>
+            <ZigexLoader suffix="analyzing workspace & reasoning" />
           </Box>
         )}
       </Box>

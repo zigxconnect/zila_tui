@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../ui/theme.js";
-import { Spinner } from "../ui/Spinner.js";
+import { Spinner, ZigexLoader } from "../ui/Spinner.js";
 import { zilaApi } from "../utils/auth.js";
 
 export interface CohortOption {
@@ -103,8 +103,7 @@ export const CohortPickerScreen: React.FC<CohortPickerScreenProps> = ({
 
       {loading ? (
         <Box flexDirection="row" gap={1} marginTop={1}>
-          <Spinner style="classic" color={theme.colors.retroBlueBright} />
-          <Text color={theme.colors.retroSlateDark}>Loading your enrolled cohorts...</Text>
+          <ZigexLoader suffix="enrolled cohorts" />
         </Box>
       ) : error ? (
         <Text color={theme.colors.error}>{`Unable to load cohorts: ${error}`}</Text>

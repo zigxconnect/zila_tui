@@ -32,8 +32,8 @@ export { RetroClock }          from "./RetroClock.js";
 export type { RetroClockProps }  from "./RetroClock.js";
 
 // ─── Primitive Components ─────────────────────────────────────────────────────
-export { Spinner }             from "./Spinner.js";
-export type { RetroSpinnerStyle } from "./Spinner.js";
+export { Spinner, ZigexLoader, DEFAULT_ZIGEX_VERBS } from "./Spinner.js";
+export type { RetroSpinnerStyle, ZigexLoaderProps } from "./Spinner.js";
 
 export { Divider }             from "./Divider.js";
 export type { DividerProps }   from "./Divider.js";
