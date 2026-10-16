@@ -112,7 +112,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     const currentCohort = getActiveCohort();
     if (currentCohort && !currentCohort.isPaid && (currentCohort.tasksSubmittedCount ?? 0) >= 5) {
       setError(
-        `Free trial quota exceeded (5/5 evaluations used for cohort "${currentCohort.name}"). Payment status in the internship ledger is currently UNPAID. Please complete tuition to unlock unlimited submissions.`
+        `Free trial quota exceeded (5/5 evaluations used for cohort "${currentCohort.name}"). Please pay for your program tuition at https://zigexconnect.com to resume automated evaluations. If you have already paid, contact the platform administrators to verify your status.`
       );
       return;
     }

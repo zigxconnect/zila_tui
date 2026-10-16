@@ -74,16 +74,16 @@ export async function formatPlanOverview(): Promise<string> {
     lines.push("");
     if (used >= maxFree) {
       lines.push("⚠️  ALERT: Free trial evaluation quota exhausted (5/5 used).");
-      lines.push("   Automated PR evaluation is paused for this cohort until tuition is paid.");
+      lines.push("   Automated evaluation is paused. Pay for your program tuition at https://zigexconnect.com to continue.");
     } else {
       lines.push(`ℹ️  You have ${remaining} automated evaluation(s) left on the free trial.`);
     }
     lines.push("");
     lines.push("◈ How to Upgrade / Activate Unlimited Evaluations:");
-    lines.push("  1. Contact your supervisor or program administrator.");
-    lines.push("  2. In the Zigex App, administrators toggle your tuition in:");
-    lines.push("     Admin Workspace › Interns › Ledger Tab › Toggle Paid [ON]");
-    lines.push("  3. Run '/plan' again once updated to refresh your account status.");
+    lines.push("  1. Pay for your program tuition to have your task submissions evaluated.");
+    lines.push("  2. If already paid and still not showing as eligible, contact the platform administrators.");
+    lines.push("  3. You can log into https://zigexconnect.com to check your payment and enrollment status.");
+    lines.push("  4. Run '/plan' again once updated to refresh your account status.");
   } else {
     lines.push("");
     lines.push("◈ Pro Plan Benefits:");

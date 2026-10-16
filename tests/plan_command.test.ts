@@ -48,7 +48,7 @@ test("PlanCommand - formats free trial tier with available evaluations", async (
   assert.ok(fullOutput.includes("FREE TRIAL (5 Tasks Free Evaluation)"));
   assert.ok(fullOutput.includes("Unpaid / Trial"));
   assert.ok(fullOutput.includes("2/5 evaluations used (3 remaining)"));
-  assert.ok(fullOutput.includes("Admin Workspace › Interns › Ledger Tab › Toggle Paid [ON]"));
+  assert.ok(fullOutput.includes("zigexconnect.com"));
 });
 
 test("PlanCommand - warns when free trial quota is exhausted", async () => {
@@ -67,7 +67,7 @@ test("PlanCommand - warns when free trial quota is exhausted", async () => {
 
   const text = await formatPlanOverview();
   assert.ok(text.includes("ALERT: Free trial evaluation quota exhausted (5/5 used)"));
-  assert.ok(text.includes("Automated PR evaluation is paused for this cohort until tuition is paid"));
+  assert.ok(text.includes("zigexconnect.com"));
 });
 
 test("PlanCommand - formats paid pro plan with unlimited evaluations", async () => {

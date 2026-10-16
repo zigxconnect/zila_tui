@@ -576,7 +576,7 @@ export async function executeAutomatedTaskSubmission(
       const errData = (await apiRes.json().catch(() => ({}))) as any;
       throw new Error(
         errData.error ||
-          "Free trial quota exceeded (5/5 tasks). Payment status is UNPAID in the internship ledger. Please complete tuition to proceed."
+          "Free trial quota exceeded (5/5 tasks). Please pay for your program tuition at https://zigexconnect.com to resume automated evaluations. If you have already paid, contact the platform administrators to verify your status."
       );
     }
 

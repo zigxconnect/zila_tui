@@ -49,7 +49,7 @@ export function checkEvaluationQuota(
     freeTasksUsed: submissionsCount,
     freeTasksMax,
     hasPaid: false,
-    message: `Evaluation access paused: You have completed all ${freeTasksMax} free submissions. Please complete your internship tuition payment to resume automated evaluation.`,
+    message: `Evaluation access paused: You have completed all ${freeTasksMax} free submissions. Please pay for your program tuition at https://zigexconnect.com to resume automated evaluation. If already paid, please contact the platform administrators to verify your status.`,
     checkoutUrl,
   };
 }
