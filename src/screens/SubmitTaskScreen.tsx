@@ -17,7 +17,7 @@ import { theme } from "../ui/theme.js";
 import { Cursor } from "../ui/Cursor.js";
 import { PipelineLoader } from "../ui/PipelineLoader.js";
 
-import { getActiveCohort, mapDepartmentToDomain, mapLevel } from "../utils/activeCohort.js";
+import { getActiveCohort, setActiveCohort, mapDepartmentToDomain, mapLevel } from "../utils/activeCohort.js";
 
 interface SubmitTaskScreenProps {
   onComplete: () => void;
@@ -47,23 +47,42 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const [error, setError] = useState("");
 
   // Automatically fetch student placement program & level directly from endpoint if not cached
+  // Automatically fetch student placement program, level, and payment state directly from endpoint
   useEffect(() => {
-    if (!activeCohort) {
-      zilaApi<{ cohorts: any[] }>("/cohorts/my-cohorts")
-        .then((res) => {
-          if (res?.cohorts && res.cohorts.length > 0) {
-            const first = res.cohorts[0];
-            const dom = mapDepartmentToDomain(first.department, first.name);
-            const lvl = mapLevel(first.level, first.name);
+    zilaApi<{ cohorts: any[] }>("/cohorts/my-cohorts")
+      .then((res) => {
+        if (res?.cohorts && res.cohorts.length > 0) {
+          const matched = activeCohort
+            ? res.cohorts.find((c) => c.id === activeCohort.id) || res.cohorts[0]
+            : res.cohorts[0];
+
+          if (matched) {
+            const dom = mapDepartmentToDomain(matched.department, matched.name);
+            const lvl = mapLevel(matched.level, matched.name);
             setCurrentDomainKey(dom);
             const mappedLvl = lvl === "advanced" ? "advance" : lvl;
             setCurrentLevel(mappedLvl);
             const mods = getTrackModules(mappedLvl, dom);
             if (mods.length > 0) setModule(mods[0]!);
+
+            // Update local active cohort with live payment toggle and supervisor repository
+            setActiveCohort({
+              id: matched.id,
+              name: matched.name,
+              department: matched.department,
+              level: mappedLvl,
+              supervisorName: matched.supervisorName,
+              supervisorEmail: matched.supervisorEmail,
+              githubRepoUrl: matched.githubRepoUrl,
+              isPaid: matched.isPaid,
+              tasksSubmittedCount: matched.tasksSubmittedCount,
+              freeTasksMax: matched.freeTasksMax ?? 5,
+              freeTasksRemaining: matched.freeTasksRemaining,
+            });
           }
-        })
-        .catch(() => {});
-    }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const currentDomainDef = CURRICULUM_DOMAINS[currentDomainKey] || CURRICULUM_DOMAINS.ml!;
@@ -89,12 +108,24 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
       return;
     }
 
+    // Free trial quota guard: unpaid students are limited to 5 free tasks & automated evaluations
+    const currentCohort = getActiveCohort();
+    if (currentCohort && !currentCohort.isPaid && (currentCohort.tasksSubmittedCount ?? 0) >= 5) {
+      setError(
+        `Free trial quota exceeded (5/5 evaluations used for cohort "${currentCohort.name}"). Payment status in the internship ledger is currently UNPAID. Please complete tuition to unlock unlimited submissions.`
+      );
+      return;
+    }
+
     setSubmitting(true);
     setProgressMsg("Initiating automated GitHub PR pipeline...");
     try {
+      const supervisorRepo = currentCohort?.githubRepoUrl;
       const detectedRepo = detectLocalGitRepoUrl();
+      const targetRepo = supervisorRepo || detectedRepo || undefined;
+
       const payload: TaskSubmissionPayload = {
-        cohortId: activeCohort?.id || undefined,
+        cohortId: currentCohort?.id || activeCohort?.id || undefined,
         domain: currentDomainKey,
         level: currentLevel,
         module: module.trim() || "1_fundamentals",
@@ -103,7 +134,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
         practicalsDescription: practicals || "Implementation completed according to curriculum specification.",
         challenges: challenges || "None reported.",
         deploymentUrl: deploymentUrl || undefined,
-        githubRepoUrl: detectedRepo || activeCohort?.githubRepoUrl || undefined,
+        githubRepoUrl: targetRepo,
       };
 
       const res = await executeAutomatedTaskSubmission(payload, (step) => setProgressMsg(step));
@@ -237,8 +268,9 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
 
       {/* Contributing Repo indicator */}
       {(() => {
+        const supervisorRepo = activeCohort?.githubRepoUrl;
         const localDetected = detectLocalGitRepoUrl();
-        const activeTarget = localDetected || activeCohort?.githubRepoUrl;
+        const activeTarget = supervisorRepo || localDetected || activeCohort?.githubRepoUrl;
         if (!activeTarget) return null;
         const cleanName = activeTarget.replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "");
         return (
@@ -246,11 +278,36 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
             <Text color={theme.colors.retroSlateDark}>{"Contributing Repo:"}</Text>
             <Text color={theme.colors.retroCyanBright} bold>{`[${cleanName}]`}</Text>
             <Text color={theme.colors.retroGreenBright}>
-              {localDetected ? "(Auto-detected from local git origin)" : "(Cohort default repo)"}
+              {supervisorRepo
+                ? "(Assigned by supervisor via workspace)"
+                : localDetected
+                  ? "(Auto-detected from local git origin)"
+                  : "(Cohort default repo)"}
             </Text>
           </Box>
         );
       })()}
+
+      {/* Tuition & Quota indicator */}
+      <Box flexDirection="row" gap={1}>
+        <Text color={theme.colors.retroSlateDark}>{"Tuition & Quota:"}</Text>
+        {activeCohort?.isPaid ? (
+          <Text color={theme.colors.retroGreenBright} bold>
+            {"[PAID / UNLIMITED] (Tuition verified via ledger)"}
+          </Text>
+        ) : (
+          <Text
+            color={
+              (activeCohort?.tasksSubmittedCount ?? 0) >= 5
+                ? theme.colors.error
+                : theme.colors.warning
+            }
+            bold
+          >
+            {`[FREE TRIAL] ${(activeCohort?.tasksSubmittedCount ?? 0)}/5 evaluations used · ${Math.max(0, 5 - (activeCohort?.tasksSubmittedCount ?? 0))} remaining`}
+          </Text>
+        )}
+      </Box>
 
       {/* Divider */}
       <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>

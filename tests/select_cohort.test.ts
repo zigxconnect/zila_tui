@@ -49,7 +49,7 @@ test("GitHub Automation - parseGitHubRepoUrl handles diverse repo URLs", () => {
   assert.equal(parsed2.owner, "supervisor");
   assert.equal(parsed2.repo, "cyber_exercises");
 
-  const parsedDefault = parseGitHubRepoUrl(undefined);
+  const parsedDefault = parseGitHubRepoUrl(undefined, "/tmp");
   assert.equal(parsedDefault.owner, "iws3");
   assert.equal(parsedDefault.repo, "sample_repo_zila");
 });

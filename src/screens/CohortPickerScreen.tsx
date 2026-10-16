@@ -13,6 +13,10 @@ export interface CohortOption {
   supervisorName?: string;
   supervisorEmail?: string;
   githubRepoUrl?: string;
+  isPaid?: boolean;
+  tasksSubmittedCount?: number;
+  freeTasksMax?: number;
+  freeTasksRemaining?: number;
 }
 
 interface CohortsResponse {
@@ -123,7 +127,7 @@ export const CohortPickerScreen: React.FC<CohortPickerScreenProps> = ({
                   )}
                 </Box>
                 <Text color={theme.colors.retroSlateDark}>
-                  {`    Domain: ${cohort.department || "General"}${cohort.supervisorName ? ` · Supervisor: ${cohort.supervisorName}` : ""}${cohort.githubRepoUrl ? " · Repo: linked" : ""}`}
+                  {`    Domain: ${cohort.department || "General"}${cohort.supervisorName ? ` · Supervisor: ${cohort.supervisorName}` : ""}${cohort.githubRepoUrl ? " · Repo: linked" : ""} · ${cohort.isPaid ? "Tuition: Paid" : `Trial: ${cohort.tasksSubmittedCount || 0}/5 used`}`}
                 </Text>
               </Box>
             );

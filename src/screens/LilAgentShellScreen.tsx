@@ -4,6 +4,8 @@ import { theme } from "../ui/theme.js";
 import { loadAgentConfig } from "../utils/aiConfig.js";
 import { generateChatResponse, type ChatMessage } from "../utils/aiClient.js";
 import { extractWorkspaceContext, type WorkspaceContext } from "../utils/contextExtractor.js";
+import { formatPlanOverview } from "../commands/plan.js";
+import { getActiveCohort } from "../utils/activeCohort.js";
 
 import { LogbookSidebar } from "./LogbookSidebar.js";
 
@@ -24,6 +26,7 @@ interface SlashCommandItem {
 
 const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/help", desc: "Display interactive command directory & tips" },
+  { cmd: "/plan", desc: "View program enrollment, tuition plan & evaluation quota" },
   { cmd: "/logbook", desc: "Toggle right-hand Contributor Audit Ledger logbook sidebar" },
   { cmd: "/about", desc: "System telemetry, architecture & pair mentor profile" },
   { cmd: "/status", desc: "Check engine connection, git branch & active cohort" },
@@ -180,6 +183,16 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         return;
       }
 
+      if (
+        lowerTrimmed === "plan" ||
+        lowerTrimmed === "/plan" ||
+        lowerTrimmed === "my plan" ||
+        lowerTrimmed === "my-plan"
+      ) {
+        handleSlashCommand("/plan");
+        return;
+      }
+
       if (trimmed.startsWith("/")) {
         handleSlashCommand(trimmed);
         return;
@@ -193,7 +206,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     }
   });
 
-  function handleSlashCommand(commandStr: string) {
+  async function handleSlashCommand(commandStr: string) {
     const rawCmd = commandStr.trim().toLowerCase();
     const userMsg: DisplayMessage = {
       id: `user-${Date.now()}`,
@@ -207,6 +220,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       reply = [
         "◈ Zigex Lil-Agent Command Reference:",
         "  /help     — Display this interactive help directory",
+        "  /plan     — View program enrollment, tuition plan & evaluation quota",
         "  /logbook  — Toggle right-hand Contributor Audit Ledger logbook sidebar",
         "  /about    — System telemetry, architecture & pair mentor profile",
         "  /status   — Check engine connection, git context & active cohort",
@@ -216,6 +230,9 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         "💡 Tip: You can ask anything naturally without slashes, e.g.:",
         "   'explain this error', 'how do I structure day 3 task?', 'review my commit'",
       ].join("\n");
+    } else if (rawCmd === "/plan" || rawCmd === "plan" || rawCmd === "my-plan") {
+      setStatusText("Fetching program plan & tuition status...");
+      reply = await formatPlanOverview();
     } else if (rawCmd === "/logbook") {
       setShowLogbookSidebar((prev) => !prev);
       reply = !showLogbookSidebar
@@ -231,11 +248,17 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         "               truthful evaluation & contributor logbook automation.",
       ].join("\n");
     } else if (rawCmd === "/status") {
+      const currentCohort = getActiveCohort();
+      const planStatus = currentCohort?.isPaid
+        ? "PAID (Unlimited Evaluations)"
+        : `FREE TRIAL (${currentCohort?.tasksSubmittedCount || 0}/5 evaluations used)`;
+
       reply = [
         "◈ Lil-Agent Runtime Status:",
         `  AI Engine:     Connected & Ready (v2.5)`,
         `  Active Cohort: ${workspaceContext?.cohortName || "None selected"}`,
         `  Domain:        ${(workspaceContext?.domain || "general").toUpperCase()}`,
+        `  Plan & Status: ${planStatus}`,
         `  Git Branch:    ${workspaceContext?.gitBranch || "local"}`,
         `  Recent Commits: ${workspaceContext?.recentCommits.length ? workspaceContext.recentCommits[0] : "none"}`,
         `  Exercise File: ${workspaceContext?.exerciseFile ? workspaceContext.exerciseFile.path : "None detected in workspace"}`,
@@ -277,10 +300,16 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     setStatusText("Analyzing context & generating response...");
 
     try {
+      const currentCohort = getActiveCohort();
+      const planStatus = currentCohort?.isPaid
+        ? "Paid / Pro Plan (Unlimited Automated Evaluations)"
+        : `Free Trial Tier (${currentCohort?.tasksSubmittedCount || 0}/5 evaluations used, unpaid)`;
+
       const systemPrompt = `You are Lil-Zila, the official Zigex autonomous AI pair programming mentor for intern engineers.
 Current Workspace Context:
 - Active Cohort: ${workspaceContext?.cohortName || "General Curriculum"}
 - Domain: ${workspaceContext?.domain || "Engineering"}
+- Plan & Tuition: ${planStatus}
 - Git Branch: ${workspaceContext?.gitBranch || "local"}
 - Recent Commits: ${workspaceContext?.recentCommits.join(", ") || "none"}
 ${workspaceContext?.exerciseFile ? `- Active Exercise File (${workspaceContext.exerciseFile.path}):\n${workspaceContext.exerciseFile.content}` : ""}

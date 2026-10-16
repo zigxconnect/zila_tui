@@ -12,6 +12,10 @@ export interface ActiveCohort {
   supervisorName?: string;
   supervisorEmail?: string;
   githubRepoUrl?: string;
+  isPaid?: boolean;
+  tasksSubmittedCount?: number;
+  freeTasksMax?: number;
+  freeTasksRemaining?: number;
   selectedAt: string;
 }
 
@@ -164,6 +168,10 @@ export function setActiveCohort(cohort: {
   supervisorName?: string;
   supervisorEmail?: string;
   githubRepoUrl?: string;
+  isPaid?: boolean;
+  tasksSubmittedCount?: number;
+  freeTasksMax?: number;
+  freeTasksRemaining?: number;
 }): ActiveCohort {
   ensureZilaDir();
 
@@ -181,6 +189,10 @@ export function setActiveCohort(cohort: {
     supervisorName: cohort.supervisorName,
     supervisorEmail: cohort.supervisorEmail,
     githubRepoUrl: cohort.githubRepoUrl,
+    isPaid: cohort.isPaid,
+    tasksSubmittedCount: cohort.tasksSubmittedCount,
+    freeTasksMax: cohort.freeTasksMax ?? 5,
+    freeTasksRemaining: cohort.freeTasksRemaining,
     selectedAt: new Date().toISOString(),
   };
 

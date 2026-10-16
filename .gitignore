@@ -25,3 +25,7 @@ yarn-error.log*
 *.sln
 *.sw?
 .DS_Store
+
+# Local/test run directories
+.zila*/
+contributors/

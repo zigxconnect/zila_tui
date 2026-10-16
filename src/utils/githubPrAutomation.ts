@@ -5,6 +5,7 @@ import { execSync } from "node:child_process";
 import { API_BASE, loadAuth } from "./auth.js";
 import { loadGitHubAuth, type GitHubAuthRecord } from "./githubAuth.js";
 import { enrichContributorLogbook } from "./logbookEnricher.js";
+import { getActiveCohort, setActiveCohort } from "./activeCohort.js";
 
 export interface TaskSubmissionPayload {
   domain?: string; // ml, web, cyber, embeded, app, cloud, or custom!
@@ -128,11 +129,18 @@ export function detectLocalGitRepoUrl(cwd: string = process.cwd()): string | und
 }
 
 /**
- * Extracts owner, repo name, and normalized git URL from any GitHub repository URL
+ * Extracts owner, repo name, and normalized git URL from any GitHub repository URL.
+ * Priority:
+ *  1. Explicitly provided url argument
+ *  2. Supervisor-assigned repo from the active cohort (set via supervisor workspace in zigex-app)
+ *  3. Auto-detected local git origin of current workspace
+ *  4. Default cohort sample repo
  */
 export function parseGitHubRepoUrl(url?: string, cwd?: string): { owner: string; repo: string; url: string } {
-  const localDetected = !url ? detectLocalGitRepoUrl(cwd) : undefined;
-  const target = (url && url.trim()) || localDetected || SAMPLE_COHORT_REPO;
+  const activeCohort = getActiveCohort();
+  const supervisorRepo = activeCohort?.githubRepoUrl;
+  const localDetected = !url && !supervisorRepo ? detectLocalGitRepoUrl(cwd) : undefined;
+  const target = (url && url.trim()) || supervisorRepo || localDetected || SAMPLE_COHORT_REPO;
   const match = target.match(/github\.com[:/]([^/]+)\/([^/.]+)(?:\.git)?/i);
   if (match && match[1] && match[2]) {
     const owner = match[1];
@@ -328,6 +336,14 @@ export async function executeAutomatedTaskSubmission(
   const quota = checkDailyPrQuota();
   if (!quota.allowed) {
     throw new Error(quota.message);
+  }
+
+  // 1b. Check free trial quota for unpaid cohorts (5 free automated task evaluations)
+  const activeCohort = getActiveCohort();
+  if (activeCohort && !activeCohort.isPaid && (activeCohort.tasksSubmittedCount ?? 0) >= 5) {
+    throw new Error(
+      `Free trial quota exceeded (5/5 automated evaluations completed for cohort "${activeCohort.name}"). Payment status in the internship ledger is currently UNPAID. Please complete your tuition payment or contact your supervisor to unlock unlimited submissions.`
+    );
   }
 
   // 2. Auth check
@@ -556,12 +572,31 @@ export async function executeAutomatedTaskSubmission(
       }),
     });
 
-    if (apiRes.ok) {
-      const apiData = await apiRes.json() as any;
-      submissionId = apiData.submission?.id;
+    if (apiRes.status === 403) {
+      const errData = (await apiRes.json().catch(() => ({}))) as any;
+      throw new Error(
+        errData.error ||
+          "Free trial quota exceeded (5/5 tasks). Payment status is UNPAID in the internship ledger. Please complete tuition to proceed."
+      );
     }
-  } catch {
-    // ignore
+
+    if (apiRes.ok) {
+      const apiData = (await apiRes.json()) as any;
+      submissionId = apiData.submission?.id;
+      if (activeCohort) {
+        const nextCount = (activeCohort.tasksSubmittedCount ?? 0) + 1;
+        setActiveCohort({
+          ...activeCohort,
+          tasksSubmittedCount: nextCount,
+          freeTasksRemaining: activeCohort.isPaid ? 999 : Math.max(0, 5 - nextCount),
+        });
+      }
+    }
+  } catch (err: any) {
+    if (err.message && err.message.includes("Free trial")) {
+      throw err;
+    }
+    // non-fatal network recording fallback
   }
 
   // 7. Update daily quota

@@ -43,6 +43,7 @@ export const selectCohortCommand: ZilaCommand = {
       output(`Track Level:     ${current.level.toUpperCase()}`, "default");
       output(`Supervisor:      ${current.supervisorName || "Assigned Supervisor"}`, "dim");
       output(`GitHub Repo:     ${current.githubRepoUrl || "https://github.com/iws3/sample_repo_zila.git (Standard)"}`, "dim");
+      output(`Payment Status:  ${current.isPaid ? "PAID (Unlimited Automated Evaluations)" : `FREE TRIAL (${current.tasksSubmittedCount || 0}/5 tasks used)`}`, current.isPaid ? "success" : "warning");
       output(`Activated:       ${new Date(current.selectedAt).toLocaleTimeString()}`, "dim");
       output(`────────────────────────────────────────────────────────────────────────`, "dim");
       output(`All tasks submitted will automatically use this cohort's settings.`, "dim");
@@ -74,6 +75,10 @@ export const selectCohortCommand: ZilaCommand = {
           supervisorName: matched.supervisorName,
           supervisorEmail: (matched as any).supervisorEmail,
           githubRepoUrl: (matched as any).githubRepoUrl,
+          isPaid: matched.isPaid,
+          tasksSubmittedCount: matched.tasksSubmittedCount,
+          freeTasksMax: matched.freeTasksMax,
+          freeTasksRemaining: matched.freeTasksRemaining,
         });
 
         output(`Entered cohort context: ${activated.name}`, "success");

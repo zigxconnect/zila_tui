@@ -9,7 +9,7 @@ export interface BillingEvaluationStatus {
 
 /**
  * Checks whether the student has quota remaining to submit and evaluate tasks.
- * Interns get exactly 6 free tasks before tuition payment is mandatory.
+ * Interns get exactly 5 free tasks before tuition payment is mandatory.
  */
 export function checkEvaluationQuota(
   submissionsCount: number,
@@ -17,7 +17,7 @@ export function checkEvaluationQuota(
   studentId?: string,
   cohortId?: string,
 ): BillingEvaluationStatus {
-  const freeTasksMax = 6;
+  const freeTasksMax = 5;
 
   if (hasPaid) {
     return {

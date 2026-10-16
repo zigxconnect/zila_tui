@@ -39,12 +39,14 @@ import { githubAuthCommand, githubStatusCommand, githubLogoutCommand } from "./g
 import { cacheCommand } from "./cache.js";
 import { selectCohortCommand } from "./selectCohort.js";
 import { quotaCommand } from "./quota.js";
+import { planCommand } from "./plan.js";
 import { agentSetupCommand } from "./agentSetup.js";
 import { lilAgentCommand } from "./lilAgent.js";
 
 export function registerAllCommands(): void {
   registerCommand(agentSetupCommand);
   registerCommand(lilAgentCommand);
+  registerCommand(planCommand);
   registerCommand(quotaCommand);
   registerCommand(selectCohortCommand);
   registerCommand(exitCommand);
