@@ -15,6 +15,7 @@ import { CohortsSidebar } from "./CohortsSidebar.js";
 import { SubmitReportScreen } from "./SubmitReportScreen.js";
 import { SubmitTaskScreen } from "./SubmitTaskScreen.js";
 import { ZigexLoader } from "../ui/Spinner.js";
+import { clearTerminalScreen } from "../ui/terminal.js";
 
 interface LilAgentShellScreenProps {
   onClose: () => void;
@@ -89,6 +90,17 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     const ctx = extractWorkspaceContext();
     setWorkspaceContext(ctx);
   }, []);
+
+  const isFirstSidebarRender = React.useRef(true);
+  useEffect(() => {
+    if (isFirstSidebarRender.current) {
+      isFirstSidebarRender.current = false;
+      return;
+    }
+    // Erase the canvas when transitioning between single-pane and split-view
+    // so no ghost split lines or remnants persist on screen.
+    clearTerminalScreen();
+  }, [activeSidebar]);
 
   useInput((input, key) => {
     if (key.escape) {
@@ -390,6 +402,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       return;
     } else if (rawCmd === "/close" || rawCmd === "close" || rawCmd === "hide") {
       setActiveSidebar(null);
+      clearTerminalScreen();
       reply = "Closed right-hand sidebar.";
     } else if (rawCmd === "/quota" || rawCmd === "quota") {
       const q = checkDailyPrQuota();
@@ -471,6 +484,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       setChatScrollOffset(0);
       reply = "Returned to the latest live messages at the bottom.";
     } else if (rawCmd === "/clear") {
+      clearTerminalScreen();
       setMessages([]);
       setInputText("");
       setChatScrollOffset(0);
