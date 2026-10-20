@@ -229,16 +229,16 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
   const isSplitActive = activeSidebar !== null;
   const splitLeftWidth = Math.floor(termCols * 0.52);
   const splitRightWidth = termCols - splitLeftWidth - 2;
-  const fullHeight = Math.max(20, termRows - 5);
+  const fullHeight = Math.max(16, termRows - 6);
   const activeLineWidth = Math.max(24, (isSplitActive ? splitLeftWidth : termCols) - 4);
 
   const autocompleteHeight = (isSlashActive && matchingSlashCommands.length > 0)
     ? Math.min(8, matchingSlashCommands.length + 3)
     : 0;
   const headerHeight = 4;
-  const bottomInputHeight = 5 + autocompleteHeight;
+  const bottomInputHeight = 6 + autocompleteHeight;
   const thinkingHeight = isThinking ? 1 : 0;
-  const chatViewportHeight = Math.max(4, fullHeight - headerHeight - bottomInputHeight - thinkingHeight);
+  const chatViewportHeight = Math.max(3, fullHeight - headerHeight - bottomInputHeight - thinkingHeight);
 
   const allChatLines = useMemo(
     () => buildChatVisualLines(messages, isSplitActive ? splitLeftWidth : termCols),
@@ -792,8 +792,8 @@ Behavior Guidelines:
   const mainContent = (
     <Box
       flexDirection="column"
-      height={fullHeight}
-      justifyContent="space-between"
+      height={isSplitActive ? fullHeight : undefined}
+      justifyContent={isSplitActive ? "space-between" : undefined}
       paddingY={0}
     >
       <Box flexDirection="column">
@@ -862,7 +862,11 @@ Behavior Guidelines:
         )}
 
         {/* Messages Stream */}
-        <Box flexDirection="column" height={chatViewportHeight} overflow="hidden">
+        <Box
+          flexDirection="column"
+          height={isSplitActive ? chatViewportHeight : undefined}
+          overflow="hidden"
+        >
           {visibleLines.map((line) => {
             if (line.role === "blank") {
               return (
@@ -929,7 +933,7 @@ Behavior Guidelines:
       </Box>
 
     {/* Bottom Input Area */}
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexShrink={0} marginTop={isSplitActive ? 0 : 1}>
       {/* Claude Code Style Autocomplete Popup */}
       {isSlashActive && matchingSlashCommands.length > 0 && (
         <Box
@@ -938,7 +942,8 @@ Behavior Guidelines:
           borderColor={theme.colors.retroBlueBright}
           paddingX={1}
           paddingY={0}
-          marginTop={1}
+          marginBottom={1}
+          flexShrink={0}
         >
           <Box flexDirection="row" justifyContent="space-between" marginBottom={0}>
             <Text color={theme.colors.retroCyanBright} bold>
@@ -984,16 +989,17 @@ Behavior Guidelines:
       <Box
         flexDirection="column"
         borderStyle="round"
+        height={3}
+        flexShrink={0}
         borderColor={
           isSlashActive
             ? theme.colors.retroCyanBright
             : theme.colors.retroBlueBright
         }
-        paddingX={2}
+        paddingX={1}
         paddingY={0}
-        marginTop={isSlashActive && matchingSlashCommands.length > 0 ? 0 : 1}
       >
-        <Box flexDirection="row" alignItems="center">
+        <Box flexDirection="row" alignItems="center" height={1} flexShrink={0}>
           <Text color={theme.colors.retroCyanBright} bold>
             ❯{" "}
           </Text>
@@ -1007,7 +1013,7 @@ Behavior Guidelines:
       </Box>
 
       {/* Status Bar */}
-      <Box flexDirection="row" justifyContent="space-between" marginTop={1} paddingX={1}>
+      <Box flexDirection="row" justifyContent="space-between" marginTop={1} paddingX={1} height={1} flexShrink={0}>
         <Text color={theme.colors.retroSlateDark}>
           {isSplitActive
             ? (activeFocus === "chat"
