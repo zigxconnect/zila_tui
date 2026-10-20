@@ -102,6 +102,13 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     clearTerminalScreen();
   }, [activeSidebar]);
 
+  useEffect(() => {
+    return () => {
+      // Purge screen buffer on teardown to prevent trailing artifacts
+      clearTerminalScreen();
+    };
+  }, []);
+
   useInput((input, key) => {
     if (key.escape) {
       if (isSlashActive) {
@@ -112,6 +119,13 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         setChatScrollOffset(0);
         return;
       }
+      if (activeSidebar !== null) {
+        clearTerminalScreen();
+        setActiveSidebar(null);
+        setActiveFocus("chat");
+        return;
+      }
+      clearTerminalScreen();
       onClose();
       return;
     }
@@ -490,6 +504,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       setChatScrollOffset(0);
       return;
     } else if (rawCmd === "/exit" || rawCmd === "/quit") {
+      clearTerminalScreen();
       onClose();
       return;
     } else {
