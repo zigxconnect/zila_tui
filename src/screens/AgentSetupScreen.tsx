@@ -4,8 +4,10 @@ import { theme } from "../ui/theme.js";
 import {
   SUPPORTED_PROVIDERS,
   saveAgentConfig,
+  fetchProviderModels,
   type AIProvider,
   type ProviderMetadata,
+  type ModelFamily,
 } from "../utils/aiConfig.js";
 import { validateProviderApiKey } from "../utils/aiValidation.js";
 
@@ -13,19 +15,41 @@ interface AgentSetupScreenProps {
   onClose: () => void;
 }
 
-type SetupStep = "select_provider" | "enter_key" | "validating" | "success" | "error";
+type SetupStep =
+  | "select_provider"
+  | "enter_key"
+  | "validating"
+  | "select_family"
+  | "select_model"
+  | "success"
+  | "error";
 
 export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [step, setStep] = useState<SetupStep>("select_provider");
   const [apiKey, setApiKey] = useState("");
+  const [validatedKey, setValidatedKey] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [families, setFamilies] = useState<ModelFamily[]>([]);
+  const [selectedFamilyIndex, setSelectedFamilyIndex] = useState(0);
+  const [selectedModelIndex, setSelectedModelIndex] = useState(0);
+
   const selectedProvider: ProviderMetadata = SUPPORTED_PROVIDERS[selectedIndex]!;
+  const currentFamily: ModelFamily | undefined = families[selectedFamilyIndex];
+  const currentModels = currentFamily?.models || [];
 
   useInput((input, key) => {
     if (key.escape) {
+      if (step === "select_model") {
+        setStep("select_family");
+        return;
+      }
+      if (step === "select_family") {
+        setStep("select_provider");
+        return;
+      }
       onClose();
       return;
     }
@@ -52,6 +76,27 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
       } else if (input && !key.ctrl && !key.meta) {
         setApiKey((prev) => prev + input);
       }
+    } else if (step === "select_family") {
+      if (key.upArrow) {
+        setSelectedFamilyIndex((prev) => (prev > 0 ? prev - 1 : families.length - 1));
+      } else if (key.downArrow) {
+        setSelectedFamilyIndex((prev) => (prev < families.length - 1 ? prev + 1 : 0));
+      } else if (key.leftArrow) {
+        setStep("select_provider");
+      } else if (key.return) {
+        setSelectedModelIndex(0);
+        setStep("select_model");
+      }
+    } else if (step === "select_model") {
+      if (key.upArrow) {
+        setSelectedModelIndex((prev) => (prev > 0 ? prev - 1 : currentModels.length - 1));
+      } else if (key.downArrow) {
+        setSelectedModelIndex((prev) => (prev < currentModels.length - 1 ? prev + 1 : 0));
+      } else if (key.leftArrow) {
+        setStep("select_family");
+      } else if (key.return) {
+        confirmModelSelection();
+      }
     } else if (step === "success" || step === "error") {
       if (key.return) {
         if (step === "success") {
@@ -71,18 +116,35 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
     const result = await validateProviderApiKey(provider, keyToTest);
 
     if (result.valid) {
-      saveAgentConfig({
-        provider,
-        apiKey: keyToTest,
-        model: selectedProvider.defaultModel,
-        configuredAt: new Date().toISOString(),
-      });
-      setStep("success");
-      setStatusMessage(`[✔] ${result.message}\n[✔] Provider calibrated: ${selectedProvider.name} (${selectedProvider.defaultModel})`);
+      setValidatedKey(keyToTest);
+      setStatusMessage(`Fetching model families from ${selectedProvider.name}...`);
+      const fams = await fetchProviderModels(provider, keyToTest);
+      setFamilies(fams);
+      setSelectedFamilyIndex(0);
+      setSelectedModelIndex(0);
+      setStep("select_family");
     } else {
       setStep("error");
       setErrorMessage(result.message);
     }
+  }
+
+  function confirmModelSelection() {
+    if (!currentFamily || !currentModels.length) return;
+    const chosenModel = currentModels[selectedModelIndex] || currentModels[0]!;
+
+    saveAgentConfig({
+      provider: selectedProvider.id,
+      apiKey: validatedKey,
+      model: chosenModel.id,
+      configuredAt: new Date().toISOString(),
+    });
+
+    setStep("success");
+    setStatusMessage(
+      `[✔] Credentials verified for ${selectedProvider.name}\n` +
+      `[✔] Active model configured: ${currentFamily.name} › ${chosenModel.id}`
+    );
   }
 
   const maskedKey = apiKey.length > 0 ? "*".repeat(Math.min(apiKey.length, 36)) : "";
@@ -178,6 +240,80 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
         </Box>
       )}
 
+      {step === "select_family" && (
+        <Box flexDirection="column">
+          <Box marginBottom={1}>
+            <Text color={theme.colors.retroCyanBright} bold>
+              {selectedProvider.name} › Select Model Family:
+            </Text>
+          </Box>
+          <Box marginBottom={1}>
+            <Text color={theme.colors.retroSlateDark}>
+              ↑/↓ arrows to navigate, Enter to select family, Esc/← to back:
+            </Text>
+          </Box>
+          {families.map((fam, idx) => {
+            const isSelected = idx === selectedFamilyIndex;
+            return (
+              <Box key={fam.id} flexDirection="row" marginY={0}>
+                <Text
+                  color={isSelected ? theme.colors.retroCyanBright : theme.colors.retroSlateDark}
+                  bold={isSelected}
+                >
+                  {isSelected ? "❯ " : "  "}
+                  {`[${idx + 1}] `}
+                  {fam.name}
+                </Text>
+                <Text color={theme.colors.retroSlateDark}>
+                  {" "}
+                  ({fam.models.length} {fam.models.length === 1 ? "model" : "models"}
+                  {fam.models.length ? `: ${fam.models[0]?.name}` : ""})
+                </Text>
+              </Box>
+            );
+          })}
+        </Box>
+      )}
+
+      {step === "select_model" && currentFamily && (
+        <Box flexDirection="column">
+          <Box marginBottom={1} flexDirection="row" gap={1}>
+            <Text color={theme.colors.retroSlateDark}>{selectedProvider.name} ›</Text>
+            <Text color={theme.colors.retroCyanBright} bold>
+              {currentFamily.name} Models:
+            </Text>
+          </Box>
+          <Box marginBottom={1}>
+            <Text color={theme.colors.retroSlateDark}>
+              ↑/↓ arrows to navigate, Enter to confirm, ← to back to families:
+            </Text>
+          </Box>
+          {currentModels.map((m, idx) => {
+            const isSelected = idx === selectedModelIndex;
+            return (
+              <Box key={m.id} flexDirection="row" marginY={0}>
+                <Text
+                  color={isSelected ? theme.colors.retroGreenBright : theme.colors.retroSlateDark}
+                  bold={isSelected}
+                >
+                  {isSelected ? "❯ [✔] " : "    [ ] "}
+                  {m.name}
+                </Text>
+                {m.recommended && (
+                  <Text color={theme.colors.retroCyanBright} bold>
+                    {" "}
+                    (Recommended)
+                  </Text>
+                )}
+                {m.description && (
+                  <Text color={theme.colors.retroSlateDark}> — {m.description}</Text>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+      )}
+
       {step === "success" && (
         <Box flexDirection="column" marginY={1}>
           <Text color={theme.colors.retroGreenBright} bold>
@@ -217,7 +353,11 @@ export const AgentSetupScreen: React.FC<AgentSetupScreenProps> = ({ onClose }) =
       {/* Footer */}
       <Box flexDirection="row" justifyContent="space-between">
         <Text color={theme.colors.retroSlateDark}>
-          esc cancel · enter confirm · ↑/↓ navigate providers
+          {step === "select_family"
+            ? "↑/↓ navigate families · enter pick · ← back to provider · esc exit"
+            : step === "select_model"
+            ? "↑/↓ navigate models · enter confirm · ← back to families · esc exit"
+            : "esc cancel · enter confirm · ↑/↓ navigate providers"}
         </Text>
         <Text color={theme.colors.retroSlateDark}>
           Zigex Key Vault
