@@ -1,4 +1,4 @@
-import { loadAgentConfig, type AIProviderConfig } from "./aiConfig.js";
+import { loadAgentConfig, saveAgentConfig, type AIProviderConfig } from "./aiConfig.js";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -123,7 +123,7 @@ async function callOpenAICompatible(
   messages: ChatMessage[],
   options: ChatCompletionOptions,
 ): Promise<string> {
-  const model = config.model || (config.provider === "groq" ? "llama-3.3-70b-versatile" : "gpt-4o");
+  const model = config.model || (config.provider === "groq" ? "llama-3.1-8b-instant" : "gpt-4o");
 
   const res = await fetch(endpoint, {
     method: "POST",
@@ -141,7 +141,48 @@ async function callOpenAICompatible(
 
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}));
-    throw new Error(`${config.provider} API Error: ${(errorBody as any)?.error?.message || res.statusText}`);
+    const rawErrMsg = (errorBody as any)?.error?.message || res.statusText;
+
+    // Resilient fallback for Groq restricted models
+    if (
+      config.provider === "groq" &&
+      model !== "llama-3.1-8b-instant" &&
+      (rawErrMsg.includes("does not exist") ||
+        rawErrMsg.includes("do not have access") ||
+        rawErrMsg.includes("model_not_found"))
+    ) {
+      try {
+        const retryRes = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${config.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages,
+            temperature: options.temperature ?? 0.7,
+            max_tokens: options.maxTokens ?? 2048,
+          }),
+        });
+
+        if (retryRes.ok) {
+          const retryData: any = await retryRes.json();
+          const retryText = retryData.choices?.[0]?.message?.content;
+          if (retryText) {
+            saveAgentConfig({ ...config, model: "llama-3.1-8b-instant" });
+            return (
+              `[Notice: '${model}' was inaccessible on your Groq tier; auto-switched to 'llama-3.1-8b-instant'. Type /model to choose another family]\n\n` +
+              retryText
+            );
+          }
+        }
+      } catch {
+        // Fall through to error below
+      }
+    }
+
+    throw new Error(`${config.provider} API Error: ${rawErrMsg}`);
   }
 
   const data: any = await res.json();
