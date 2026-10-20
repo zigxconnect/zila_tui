@@ -21,6 +21,7 @@ import { LogbookSidebar } from "../screens/LogbookSidebar.js";
 import { LilZilaBanner } from "../ui/LilZilaBanner.js";
 import { RetroStatusBar } from "../ui/RetroStatusBar.js";
 import { RetroKeyboardLegend } from "../ui/RetroKeyboardLegend.js";
+import { clearTerminalScreen } from "../ui/terminal.js";
 import { OutputHistory, type OutputLine } from "./OutputHistory.js";
 import { InputPrompt } from "./InputPrompt.js";
 import {
@@ -141,6 +142,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
       normalizedCmd === "hide logbook" ||
       normalizedCmd === "exit logbook"
     ) {
+      clearTerminalScreen();
       setShowLogbookSidebar(false);
       pushLine("Closed Contributor Audit Ledger logbook sidebar.", "dim");
       return;
@@ -360,6 +362,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
       ) : showAgentSetup ? (
         <AgentSetupScreen
           onClose={() => {
+            clearTerminalScreen();
             setShowAgentSetup(false);
             pushLine("Welcome back to lil-zila.", "success");
           }}
@@ -367,6 +370,7 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
       ) : showLilAgent ? (
         <LilAgentShellScreen
           onClose={() => {
+            clearTerminalScreen();
             setShowLilAgent(false);
             pushLine("Welcome back to lil-zila.", "success");
           }}
