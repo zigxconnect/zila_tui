@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { theme } from "../ui/theme.js";
 import { loadAgentConfig, saveAgentConfig, getProviderModelFamilies } from "../utils/aiConfig.js";
@@ -21,10 +21,124 @@ interface LilAgentShellScreenProps {
   onClose: () => void;
 }
 
-interface DisplayMessage {
+export interface DisplayMessage {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
+}
+
+export interface ChatVisualLine {
+  id: string;
+  role: "system" | "user" | "assistant" | "blank";
+  text: string;
+  isHeader?: boolean;
+}
+
+export function wrapTextToLines(text: string, maxWidth: number): string[] {
+  if (maxWidth <= 10) return [text];
+  const paragraphs = text.split("\n");
+  const lines: string[] = [];
+
+  for (const para of paragraphs) {
+    if (para.length === 0) {
+      lines.push("");
+      continue;
+    }
+    const words = para.split(" ");
+    let cur = "";
+    for (const w of words) {
+      if (!cur) {
+        if (w.length > maxWidth) {
+          for (let i = 0; i < w.length; i += maxWidth) {
+            lines.push(w.slice(i, i + maxWidth));
+          }
+        } else {
+          cur = w;
+        }
+      } else {
+        if (cur.length + 1 + w.length <= maxWidth) {
+          cur += " " + w;
+        } else {
+          lines.push(cur);
+          if (w.length > maxWidth) {
+            for (let i = 0; i < w.length; i += maxWidth) {
+              const chunk = w.slice(i, i + maxWidth);
+              if (chunk.length === maxWidth) {
+                lines.push(chunk);
+              } else {
+                cur = chunk;
+              }
+            }
+          } else {
+            cur = w;
+          }
+        }
+      }
+    }
+    if (cur) {
+      lines.push(cur);
+    }
+  }
+
+  return lines;
+}
+
+export function buildChatVisualLines(messages: DisplayMessage[], maxWidth: number): ChatVisualLine[] {
+  const result: ChatVisualLine[] = [];
+  const contentWidth = Math.max(20, maxWidth - 4);
+
+  messages.forEach((m, mIdx) => {
+    if (mIdx > 0) {
+      result.push({
+        id: `${m.id}-gap`,
+        role: "blank",
+        text: "",
+      });
+    }
+
+    if (m.role === "system") {
+      const wrapped = wrapTextToLines(m.content, Math.max(16, contentWidth - 4));
+      wrapped.forEach((wLine, idx) => {
+        result.push({
+          id: `${m.id}-${idx}`,
+          role: "system",
+          text: idx === 0 ? `ℹ ${wLine}` : `  ${wLine}`,
+          isHeader: idx === 0,
+        });
+      });
+    } else if (m.role === "user") {
+      const userPrefixLen = 10;
+      const wrapped = wrapTextToLines(m.content, Math.max(16, contentWidth - userPrefixLen));
+      wrapped.forEach((wLine, idx) => {
+        result.push({
+          id: `${m.id}-${idx}`,
+          role: "user",
+          text: wLine,
+          isHeader: idx === 0,
+        });
+      });
+    } else {
+      // Assistant / Lil-Zila
+      result.push({
+        id: `${m.id}-hdr`,
+        role: "assistant",
+        text: "🤖 Lil-Zila:",
+        isHeader: true,
+      });
+
+      const bodyWrapped = wrapTextToLines(m.content, Math.max(16, contentWidth - 4));
+      bodyWrapped.forEach((wLine, idx) => {
+        result.push({
+          id: `${m.id}-${idx}`,
+          role: "assistant",
+          text: wLine,
+          isHeader: false,
+        });
+      });
+    }
+  });
+
+  return result;
 }
 
 interface SlashCommandItem {
@@ -109,6 +223,41 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     };
   }, []);
 
+  const { stdout } = useStdout();
+  const termCols = stdout?.columns || process.stdout.columns || 120;
+  const termRows = stdout?.rows || process.stdout.rows || 36;
+  const isSplitActive = activeSidebar !== null;
+  const splitLeftWidth = Math.floor(termCols * 0.52);
+  const splitRightWidth = termCols - splitLeftWidth - 2;
+  const fullHeight = Math.max(20, termRows - 5);
+  const activeLineWidth = Math.max(24, (isSplitActive ? splitLeftWidth : termCols) - 4);
+
+  const autocompleteHeight = (isSlashActive && matchingSlashCommands.length > 0)
+    ? Math.min(8, matchingSlashCommands.length + 3)
+    : 0;
+  const headerHeight = 4;
+  const bottomInputHeight = 5 + autocompleteHeight;
+  const thinkingHeight = isThinking ? 1 : 0;
+  const chatViewportHeight = Math.max(4, fullHeight - headerHeight - bottomInputHeight - thinkingHeight);
+
+  const allChatLines = useMemo(
+    () => buildChatVisualLines(messages, isSplitActive ? splitLeftWidth : termCols),
+    [messages, isSplitActive, splitLeftWidth, termCols],
+  );
+
+  const totalLines = allChatLines.length;
+  const maxScroll = Math.max(0, totalLines - chatViewportHeight);
+  const currentOffset = Math.min(chatScrollOffset, maxScroll);
+  const endIndex = Math.max(0, totalLines - currentOffset);
+  const startIndex = Math.max(0, endIndex - chatViewportHeight);
+  const visibleLines = allChatLines.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    if (chatScrollOffset > maxScroll) {
+      setChatScrollOffset(maxScroll);
+    }
+  }, [chatScrollOffset, maxScroll]);
+
   useInput((input, key) => {
     if (key.escape) {
       if (isSlashActive) {
@@ -141,23 +290,32 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     }
 
     // PageUp / PageDown chat scrolling when chat has focus
-    const isSplitActive = activeSidebar !== null;
     if (key.pageUp && (!isSplitActive || activeFocus === "chat")) {
-      setChatScrollOffset((prev) => Math.min(Math.max(0, messages.length - 1), prev + 3));
+      setChatScrollOffset((prev) => Math.min(maxScroll, prev + 5));
       return;
     }
     if (key.pageDown && (!isSplitActive || activeFocus === "chat")) {
-      setChatScrollOffset((prev) => Math.max(0, prev - 3));
+      setChatScrollOffset((prev) => Math.max(0, prev - 5));
       return;
     }
 
     // Ctrl+U / Ctrl+D scrolling
     if (key.ctrl && input === "u" && (!isSplitActive || activeFocus === "chat")) {
-      setChatScrollOffset((prev) => Math.min(Math.max(0, messages.length - 1), prev + 4));
+      setChatScrollOffset((prev) => Math.min(maxScroll, prev + 10));
       return;
     }
     if (key.ctrl && input === "d" && (!isSplitActive || activeFocus === "chat")) {
-      setChatScrollOffset((prev) => Math.max(0, prev - 4));
+      setChatScrollOffset((prev) => Math.max(0, prev - 10));
+      return;
+    }
+
+    // Ctrl+B / Ctrl+F (vim-style scrolling)
+    if (key.ctrl && input === "b" && (!isSplitActive || activeFocus === "chat")) {
+      setChatScrollOffset((prev) => Math.min(maxScroll, prev + 10));
+      return;
+    }
+    if (key.ctrl && input === "f" && (!isSplitActive || activeFocus === "chat")) {
+      setChatScrollOffset((prev) => Math.max(0, prev - 10));
       return;
     }
 
@@ -184,9 +342,9 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       }
     }
 
-    // When not typing, Up/Down arrows scroll chat
+    // When not typing, Up/Down arrows scroll chat line-by-line
     if (key.upArrow && !isSlashActive && inputText === "" && (!isSplitActive || activeFocus === "chat")) {
-      setChatScrollOffset((prev) => Math.min(Math.max(0, messages.length - 1), prev + 1));
+      setChatScrollOffset((prev) => Math.min(maxScroll, prev + 1));
       return;
     }
     if (key.downArrow && !isSlashActive && inputText === "" && (!isSplitActive || activeFocus === "chat")) {
@@ -492,8 +650,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         ].join("\n");
       }
     } else if (rawCmd === "/top" || rawCmd === "top" || rawCmd === "/scroll top") {
-      setChatScrollOffset(Math.max(0, messages.length - 1));
-      reply = "Scrolled to the top of the chat transcript. Press PgDn, ↓, or Esc to return.";
+      setChatScrollOffset(maxScroll);
+      reply = `Scrolled to the top of the chat transcript (line 1 of ${totalLines}). Press PgDn, ↓, or Esc to return.`;
     } else if (rawCmd === "/bottom" || rawCmd === "bottom" || rawCmd === "/scroll bottom") {
       setChatScrollOffset(0);
       reply = "Returned to the latest live messages at the bottom.";
@@ -522,7 +680,9 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     ]);
     setInputText("");
     setStatusText("Ready");
-    setChatScrollOffset(0);
+    if (rawCmd !== "/top" && rawCmd !== "top" && rawCmd !== "/scroll top") {
+      setChatScrollOffset(0);
+    }
     setActiveFocus("chat");
   }
 
@@ -627,30 +787,13 @@ Behavior Guidelines:
     );
   }
 
-  const { stdout } = useStdout();
-  const termCols = stdout?.columns || process.stdout.columns || 120;
-  const termRows = stdout?.rows || process.stdout.rows || 36;
-  const isSplitActive = activeSidebar !== null;
-  const splitLeftWidth = Math.floor(termCols * 0.52);
-  const splitRightWidth = termCols - splitLeftWidth - 2;
-  const fullHeight = Math.max(20, termRows - 3);
-  const activeLineWidth = Math.max(24, (isSplitActive ? splitLeftWidth : termCols) - 4);
-
   const modelBadge = config?.model || "gemini-2.5-flash";
-
-  // Chat scrolling viewport calculations
-  const visibleMsgCapacity = isSplitActive ? 6 : 9;
-  const maxScroll = Math.max(0, messages.length - 1);
-  const currentOffset = Math.min(chatScrollOffset, maxScroll);
-  const endIndex = Math.max(1, messages.length - currentOffset);
-  const startIndex = Math.max(0, endIndex - visibleMsgCapacity);
-  const visibleMessages = messages.slice(startIndex, endIndex);
 
   const mainContent = (
     <Box
       flexDirection="column"
-      height={isSplitActive ? fullHeight : undefined}
-      justifyContent={isSplitActive ? "space-between" : undefined}
+      height={fullHeight}
+      justifyContent="space-between"
       paddingY={0}
     >
       <Box flexDirection="column">
@@ -704,72 +847,86 @@ Behavior Guidelines:
           <Text color={theme.colors.retroSlateDark}>esc to exit</Text>
         </Box>
 
-        {/* Divider */}
-        <Text color={theme.colors.retroBlue}>{"─".repeat(activeLineWidth)}</Text>
-
-        {/* Scrolled History Alert Banner */}
-        {currentOffset > 0 && (
-          <Box
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            paddingX={1}
-            borderStyle="single"
-            borderColor={theme.colors.retroAmberBright}
-            marginBottom={1}
-          >
-            <Text color={theme.colors.retroAmberBright} bold>
-              ↑ SCROLLED HISTORY (Viewing past messages {startIndex + 1}–{endIndex} of {messages.length})
+        {/* Divider / Scrolled History Indicator */}
+        {currentOffset > 0 ? (
+          <Box flexDirection="row" justifyContent="space-between">
+            <Text color={theme.colors.retroAmberBright} bold wrap="truncate">
+              ── ↑ SCROLLED [lines {startIndex + 1}–{endIndex} of {totalLines}] ──
             </Text>
-            <Text color={theme.colors.retroSlateDark}>
+            <Text color={theme.colors.retroSlateDark} wrap="truncate">
               PgDn / ↓ or Esc for latest
             </Text>
           </Box>
+        ) : (
+          <Text color={theme.colors.retroBlue}>{"─".repeat(activeLineWidth)}</Text>
         )}
 
         {/* Messages Stream */}
-        <Box flexDirection="column" paddingY={0}>
-          {visibleMessages.map((m) => {
-          if (m.role === "system") {
+        <Box flexDirection="column" height={chatViewportHeight} overflow="hidden">
+          {visibleLines.map((line) => {
+            if (line.role === "blank") {
+              return (
+                <Box key={line.id} height={1}>
+                  <Text> </Text>
+                </Box>
+              );
+            }
+            if (line.role === "system") {
+              return (
+                <Box key={line.id} height={1}>
+                  <Text color={theme.colors.retroSlateDark} wrap="truncate">
+                    {line.text}
+                  </Text>
+                </Box>
+              );
+            }
+            if (line.role === "user") {
+              if (line.isHeader) {
+                return (
+                  <Box key={line.id} height={1} flexDirection="row">
+                    <Text color={theme.colors.retroCyanBright} bold>
+                      ❯ Intern:{" "}
+                    </Text>
+                    <Text color={theme.colors.white} wrap="truncate">
+                      {line.text}
+                    </Text>
+                  </Box>
+                );
+              }
+              return (
+                <Box key={line.id} height={1} paddingLeft={10}>
+                  <Text color={theme.colors.white} wrap="truncate">
+                    {line.text}
+                  </Text>
+                </Box>
+              );
+            }
+            // Assistant / Lil-Zila
+            if (line.isHeader) {
+              return (
+                <Box key={line.id} height={1} flexDirection="row" gap={1}>
+                  <Text color={theme.colors.retroBlueBright} bold>
+                    🤖 Lil-Zila:
+                  </Text>
+                </Box>
+              );
+            }
             return (
-              <Box key={m.id} marginY={0}>
-                <Text color={theme.colors.retroSlateDark}>
-                  ℹ {m.content}
+              <Box key={line.id} height={1} paddingLeft={3}>
+                <Text color={theme.colors.retroWhite} wrap="truncate">
+                  {line.text}
                 </Text>
               </Box>
             );
-          }
-          if (m.role === "user") {
-            return (
-              <Box key={m.id} marginTop={1} flexDirection="row">
-                <Text color={theme.colors.retroCyanBright} bold>
-                  ❯ Intern:{" "}
-                </Text>
-                <Text color={theme.colors.white}>{m.content}</Text>
-              </Box>
-            );
-          }
-          return (
-            <Box key={m.id} marginTop={1} flexDirection="column">
-              <Box flexDirection="row" gap={1}>
-                <Text color={theme.colors.retroBlueBright} bold>
-                  🤖 Lil-Zila:
-                </Text>
-              </Box>
-              <Box paddingLeft={3}>
-                <Text color={theme.colors.retroWhite}>{m.content}</Text>
-              </Box>
-            </Box>
-          );
-        })}
+          })}
 
-        {isThinking && (
-          <Box marginTop={1} paddingLeft={3}>
-            <ZigexLoader suffix="analyzing workspace & reasoning" />
-          </Box>
-        )}
+          {isThinking && (
+            <Box height={1} paddingLeft={3}>
+              <ZigexLoader suffix="analyzing workspace & reasoning" />
+            </Box>
+          )}
+        </Box>
       </Box>
-    </Box>
 
     {/* Bottom Input Area */}
     <Box flexDirection="column">
@@ -854,14 +1011,14 @@ Behavior Guidelines:
         <Text color={theme.colors.retroSlateDark}>
           {isSplitActive
             ? (activeFocus === "chat"
-                ? "FOCUS: CHAT · Tab switch to sidebar · PgUp/PgDn scroll chat · /close hide"
-                : "FOCUS: SIDEBAR · Tab switch to chat · PgUp/PgDn scroll sidebar · /close hide")
-            : "type /help · /leaderboard · /group · /plan · PgUp/PgDn scroll chat · esc exit"}
+                ? "FOCUS: CHAT · Tab sidebar · PgUp/PgDn / ↑ / ↓ scroll chat · /close hide"
+                : "FOCUS: SIDEBAR · Tab chat · PgUp/PgDn / ↑ / ↓ scroll sidebar · /close hide")
+            : "type /help · /leaderboard · /group · /plan · PgUp/PgDn / ↑ / ↓ scroll chat · esc exit"}
         </Text>
         <Box flexDirection="row" gap={1}>
           {currentOffset > 0 && (
             <Text color={theme.colors.retroAmberBright} bold>
-              ↑ Scrolled ({currentOffset})
+              ↑ Scrolled ({currentOffset}L)
             </Text>
           )}
           <Text color={statusText === "Error" ? theme.colors.error : theme.colors.retroGreenBright}>
