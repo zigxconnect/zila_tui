@@ -4,17 +4,26 @@ import { theme } from "../ui/theme.js";
 import { readContributorLogbook, syncContributorLogbookFromGitHub } from "../utils/logbookEnricher.js";
 import { loadGitHubAuth } from "../utils/githubAuth.js";
 import { loadAuth } from "../utils/auth.js";
+import {
+  SidebarContainer,
+  SidebarTwoColumnRow,
+  SidebarDivider,
+  SidebarEmptyRows,
+  padVisual,
+} from "../ui/sidebarLayout.js";
 
 interface LogbookSidebarProps {
   width?: number;
   height?: number;
   scrollOffset?: number;
+  isFocused?: boolean;
 }
 
 export const LogbookSidebar: React.FC<LogbookSidebarProps> = ({
   width,
   height,
   scrollOffset: initialScrollOffset = 0,
+  isFocused = true,
 }) => {
   const { stdout } = useStdout();
   const termCols = stdout?.columns || process.stdout.columns || 120;
@@ -31,22 +40,26 @@ export const LogbookSidebar: React.FC<LogbookSidebarProps> = ({
   }>({ path: "", content: "", exists: false });
 
   useEffect(() => {
-    const gh = loadGitHubAuth();
-    const zigAuth = loadAuth();
-    const candidateUser =
-      gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
-    const data = readContributorLogbook(candidateUser);
-    setLogbookData(data);
+    try {
+      const gh = loadGitHubAuth();
+      const zigAuth = loadAuth();
+      const candidateUser =
+        gh?.username || (zigAuth?.email ? zigAuth.email.split("@")[0] : undefined);
+      const data = readContributorLogbook(candidateUser);
+      setLogbookData(data);
 
-    if (!data.exists || !data.content || !data.content.includes("### 📝 Submission:")) {
-      syncContributorLogbookFromGitHub(candidateUser)
-        .then((res) => {
-          if (res.synced > 0) {
-            const refreshed = readContributorLogbook(candidateUser);
-            setLogbookData(refreshed);
-          }
-        })
-        .catch(() => {});
+      if (!data.exists || !data.content || !data.content.includes("### 📝 Submission:")) {
+        syncContributorLogbookFromGitHub(candidateUser)
+          .then((res) => {
+            if (res.synced > 0) {
+              const refreshed = readContributorLogbook(candidateUser);
+              setLogbookData(refreshed);
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // Silently handle auth/file errors
     }
   }, []);
 
@@ -63,16 +76,19 @@ export const LogbookSidebar: React.FC<LogbookSidebarProps> = ({
         "  zila submit-task",
         "",
         `Expected File Path:`,
-        `  ${logbookData.path.slice(-44)}`,
+        `  ${(logbookData.path || "contributors/default/logbook.md").slice(-40)}`,
         "",
         "---",
-        "Run task evaluations to record your score & supervisor rubrics here.",
+        "Run task evaluations to record score & rubrics here.",
       ];
 
-  // Number of lines that fit inside content viewport
-  const maxVisibleLines = Math.max(4, effectiveHeight - 5);
+  const innerWidth = Math.max(20, effectiveWidth - 2);
+  const innerHeight = Math.max(8, effectiveHeight - 2);
+  const fixedChrome = 4;
+  const maxVisibleLines = Math.max(3, innerHeight - fixedChrome);
 
   useInput((_input, key) => {
+    if (!isFocused) return;
     if (key.pageUp) {
       setScrollOffset((prev) => Math.max(0, prev - 8));
     } else if (key.pageDown) {
@@ -83,99 +99,86 @@ export const LogbookSidebar: React.FC<LogbookSidebarProps> = ({
 
   const visibleLines = rawLines.slice(scrollOffset, scrollOffset + maxVisibleLines);
   const lineNumGutterWidth = Math.max(3, String(rawLines.length).length + 1);
-  const innerWidth = Math.max(20, effectiveWidth - 2);
 
   // Shorten file path for title bar
   const displayFileName = logbookData.path
-    ? logbookData.path.split("/").slice(-2).join("/")
-    : "contributors/.../logbook.md";
+    ? logbookData.path.split("/").slice(-1)[0] || "logbook.md"
+    : "logbook.md";
+
+  const panelBg = theme.colors.sidebarBg;
+  const textColWidth = Math.max(10, innerWidth - 2 - lineNumGutterWidth - 1);
 
   return (
-    <Box
-      flexDirection="column"
-      width={effectiveWidth}
-      height={effectiveHeight}
-      borderStyle="round"
-      borderColor={theme.colors.retroBlueBright}
-      paddingX={1}
-      paddingY={0}
-    >
-      {/* Claude Code Style Top Editor Bar */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroCyanBright} bold>
-            📄 {displayFileName}
-          </Text>
-        </Box>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright} bold>
-            ● AUDIT LEDGER
-          </Text>
-        </Box>
-      </Box>
+    <SidebarContainer width={effectiveWidth} height={effectiveHeight} isFocused={isFocused}>
+      {/* 1. Header Bar */}
+      <SidebarTwoColumnRow
+        left={{ text: `📄 ${displayFileName}`, color: theme.colors.retroCyanBright, bold: true }}
+        right={{ text: "● AUDIT LEDGER", color: theme.colors.retroGreenBright, bold: true }}
+        width={innerWidth}
+      />
 
-      {/* Editor Subheader: format and lines count */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Text color={theme.colors.retroSlateDark} wrap="truncate">
-          Markdown · UTF-8
-        </Text>
-        <Text color={theme.colors.retroSlateDark}>
-          {rawLines.length} lines
-        </Text>
-      </Box>
+      {/* 2. Subheader Bar */}
+      <SidebarTwoColumnRow
+        left={{ text: "Markdown · UTF-8", color: theme.colors.retroSlateDark }}
+        right={{ text: `${rawLines.length} lines`, color: theme.colors.retroSlateDark }}
+        width={innerWidth}
+      />
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>
-        {"─".repeat(innerWidth)}
-      </Text>
+      {/* 3. Subtle Divider */}
+      <SidebarDivider width={innerWidth} />
 
-      {/* File Stream Content with Line Numbers Gutter */}
-      <Box flexDirection="column" flexGrow={1} overflow="hidden">
-        {visibleLines.map((line, idx) => {
-          const actualLineNum = scrollOffset + idx + 1;
-          let color: string = theme.colors.retroSlate;
-          let bold = false;
+      {/* 4. File Stream Lines */}
+      {visibleLines.map((line, idx) => {
+        const actualLineNum = scrollOffset + idx + 1;
+        let color: string = theme.colors.retroSlate;
+        let bold = false;
 
-          if (line.startsWith("#")) {
-            color = theme.colors.retroWhite;
-            bold = true;
-          } else if (line.includes("PASS") || line.includes("[x]")) {
-            color = theme.colors.retroGreenBright;
-          } else if (line.includes("FAIL") || line.includes("[ ]")) {
-            color = theme.colors.error;
-          } else if (line.startsWith("- **") || line.startsWith("###")) {
-            color = theme.colors.retroCyanBright;
-          } else if (line.startsWith("---")) {
-            color = theme.colors.retroBlue;
-          }
+        if (line.startsWith("#")) {
+          color = theme.colors.retroWhite;
+          bold = true;
+        } else if (line.includes("PASS") || line.includes("[x]")) {
+          color = theme.colors.retroGreenBright;
+        } else if (line.includes("FAIL") || line.includes("[ ]")) {
+          color = theme.colors.error;
+        } else if (line.startsWith("- **") || line.startsWith("###")) {
+          color = theme.colors.retroCyanBright;
+        } else if (line.startsWith("---")) {
+          color = theme.colors.sidebarDivider;
+        }
 
-          return (
-            <Box key={actualLineNum} flexDirection="row" gap={1}>
-              <Text color={theme.colors.retroSlateDark} dimColor>
-                {String(actualLineNum).padStart(lineNumGutterWidth, " ")}│
-              </Text>
-              <Text color={color} bold={bold} wrap="truncate">
-                {line || " "}
-              </Text>
-            </Box>
-          );
-        })}
-      </Box>
+        const gutterStr = String(actualLineNum).padStart(lineNumGutterWidth - 1, " ") + "│";
+        const contentStr = padVisual(line || " ", textColWidth);
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>
-        {"─".repeat(innerWidth)}
-      </Text>
+        return (
+          <Box key={actualLineNum} flexDirection="row" width={innerWidth}>
+            <Text backgroundColor={panelBg}> </Text>
+            <Text backgroundColor={panelBg} color={theme.colors.retroSlateDark} dimColor>
+              {gutterStr}
+            </Text>
+            <Text backgroundColor={panelBg}> </Text>
+            <Text backgroundColor={panelBg} color={color} bold={bold}>
+              {contentStr}
+            </Text>
+            <Text backgroundColor={panelBg}> </Text>
+          </Box>
+        );
+      })}
 
-      {/* Claude Code Style Editor Status Footer */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Text color={theme.colors.retroSlateDark}>
-          Ln {scrollOffset + 1}-{Math.min(rawLines.length, scrollOffset + maxVisibleLines)} of {rawLines.length}
-        </Text>
-        <Text color={theme.colors.retroCyanBright} dimColor>
-          'close logbook' to hide · PgUp/PgDn
-        </Text>
-      </Box>
-    </Box>
+      {/* Fill empty lines to maintain 100% solid VS Code background across the full viewport */}
+      <SidebarEmptyRows count={Math.max(0, maxVisibleLines - visibleLines.length)} width={innerWidth} />
+
+      {/* 5. Clean Status Footer */}
+      <SidebarTwoColumnRow
+        left={{
+          text: `Ln ${scrollOffset + 1}-${Math.min(
+            rawLines.length,
+            scrollOffset + maxVisibleLines
+          )} of ${rawLines.length}`,
+          color: theme.colors.retroSlateDark,
+        }}
+        right={{ text: "'close' hide · PgUp/PgDn", color: theme.colors.retroSlateDark }}
+        width={innerWidth}
+      />
+    </SidebarContainer>
   );
 };

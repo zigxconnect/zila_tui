@@ -6,6 +6,8 @@ import { PassThrough } from "node:stream";
 import { LeaderboardSidebar } from "../dist/screens/LeaderboardSidebar.js";
 import { GroupSidebar } from "../dist/screens/GroupSidebar.js";
 import { CohortsSidebar } from "../dist/screens/CohortsSidebar.js";
+import { LogbookSidebar } from "../dist/screens/LogbookSidebar.js";
+import { LilAgentShellScreen } from "../dist/screens/LilAgentShellScreen.js";
 
 test("LeaderboardSidebar - renders header and table structure", () => {
   const stdout = new PassThrough() as NodeJS.WriteStream;
@@ -63,5 +65,42 @@ test("CohortsSidebar - renders enrolled programs header structure", () => {
 
   assert.ok(rendered.includes("ENROLLED PROGRAMS"));
   assert.ok(rendered.includes("SESSIONS"));
+  instance.unmount();
+});
+
+test("LogbookSidebar - renders audit ledger header and lines structure", () => {
+  const stdout = new PassThrough() as NodeJS.WriteStream;
+  stdout.columns = 120;
+  stdout.rows = 30;
+  let rendered = "";
+  stdout.on("data", (chunk: Buffer) => { rendered += chunk.toString(); });
+
+  const instance = render(React.createElement(LogbookSidebar, { width: 50, height: 20, isFocused: true }), {
+    stdout,
+    debug: true,
+    patchConsole: false,
+  });
+
+  assert.ok(rendered.includes("AUDIT LEDGER"));
+  assert.ok(rendered.includes("Markdown"));
+  instance.unmount();
+});
+
+test("LilAgentShellScreen - renders autonomous developer shell with chat navigation", () => {
+  const stdout = new PassThrough() as NodeJS.WriteStream;
+  stdout.columns = 120;
+  stdout.rows = 30;
+  let rendered = "";
+  stdout.on("data", (chunk: Buffer) => { rendered += chunk.toString(); });
+
+  const instance = render(React.createElement(LilAgentShellScreen, { onClose: () => {} }), {
+    stdout,
+    debug: true,
+    patchConsole: false,
+  });
+
+  assert.ok(rendered.includes("lil-agent"));
+  assert.ok(rendered.includes("autonomous developer shell"));
+  assert.ok(rendered.includes("Connected to Zigex Autonomous AI Agent"));
   instance.unmount();
 });

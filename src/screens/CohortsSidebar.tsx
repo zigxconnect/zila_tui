@@ -2,19 +2,41 @@ import React, { useState, useEffect } from "react";
 import { Box, Text, useStdout, useInput } from "ink";
 import { theme } from "../ui/theme.js";
 import { ZigexLoader } from "../ui/Spinner.js";
-import { fetchCohortOptions, CohortOption } from "./CohortPickerScreen.js";
+import { zilaApi } from "../utils/auth.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
+import {
+  SidebarContainer,
+  SidebarTwoColumnRow,
+  SidebarDivider,
+  SidebarLine,
+  SidebarEmptyRows,
+} from "../ui/sidebarLayout.js";
 
 interface CohortsSidebarProps {
   width?: number;
   height?: number;
   scrollOffset?: number;
+  isFocused?: boolean;
+}
+
+interface CohortItem {
+  id: string;
+  name: string;
+  department?: string;
+  level?: string;
+  isPaid?: boolean;
+  tasksSubmittedCount?: number;
+  freeTasksMax?: number;
+  supervisorName?: string;
+  role?: string;
+  status?: string;
 }
 
 export const CohortsSidebar: React.FC<CohortsSidebarProps> = ({
   width,
   height,
   scrollOffset: initialScrollOffset = 0,
+  isFocused = true,
 }) => {
   const { stdout } = useStdout();
   const termCols = stdout?.columns || process.stdout.columns || 120;
@@ -25,23 +47,31 @@ export const CohortsSidebar: React.FC<CohortsSidebarProps> = ({
 
   const [scrollOffset, setScrollOffset] = useState<number>(initialScrollOffset);
   const [loading, setLoading] = useState(true);
-  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
-
+  const [cohorts, setCohorts] = useState<CohortItem[]>([]);
   const activeCohort = getActiveCohort();
 
   useEffect(() => {
     let active = true;
-    fetchCohortOptions()
-      .then((items) => {
+    zilaApi<any>("/cohorts")
+      .then((data) => {
         if (!active) return;
-        setCohorts(items);
+        const list: CohortItem[] = (Array.isArray(data) ? data : data?.cohorts || []).map((c: any) => ({
+          id: c.id || c._id,
+          name: c.name || "Cohort",
+          department: c.department || c.track,
+          level: c.level,
+          isPaid: Boolean(c.isPaid || c.hasPaid),
+          tasksSubmittedCount: c.tasksSubmittedCount || c.evaluationsCount || 0,
+          freeTasksMax: c.freeTasksMax ?? 5,
+          supervisorName: c.supervisorName || c.supervisor?.name,
+          role: c.role,
+          status: c.status,
+        }));
+        setCohorts(list);
         setLoading(false);
       })
       .catch(() => {
         if (!active) return;
-        if (activeCohort) {
-          setCohorts([activeCohort]);
-        }
         setLoading(false);
       });
 
@@ -50,9 +80,14 @@ export const CohortsSidebar: React.FC<CohortsSidebarProps> = ({
     };
   }, []);
 
-  const maxVisibleCohorts = Math.max(2, Math.floor((effectiveHeight - 6) / 3));
+  const innerWidth = Math.max(20, effectiveWidth - 2);
+  const innerHeight = Math.max(8, effectiveHeight - 2);
+  const fixedChrome = 4;
+  const availableContentRows = Math.max(3, innerHeight - fixedChrome);
+  const maxVisibleCohorts = Math.max(1, Math.floor(availableContentRows / 3));
 
   useInput((_input, key) => {
+    if (!isFocused) return;
     if (key.pageUp) {
       setScrollOffset((prev) => Math.max(0, prev - 2));
     } else if (key.pageDown) {
@@ -62,124 +97,113 @@ export const CohortsSidebar: React.FC<CohortsSidebarProps> = ({
   });
 
   const visibleCohorts = cohorts.slice(scrollOffset, scrollOffset + maxVisibleCohorts);
-  const innerWidth = Math.max(20, effectiveWidth - 2);
+  let contentRowsCount = 0;
 
   return (
-    <Box
-      flexDirection="column"
-      width={effectiveWidth}
-      height={effectiveHeight}
-      borderStyle="round"
-      borderColor={theme.colors.retroBlueBright}
-      paddingX={1}
-      paddingY={0}
-    >
-      {/* Top Header */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroCyanBright} bold wrap="truncate">
-            🎓 ENROLLED PROGRAMS
-          </Text>
-        </Box>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright} bold>
-            ● SESSIONS
-          </Text>
-        </Box>
-      </Box>
+    <SidebarContainer width={effectiveWidth} height={effectiveHeight} isFocused={isFocused}>
+      {/* 1. Top Header */}
+      <SidebarTwoColumnRow
+        left={{ text: "🎓 ENROLLED PROGRAMS", color: theme.colors.retroCyanBright, bold: true }}
+        right={{ text: "● SESSIONS", color: theme.colors.retroGreenBright, bold: true }}
+        width={innerWidth}
+      />
 
-      {/* Subheader */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Text color={theme.colors.retroSlateDark} wrap="truncate">
-          Zigex Placements & Cohorts
-        </Text>
-        <Text color={theme.colors.retroSlateDark}>
-          {cohorts.length} enrolled
-        </Text>
-      </Box>
+      {/* 2. Subheader */}
+      <SidebarTwoColumnRow
+        left={{ text: "Zigex Placements & Cohorts", color: theme.colors.retroSlateDark }}
+        right={{ text: `${cohorts.length} enrolled`, color: theme.colors.retroSlateDark }}
+        width={innerWidth}
+      />
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>
-        {"─".repeat(innerWidth)}
-      </Text>
+      {/* 3. Subtle Divider */}
+      <SidebarDivider width={innerWidth} />
 
-      {/* Cohorts List */}
-      <Box flexDirection="column" flexGrow={1} overflow="hidden">
-        {loading && (
-          <Box paddingY={1}>
-            <ZigexLoader suffix="enrolled programs" />
-          </Box>
-        )}
-
-        {!loading && cohorts.length === 0 && (
-          <Box flexDirection="column" paddingY={1}>
-            <Text color={theme.colors.retroSlateDark}>
-              No enrolled programs found.
-            </Text>
-            <Text color={theme.colors.retroSlateDark}>
-              Apply in Zigex App student dashboard to enroll.
+      {/* 4. Stream Content */}
+      {loading && (
+        <>
+          {(() => { contentRowsCount += 1; return null; })()}
+          <Box flexDirection="row" width={innerWidth}>
+            <Text backgroundColor={theme.colors.sidebarBg}> </Text>
+            <ZigexLoader suffix="enrolled programs ..." />
+            <Text backgroundColor={theme.colors.sidebarBg}>
+              {" ".repeat(Math.max(0, innerWidth - 30))}
             </Text>
           </Box>
-        )}
+        </>
+      )}
 
-        {!loading &&
-          visibleCohorts.map((c) => {
-            const isActive = activeCohort && activeCohort.id === c.id;
-            const isPaid = Boolean(c.isPaid);
-            const used = c.tasksSubmittedCount || 0;
-            const maxFree = c.freeTasksMax ?? 5;
+      {!loading && cohorts.length === 0 && (
+        <>
+          {(() => { contentRowsCount += 2; return null; })()}
+          <SidebarLine
+            text="No enrolled programs found."
+            width={innerWidth}
+            color={theme.colors.retroSlateDark}
+          />
+          <SidebarLine
+            text="Apply in Zigex App student dashboard to enroll."
+            width={innerWidth}
+            color={theme.colors.retroSlateDark}
+          />
+        </>
+      )}
 
-            return (
-              <Box key={c.id} flexDirection="column" marginY={0} paddingY={0}>
-                <Box flexDirection="row" gap={1}>
-                  {isActive && (
-                    <Text color={theme.colors.retroGreenBright} bold>
-                      [ACTIVE]
-                    </Text>
-                  )}
-                  <Text color={isActive ? theme.colors.retroCyanBright : theme.colors.white} bold wrap="truncate">
-                    {c.name}
-                  </Text>
-                </Box>
-                <Box flexDirection="row" gap={1} paddingLeft={isActive ? 2 : 1}>
-                  <Text color={theme.colors.retroSlateDark}>
-                    Track:
-                  </Text>
-                  <Text color={theme.colors.retroSlate}>
-                    {(c.department || "General").toUpperCase()} · {(c.level || "intermediate").toUpperCase()}
-                  </Text>
-                  <Text color={theme.colors.retroSlateDark}>·</Text>
-                  <Text color={isPaid ? theme.colors.retroGreenBright : theme.colors.retroAmberBright} bold>
-                    {isPaid ? "Tuition: Paid" : `Trial: ${used}/${maxFree} used`}
-                  </Text>
-                </Box>
-                <Box flexDirection="row" gap={1} paddingLeft={isActive ? 2 : 1} marginBottom={1}>
-                  <Text color={theme.colors.retroSlateDark}>
-                    Supervisor:
-                  </Text>
-                  <Text color={theme.colors.retroSlate} wrap="truncate">
-                    {c.supervisorName || "Assigned Supervisor"}
-                  </Text>
-                </Box>
-              </Box>
-            );
-          })}
-      </Box>
+      {!loading &&
+        visibleCohorts.map((c) => {
+          contentRowsCount += 3;
+          const isActive = activeCohort && activeCohort.id === c.id;
+          const isPaid = Boolean(c.isPaid);
+          const used = c.tasksSubmittedCount || 0;
+          const maxFree = c.freeTasksMax ?? 5;
+          const prefix = isActive ? "[ACTIVE] " : "• ";
+          const title = `${prefix}${c.name}`;
+          const trackInfo = `${(c.department || "General").toUpperCase()} · ${(c.level || "intermediate").toUpperCase()}`;
+          const tuitionInfo = isPaid ? "Tuition: Paid" : `Trial: ${used}/${maxFree} used`;
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>
-        {"─".repeat(innerWidth)}
-      </Text>
+          return (
+            <React.Fragment key={c.id}>
+              {/* Row A: Title */}
+              <SidebarLine
+                text={title}
+                width={innerWidth}
+                color={isActive ? theme.colors.retroCyanBright : theme.colors.white}
+                bold
+              />
+              {/* Row B: Track & Tuition Status */}
+              <SidebarTwoColumnRow
+                left={{ text: `  Track: ${trackInfo}`, color: theme.colors.retroSlate }}
+                right={{
+                  text: tuitionInfo,
+                  color: isPaid ? theme.colors.retroGreenBright : theme.colors.retroAmberBright,
+                  bold: true,
+                }}
+                width={innerWidth}
+              />
+              {/* Row C: Supervisor */}
+              <SidebarLine
+                text={`  Supervisor: ${c.supervisorName || "Assigned Supervisor"}`}
+                width={innerWidth}
+                color={theme.colors.retroSlateDark}
+              />
+            </React.Fragment>
+          );
+        })}
 
-      {/* Status Footer */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Text color={theme.colors.retroSlateDark}>
-          Programs {cohorts.length ? scrollOffset + 1 : 0}-{Math.min(cohorts.length, scrollOffset + maxVisibleCohorts)} of {cohorts.length}
-        </Text>
-        <Text color={theme.colors.retroCyanBright} dimColor>
-          'close' to hide · PgUp/PgDn
-        </Text>
-      </Box>
-    </Box>
+      {/* Fill empty rows to guarantee 100% solid VS Code background coverage */}
+      <SidebarEmptyRows count={Math.max(0, innerHeight - fixedChrome - contentRowsCount)} width={innerWidth} />
+
+      {/* 5. Clean Status Footer */}
+      <SidebarTwoColumnRow
+        left={{
+          text: `Programs ${cohorts.length ? scrollOffset + 1 : 0}-${Math.min(
+            cohorts.length,
+            scrollOffset + maxVisibleCohorts
+          )} of ${cohorts.length}`,
+          color: theme.colors.retroSlateDark,
+        }}
+        right={{ text: "'close' hide · PgUp/PgDn", color: theme.colors.retroSlateDark }}
+        width={innerWidth}
+      />
+    </SidebarContainer>
   );
 };

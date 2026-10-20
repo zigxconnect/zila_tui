@@ -1,29 +1,39 @@
 import React, { useState, useEffect } from "react";
-import { Box, Text, useStdout, useInput } from "ink";
+import { useStdout, useInput } from "ink";
 import { theme } from "../ui/theme.js";
-import { ZigexLoader } from "../ui/Spinner.js";
-import { loadAuth, zilaApi } from "../utils/auth.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
+import { loadAuth, zilaApi } from "../utils/auth.js";
+import {
+  SidebarContainer,
+  SidebarTwoColumnRow,
+  SidebarDivider,
+  SidebarTableRow,
+  SidebarLine,
+  SidebarLoadingRow,
+  SidebarEmptyRows,
+} from "../ui/sidebarLayout.js";
 
 interface GroupSidebarProps {
   width?: number;
   height?: number;
   scrollOffset?: number;
+  isFocused?: boolean;
 }
 
 interface PeerItem {
-  id?: string;
+  id: string;
   name: string;
   email: string;
-  role?: string;
-  status?: string;
-  points?: number;
+  role: string;
+  status: string;
+  points: number;
 }
 
 export const GroupSidebar: React.FC<GroupSidebarProps> = ({
   width,
   height,
   scrollOffset: initialScrollOffset = 0,
+  isFocused = true,
 }) => {
   const { stdout } = useStdout();
   const termCols = stdout?.columns || process.stdout.columns || 120;
@@ -34,7 +44,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
 
   const [scrollOffset, setScrollOffset] = useState<number>(initialScrollOffset);
   const [loading, setLoading] = useState(true);
-  const [cohortName, setCohortName] = useState<string>("My Cohort");
+  const [cohortName, setCohortName] = useState<string>("Cohort Team");
   const [supervisor, setSupervisor] = useState<{ name: string; email?: string } | null>(null);
   const [peers, setPeers] = useState<PeerItem[]>([]);
 
@@ -42,7 +52,7 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
     let active = true;
     const activeCohort = getActiveCohort();
     const auth = loadAuth();
-    const myEmail = (auth?.email || "").toLowerCase();
+    const myEmail = auth?.email?.toLowerCase();
 
     const targetUrl = activeCohort?.id
       ? `/cohorts/${encodeURIComponent(activeCohort.id)}/chat-group`
@@ -94,9 +104,13 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
     };
   }, []);
 
-  const maxVisiblePeers = Math.max(3, effectiveHeight - 8);
+  const innerWidth = Math.max(20, effectiveWidth - 2);
+  const innerHeight = Math.max(8, effectiveHeight - 2);
+  const fixedChrome = 5 + (supervisor ? 1 : 0);
+  const maxVisiblePeers = Math.max(3, innerHeight - fixedChrome);
 
   useInput((_input, key) => {
+    if (!isFocused) return;
     if (key.pageUp) {
       setScrollOffset((prev) => Math.max(0, prev - 5));
     } else if (key.pageDown) {
@@ -106,151 +120,113 @@ export const GroupSidebar: React.FC<GroupSidebarProps> = ({
   });
 
   const visiblePeers = peers.slice(scrollOffset, scrollOffset + maxVisiblePeers);
-  const innerWidth = Math.max(20, effectiveWidth - 2);
 
+  // Exact column sizing
+  const availText = Math.max(12, innerWidth - 2);
   const idxWidth = 4;
   const statusWidth = 10;
-  const emailWidth = Math.max(14, Math.floor((innerWidth - idxWidth - statusWidth) * 0.5));
-  const nameWidth = Math.max(12, innerWidth - idxWidth - emailWidth - statusWidth - 4);
+  const remain = Math.max(10, availText - idxWidth - statusWidth);
+  const emailWidth = Math.max(10, Math.floor(remain * 0.45));
+  const nameWidth = Math.max(10, remain - emailWidth);
+
+  const contentRowsCount = loading
+    ? 1
+    : peers.length === 0
+    ? 2
+    : visiblePeers.length;
 
   return (
-    <Box
-      flexDirection="column"
-      width={effectiveWidth}
-      height={effectiveHeight}
-      borderStyle="round"
-      borderColor={theme.colors.retroBlueBright}
-      paddingX={1}
-      paddingY={0}
-    >
-      {/* Top Header */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroCyanBright} bold wrap="truncate">
-            👥 COHORT TEAM
-          </Text>
-        </Box>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright} bold>
-            ● PEER ROSTER
-          </Text>
-        </Box>
-      </Box>
+    <SidebarContainer width={effectiveWidth} height={effectiveHeight} isFocused={isFocused}>
+      {/* 1. Top Header */}
+      <SidebarTwoColumnRow
+        left={{ text: "👥 COHORT TEAM", color: theme.colors.retroCyanBright, bold: true }}
+        right={{ text: "● PEER ROSTER", color: theme.colors.retroGreenBright, bold: true }}
+        width={innerWidth}
+      />
 
-      {/* Subheader */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Text color={theme.colors.retroSlateDark} wrap="truncate">
-          {cohortName.slice(0, effectiveWidth - 18)}
-        </Text>
-        <Text color={theme.colors.retroSlateDark}>
-          {peers.length} active peers
-        </Text>
-      </Box>
+      {/* 2. Subheader */}
+      <SidebarTwoColumnRow
+        left={{ text: cohortName, color: theme.colors.retroSlateDark }}
+        right={{ text: `${peers.length} active peers`, color: theme.colors.retroSlateDark }}
+        width={innerWidth}
+      />
 
-      {/* Supervisor banner */}
+      {/* 3. Supervisor Banner (if present) */}
       {supervisor && (
-        <Box flexDirection="row" gap={1} marginTop={0}>
-          <Text color={theme.colors.retroAmberBright} bold>
-            Supervisor:
-          </Text>
-          <Text color={theme.colors.white} wrap="truncate">
-            {supervisor.name} {supervisor.email ? `<${supervisor.email}>` : ""}
-          </Text>
-        </Box>
+        <SidebarLine
+          text={`Supervisor: ${supervisor.name}${supervisor.email ? ` <${supervisor.email}>` : ""}`}
+          width={innerWidth}
+          color={theme.colors.retroAmberBright}
+          bold
+        />
       )}
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>
-        {"─".repeat(innerWidth)}
-      </Text>
+      {/* 4. Subtle Divider */}
+      <SidebarDivider width={innerWidth} />
 
-      {/* Table Column Headers */}
-      <Box flexDirection="row" gap={1}>
-        <Box width={idxWidth}>
-          <Text color={theme.colors.retroBlueBright} bold>
-            #
-          </Text>
-        </Box>
-        <Box width={nameWidth}>
-          <Text color={theme.colors.retroSlateDark}>
-            INTERN
-          </Text>
-        </Box>
-        <Box width={emailWidth}>
-          <Text color={theme.colors.retroSlateDark}>
-            EMAIL
-          </Text>
-        </Box>
-        <Box width={statusWidth}>
-          <Text color={theme.colors.retroSlateDark}>
-            STATUS
-          </Text>
-        </Box>
-      </Box>
+      {/* 5. Table Column Headers */}
+      <SidebarTableRow
+        columns={[
+          { text: "#", width: idxWidth, color: theme.colors.retroCyanBright, bold: true },
+          { text: "INTERN", width: nameWidth, color: theme.colors.retroSlateDark },
+          { text: "EMAIL", width: emailWidth, color: theme.colors.retroSlateDark },
+          { text: "STATUS", width: statusWidth, color: theme.colors.retroSlateDark },
+        ]}
+        width={innerWidth}
+      />
 
-      {/* Peer Rows */}
-      <Box flexDirection="column" flexGrow={1} overflow="hidden">
-        {loading && (
-          <Box paddingY={1}>
-            <ZigexLoader suffix="cohort team & peers" />
-          </Box>
-        )}
+      {/* 6. Content */}
+      {loading && (
+        <SidebarLoadingRow suffix="cohort team & peers" width={innerWidth} />
+      )}
 
-        {!loading && peers.length === 0 && (
-          <Box flexDirection="column" paddingY={1}>
-            <Text color={theme.colors.retroSlateDark}>
-              No other accepted interns in this track yet.
-            </Text>
-            <Text color={theme.colors.retroSlateDark}>
-              New group members will appear here as applications are approved.
-            </Text>
-          </Box>
-        )}
+      {!loading && peers.length === 0 && (
+        <>
+          <SidebarLine
+            text="No other accepted interns in this track yet."
+            width={innerWidth}
+            color={theme.colors.retroSlateDark}
+          />
+          <SidebarLine
+            text="New group members will appear here as approved."
+            width={innerWidth}
+            color={theme.colors.retroSlateDark}
+          />
+        </>
+      )}
 
-        {!loading &&
-          visiblePeers.map((peer, idx) => {
-            const actualIdx = scrollOffset + idx + 1;
-            return (
-              <Box key={peer.id || peer.email || actualIdx} flexDirection="row" gap={1}>
-                <Box width={idxWidth}>
-                  <Text color={theme.colors.retroSlateDark}>
-                    {actualIdx}
-                  </Text>
-                </Box>
-                <Box width={nameWidth}>
-                  <Text color={theme.colors.white} bold wrap="truncate">
-                    {peer.name.slice(0, nameWidth)}
-                  </Text>
-                </Box>
-                <Box width={emailWidth}>
-                  <Text color={theme.colors.retroSlate} wrap="truncate">
-                    {peer.email || "—"}
-                  </Text>
-                </Box>
-                <Box width={statusWidth}>
-                  <Text color={theme.colors.retroGreenBright} wrap="truncate">
-                    {peer.status || "Active"}
-                  </Text>
-                </Box>
-              </Box>
-            );
-          })}
-      </Box>
+      {!loading &&
+        visiblePeers.map((peer, idx) => {
+          const actualIdx = scrollOffset + idx + 1;
+          return (
+            <SidebarTableRow
+              key={peer.id || peer.email || actualIdx}
+              columns={[
+                { text: String(actualIdx), width: idxWidth, color: theme.colors.retroSlateDark },
+                { text: peer.name, width: nameWidth, color: theme.colors.white, bold: true },
+                { text: peer.email || "—", width: emailWidth, color: theme.colors.retroSlate },
+                { text: peer.status || "Active", width: statusWidth, color: theme.colors.retroGreenBright },
+              ]}
+              width={innerWidth}
+            />
+          );
+        })}
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>
-        {"─".repeat(innerWidth)}
-      </Text>
+      {/* Fill empty rows to guarantee 100% solid VS Code background coverage */}
+      <SidebarEmptyRows count={Math.max(0, innerHeight - fixedChrome - contentRowsCount)} width={innerWidth} />
 
-      {/* Status Footer */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Text color={theme.colors.retroSlateDark}>
-          Peers {peers.length ? scrollOffset + 1 : 0}-{Math.min(peers.length, scrollOffset + maxVisiblePeers)} of {peers.length}
-        </Text>
-        <Text color={theme.colors.retroCyanBright} dimColor>
-          'close' to hide · PgUp/PgDn
-        </Text>
-      </Box>
-    </Box>
+      {/* 7. Clean Status Footer */}
+      <SidebarTwoColumnRow
+        left={{
+          text: `Peers ${peers.length ? scrollOffset + 1 : 0}-${Math.min(
+            peers.length,
+            scrollOffset + maxVisiblePeers
+          )} of ${peers.length}`,
+          color: theme.colors.retroSlateDark,
+        }}
+        right={{ text: "'close' hide · PgUp/PgDn", color: theme.colors.retroSlateDark }}
+        width={innerWidth}
+      />
+    </SidebarContainer>
   );
 };

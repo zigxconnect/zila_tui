@@ -44,6 +44,8 @@ const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/submit-task", desc: "Launch automated task submission & PR evaluation pipeline" },
   { cmd: "/plan", desc: "View program enrollment, tuition plan & evaluation quota" },
   { cmd: "/quota", desc: "Check daily GitHub PR & tuition submission quota" },
+  { cmd: "/top", desc: "Jump to the very beginning of the chat transcript" },
+  { cmd: "/bottom", desc: "Jump to the latest live messages at the bottom" },
   { cmd: "/about", desc: "System telemetry, architecture & pair mentor profile" },
   { cmd: "/status", desc: "Check engine connection, git branch & active cohort" },
   { cmd: "/clear", desc: "Wipe terminal conversation history" },
@@ -52,7 +54,13 @@ const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
 ];
 
 export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClose }) => {
-  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([
+    {
+      id: "msg-0",
+      role: "system",
+      content: `Connected to Zigex Autonomous AI Agent · Engine: Active\nAsk questions about your code, debugging, or task instructions.`,
+    },
+  ]);
   const [inputText, setInputText] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [statusText, setStatusText] = useState("Ready");
@@ -60,6 +68,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
   const [activeSidebar, setActiveSidebar] = useState<SidebarMode>(null);
   const [activeModal, setActiveModal] = useState<ModalMode>(null);
+  const [chatScrollOffset, setChatScrollOffset] = useState<number>(0);
+  const [activeFocus, setActiveFocus] = useState<"chat" | "sidebar">("chat");
 
   const config = loadAgentConfig();
 
@@ -77,16 +87,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
   useEffect(() => {
     const ctx = extractWorkspaceContext();
     setWorkspaceContext(ctx);
-
-    const welcomeMsg = `Connected to Zigex Autonomous AI Agent · Engine: Active\nAsk questions about your code, debugging, or task instructions.`;
-
-    setMessages([
-      {
-        id: "msg-0",
-        role: "system",
-        content: welcomeMsg,
-      },
-    ]);
   }, []);
 
   useInput((input, key) => {
@@ -95,11 +95,42 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         setInputText("");
         return;
       }
+      if (chatScrollOffset > 0) {
+        setChatScrollOffset(0);
+        return;
+      }
       onClose();
       return;
     }
 
     if (isThinking) {
+      return;
+    }
+
+    // Tab key toggles focus between Chat and Sidebar when split view is active
+    if (key.tab && !isSlashActive && activeSidebar !== null) {
+      setActiveFocus((prev) => (prev === "chat" ? "sidebar" : "chat"));
+      return;
+    }
+
+    // PageUp / PageDown chat scrolling when chat has focus
+    const isSplitActive = activeSidebar !== null;
+    if (key.pageUp && (!isSplitActive || activeFocus === "chat")) {
+      setChatScrollOffset((prev) => Math.min(Math.max(0, messages.length - 1), prev + 3));
+      return;
+    }
+    if (key.pageDown && (!isSplitActive || activeFocus === "chat")) {
+      setChatScrollOffset((prev) => Math.max(0, prev - 3));
+      return;
+    }
+
+    // Ctrl+U / Ctrl+D scrolling
+    if (key.ctrl && input === "u" && (!isSplitActive || activeFocus === "chat")) {
+      setChatScrollOffset((prev) => Math.min(Math.max(0, messages.length - 1), prev + 4));
+      return;
+    }
+    if (key.ctrl && input === "d" && (!isSplitActive || activeFocus === "chat")) {
+      setChatScrollOffset((prev) => Math.max(0, prev - 4));
       return;
     }
 
@@ -124,6 +155,21 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         }
         return;
       }
+    }
+
+    // When not typing, Up/Down arrows scroll chat
+    if (key.upArrow && !isSlashActive && inputText === "" && (!isSplitActive || activeFocus === "chat")) {
+      setChatScrollOffset((prev) => Math.min(Math.max(0, messages.length - 1), prev + 1));
+      return;
+    }
+    if (key.downArrow && !isSlashActive && inputText === "" && (!isSplitActive || activeFocus === "chat")) {
+      setChatScrollOffset((prev) => Math.max(0, prev - 1));
+      return;
+    }
+
+    // Typing any character or backspace immediately returns focus to chat
+    if (activeFocus === "sidebar" && (input || key.backspace || key.delete)) {
+      setActiveFocus("chat");
     }
 
     if (key.return) {
@@ -384,9 +430,16 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         `  Recent Commits: ${workspaceContext?.recentCommits.length ? workspaceContext.recentCommits[0] : "none"}`,
         `  Exercise File: ${workspaceContext?.exerciseFile ? workspaceContext.exerciseFile.path : "None detected in workspace"}`,
       ].join("\n");
+    } else if (rawCmd === "/top" || rawCmd === "top" || rawCmd === "/scroll top") {
+      setChatScrollOffset(Math.max(0, messages.length - 1));
+      reply = "Scrolled to the top of the chat transcript. Press PgDn, ↓, or Esc to return.";
+    } else if (rawCmd === "/bottom" || rawCmd === "bottom" || rawCmd === "/scroll bottom") {
+      setChatScrollOffset(0);
+      reply = "Returned to the latest live messages at the bottom.";
     } else if (rawCmd === "/clear") {
       setMessages([]);
       setInputText("");
+      setChatScrollOffset(0);
       return;
     } else if (rawCmd === "/exit" || rawCmd === "/quit") {
       onClose();
@@ -406,6 +459,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
     ]);
     setInputText("");
     setStatusText("Ready");
+    setChatScrollOffset(0);
+    setActiveFocus("chat");
   }
 
   async function handleSend(prompt: string) {
@@ -520,6 +575,14 @@ Behavior Guidelines:
 
   const modelBadge = config?.model || "gemini-2.5-flash";
 
+  // Chat scrolling viewport calculations
+  const visibleMsgCapacity = isSplitActive ? 6 : 9;
+  const maxScroll = Math.max(0, messages.length - 1);
+  const currentOffset = Math.min(chatScrollOffset, maxScroll);
+  const endIndex = Math.max(1, messages.length - currentOffset);
+  const startIndex = Math.max(0, endIndex - visibleMsgCapacity);
+  const visibleMessages = messages.slice(startIndex, endIndex);
+
   const mainContent = (
     <Box
       flexDirection="column"
@@ -541,6 +604,18 @@ Behavior Guidelines:
             <Text color={theme.colors.white} bold>
               autonomous developer shell
             </Text>
+            {isSplitActive && (
+              <Text
+                color={
+                  activeFocus === "chat"
+                    ? theme.colors.retroGreenBright
+                    : theme.colors.retroSlateDark
+                }
+                bold={activeFocus === "chat"}
+              >
+                [{activeFocus === "chat" ? "FOCUSED" : "TAB"}]
+              </Text>
+            )}
           </Box>
           <Box flexDirection="row" gap={1}>
             <Text color={theme.colors.retroGreenBright}>●</Text>
@@ -569,9 +644,29 @@ Behavior Guidelines:
         {/* Divider */}
         <Text color={theme.colors.retroBlue}>{"─".repeat(activeLineWidth)}</Text>
 
+        {/* Scrolled History Alert Banner */}
+        {currentOffset > 0 && (
+          <Box
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            paddingX={1}
+            borderStyle="single"
+            borderColor={theme.colors.retroAmberBright}
+            marginBottom={1}
+          >
+            <Text color={theme.colors.retroAmberBright} bold>
+              ↑ SCROLLED HISTORY (Viewing past messages {startIndex + 1}–{endIndex} of {messages.length})
+            </Text>
+            <Text color={theme.colors.retroSlateDark}>
+              PgDn / ↓ or Esc for latest
+            </Text>
+          </Box>
+        )}
+
         {/* Messages Stream */}
         <Box flexDirection="column" paddingY={0}>
-          {messages.slice(isSplitActive ? -5 : -8).map((m) => {
+          {visibleMessages.map((m) => {
           if (m.role === "system") {
             return (
               <Box key={m.id} marginY={0}>
@@ -695,12 +790,21 @@ Behavior Guidelines:
       <Box flexDirection="row" justifyContent="space-between" marginTop={1} paddingX={1}>
         <Text color={theme.colors.retroSlateDark}>
           {isSplitActive
-            ? "type 'close' to hide sidebar · /help commands · esc exit"
-            : "type /help · /leaderboard · /group · /plan · esc exit"}
+            ? (activeFocus === "chat"
+                ? "FOCUS: CHAT · Tab switch to sidebar · PgUp/PgDn scroll chat · /close hide"
+                : "FOCUS: SIDEBAR · Tab switch to chat · PgUp/PgDn scroll sidebar · /close hide")
+            : "type /help · /leaderboard · /group · /plan · PgUp/PgDn scroll chat · esc exit"}
         </Text>
-        <Text color={statusText === "Error" ? theme.colors.error : theme.colors.retroGreenBright}>
-          {statusText === "Ready" ? "● Ready" : statusText}
-        </Text>
+        <Box flexDirection="row" gap={1}>
+          {currentOffset > 0 && (
+            <Text color={theme.colors.retroAmberBright} bold>
+              ↑ Scrolled ({currentOffset})
+            </Text>
+          )}
+          <Text color={statusText === "Error" ? theme.colors.error : theme.colors.retroGreenBright}>
+            {statusText === "Ready" ? "● Ready" : statusText}
+          </Text>
+        </Box>
       </Box>
     </Box>
   </Box>
@@ -718,16 +822,16 @@ Behavior Guidelines:
           {mainContent}
         </Box>
         {activeSidebar === "logbook" && (
-          <LogbookSidebar width={splitRightWidth} height={fullHeight} />
+          <LogbookSidebar width={splitRightWidth} height={fullHeight} isFocused={activeFocus === "sidebar"} />
         )}
         {activeSidebar === "leaderboard" && (
-          <LeaderboardSidebar width={splitRightWidth} height={fullHeight} />
+          <LeaderboardSidebar width={splitRightWidth} height={fullHeight} isFocused={activeFocus === "sidebar"} />
         )}
         {activeSidebar === "group" && (
-          <GroupSidebar width={splitRightWidth} height={fullHeight} />
+          <GroupSidebar width={splitRightWidth} height={fullHeight} isFocused={activeFocus === "sidebar"} />
         )}
         {activeSidebar === "cohorts" && (
-          <CohortsSidebar width={splitRightWidth} height={fullHeight} />
+          <CohortsSidebar width={splitRightWidth} height={fullHeight} isFocused={activeFocus === "sidebar"} />
         )}
       </Box>
     );

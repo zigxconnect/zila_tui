@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from "react";
-import { Box, Text, useStdout, useInput } from "ink";
+import { useStdout, useInput } from "ink";
 import { theme } from "../ui/theme.js";
-import { ZigexLoader } from "../ui/Spinner.js";
 import { fetchLeaderboardData, LeaderboardEntry, LeaderboardData } from "./LeaderboardScreen.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
+import {
+  SidebarContainer,
+  SidebarTwoColumnRow,
+  SidebarDivider,
+  SidebarTableRow,
+  SidebarLine,
+  SidebarLoadingRow,
+  SidebarEmptyRows,
+} from "../ui/sidebarLayout.js";
 
 interface LeaderboardSidebarProps {
   width?: number;
   height?: number;
   scrollOffset?: number;
+  isFocused?: boolean;
 }
 
 export const LeaderboardSidebar: React.FC<LeaderboardSidebarProps> = ({
   width,
   height,
   scrollOffset: initialScrollOffset = 0,
+  isFocused = true,
 }) => {
   const { stdout } = useStdout();
   const termCols = stdout?.columns || process.stdout.columns || 120;
@@ -49,9 +59,13 @@ export const LeaderboardSidebar: React.FC<LeaderboardSidebarProps> = ({
   const cohortTitle = data?.cohortName || activeCohort?.name || "Active Cohort";
   const entries: LeaderboardEntry[] = data?.entries ?? [];
 
-  const maxVisibleEntries = Math.max(4, effectiveHeight - 6);
+  const innerWidth = Math.max(20, effectiveWidth - 2);
+  const innerHeight = Math.max(8, effectiveHeight - 2);
+  const fixedChrome = 5;
+  const maxVisibleEntries = Math.max(3, innerHeight - fixedChrome);
 
   useInput((_input, key) => {
+    if (!isFocused) return;
     if (key.pageUp) {
       setScrollOffset((prev) => Math.max(0, prev - 5));
     } else if (key.pageDown) {
@@ -61,168 +75,134 @@ export const LeaderboardSidebar: React.FC<LeaderboardSidebarProps> = ({
   });
 
   const visibleEntries = entries.slice(scrollOffset, scrollOffset + maxVisibleEntries);
-  const innerWidth = Math.max(20, effectiveWidth - 2);
 
-  // Column width calculations
+  // Column width calculations (exact fit for innerWidth - 2)
   const rankWidth = 5;
-  const ptsWidth = 9;
-  const statusWidth = 11;
-  const nameWidth = Math.max(12, innerWidth - rankWidth - ptsWidth - statusWidth - 4);
+  const ptsWidth = 8;
+  const statusWidth = 12;
+  const nameWidth = Math.max(10, innerWidth - 2 - rankWidth - ptsWidth - statusWidth);
+
+  const contentRowsCount = loading
+    ? 1
+    : entries.length === 0
+    ? 2
+    : visibleEntries.length;
 
   return (
-    <Box
-      flexDirection="column"
-      width={effectiveWidth}
-      height={effectiveHeight}
-      borderStyle="round"
-      borderColor={theme.colors.retroBlueBright}
-      paddingX={1}
-      paddingY={0}
-    >
-      {/* Claude Code Style Top Header Bar */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroCyanBright} bold wrap="truncate">
-            🏆 LEADERBOARD
-          </Text>
-        </Box>
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroGreenBright} bold>
-            ● LIVE RANKINGS
-          </Text>
-        </Box>
-      </Box>
+    <SidebarContainer width={effectiveWidth} height={effectiveHeight} isFocused={isFocused}>
+      {/* 1. Header Bar */}
+      <SidebarTwoColumnRow
+        left={{ text: "🏆 LEADERBOARD", color: theme.colors.retroCyanBright, bold: true }}
+        right={{ text: "● LIVE RANKINGS", color: theme.colors.retroGreenBright, bold: true }}
+        width={innerWidth}
+      />
 
-      {/* Editor Subheader: cohort info and count */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Text color={theme.colors.retroSlateDark} wrap="truncate">
-          {cohortTitle.slice(0, effectiveWidth - 18)}
-        </Text>
-        <Text color={theme.colors.retroSlateDark}>
-          {entries.length} interns
-        </Text>
-      </Box>
+      {/* 2. Subheader Bar */}
+      <SidebarTwoColumnRow
+        left={{ text: cohortTitle, color: theme.colors.retroSlateDark }}
+        right={{ text: `${entries.length} interns`, color: theme.colors.retroSlateDark }}
+        width={innerWidth}
+      />
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>
-        {"─".repeat(innerWidth)}
-      </Text>
+      {/* 3. Subtle Divider */}
+      <SidebarDivider width={innerWidth} />
 
-      {/* Table Column Headers */}
-      <Box flexDirection="row" gap={1}>
-        <Box width={rankWidth}>
-          <Text color={theme.colors.retroBlueBright} bold>
-            RANK
-          </Text>
-        </Box>
-        <Box width={nameWidth}>
-          <Text color={theme.colors.retroSlateDark}>
-            INTERN
-          </Text>
-        </Box>
-        <Box width={ptsWidth}>
-          <Text color={theme.colors.retroSlateDark}>
-            POINTS
-          </Text>
-        </Box>
-        <Box width={statusWidth}>
-          <Text color={theme.colors.retroSlateDark}>
-            STATUS
-          </Text>
-        </Box>
-      </Box>
+      {/* 4. Column Headers */}
+      <SidebarTableRow
+        columns={[
+          { text: "RANK", width: rankWidth, color: theme.colors.retroCyanBright, bold: true },
+          { text: "INTERN", width: nameWidth, color: theme.colors.retroSlateDark },
+          { text: "POINTS", width: ptsWidth, color: theme.colors.retroSlateDark },
+          { text: "STATUS", width: statusWidth, color: theme.colors.retroSlateDark },
+        ]}
+        width={innerWidth}
+      />
 
-      {/* Stream Content */}
-      <Box flexDirection="column" flexGrow={1} overflow="hidden">
-        {loading && (
-          <Box paddingY={1}>
-            <ZigexLoader suffix="cohort leaderboard" />
-          </Box>
-        )}
+      {/* 5. Stream Content */}
+      {loading && (
+        <SidebarLoadingRow suffix="cohort leaderboard" width={innerWidth} />
+      )}
 
-        {!loading && entries.length === 0 && (
-          <Box flexDirection="column" paddingY={1}>
-            <Text color={theme.colors.retroSlateDark}>
-              No submissions recorded yet for this cohort.
-            </Text>
-            <Text color={theme.colors.retroSlateDark}>
-              Run 'submit-task' or 'submit-report' to log your work.
-            </Text>
-          </Box>
-        )}
+      {!loading && entries.length === 0 && (
+        <>
+          <SidebarLine
+            text="No submissions recorded yet for this cohort."
+            width={innerWidth}
+            color={theme.colors.retroSlateDark}
+          />
+          <SidebarLine
+            text="Run 'submit-task' or 'submit-report' to log work."
+            width={innerWidth}
+            color={theme.colors.retroSlateDark}
+          />
+        </>
+      )}
 
-        {!loading &&
-          visibleEntries.map((entry) => {
-            const isMe =
-              (data?.currentStudentEmail &&
-                entry.studentEmail.toLowerCase() === data.currentStudentEmail.toLowerCase()) ||
-              (data?.currentStudentId && entry.studentId === data.currentStudentId);
+      {!loading &&
+        visibleEntries.map((entry) => {
+          const isMe =
+            (data?.currentStudentEmail &&
+              entry.studentEmail.toLowerCase() === data.currentStudentEmail.toLowerCase()) ||
+            (data?.currentStudentId && entry.studentId === data.currentStudentId);
 
-            let rankColor: string = theme.colors.retroSlate;
-            if (entry.rank === 1) rankColor = theme.colors.retroAmberBright;
-            else if (entry.rank === 2) rankColor = theme.colors.retroWhite;
-            else if (entry.rank === 3) rankColor = theme.colors.retroCyan;
+          let rankColor: string = theme.colors.retroSlate;
+          if (entry.rank === 1) rankColor = theme.colors.retroAmberBright;
+          else if (entry.rank === 2) rankColor = theme.colors.retroWhite;
+          else if (entry.rank === 3) rankColor = theme.colors.retroCyan;
 
-            let badge = "—";
-            let badgeColor: string = theme.colors.retroSlateDark;
-            if (entry.status === "accepted") {
-              badge = "✔ Accepted";
-              badgeColor = theme.colors.retroGreenBright;
-            } else if (entry.status === "rejected") {
-              badge = "✖ Rejected";
-              badgeColor = theme.colors.error;
-            } else if (entry.status === "pending") {
-              badge = "⏳ Pending";
-              badgeColor = theme.colors.retroAmber;
-            }
+          let badge = "—";
+          let badgeColor: string = theme.colors.retroSlateDark;
+          if (entry.status === "accepted") {
+            badge = "✔ Accepted";
+            badgeColor = theme.colors.retroGreenBright;
+          } else if (entry.status === "rejected") {
+            badge = "✖ Rejected";
+            badgeColor = theme.colors.error;
+          } else if (entry.status === "pending") {
+            badge = "⏳ Pending";
+            badgeColor = theme.colors.retroAmber;
+          }
 
-            const displayName = (isMe ? `› ${entry.name}` : entry.name).slice(0, nameWidth);
+          const displayName = isMe ? `› ${entry.name}` : entry.name;
 
-            return (
-              <Box key={entry.studentId || `${entry.rank}-${entry.name}`} flexDirection="row" gap={1}>
-                <Box width={rankWidth}>
-                  <Text color={rankColor} bold={entry.rank <= 3}>
-                    #{entry.rank}
-                  </Text>
-                </Box>
-                <Box width={nameWidth}>
-                  <Text
-                    color={isMe ? theme.colors.retroCyanBright : theme.colors.white}
-                    bold={Boolean(isMe)}
-                    wrap="truncate"
-                  >
-                    {displayName}
-                  </Text>
-                </Box>
-                <Box width={ptsWidth}>
-                  <Text color={isMe ? theme.colors.retroGreenBright : theme.colors.retroSlate}>
-                    {entry.points} pts
-                  </Text>
-                </Box>
-                <Box width={statusWidth}>
-                  <Text color={badgeColor} wrap="truncate">
-                    {badge}
-                  </Text>
-                </Box>
-              </Box>
-            );
-          })}
-      </Box>
+          return (
+            <SidebarTableRow
+              key={entry.studentId || `${entry.rank}-${entry.name}`}
+              columns={[
+                { text: `#${entry.rank}`, width: rankWidth, color: rankColor, bold: entry.rank <= 3 },
+                {
+                  text: displayName,
+                  width: nameWidth,
+                  color: isMe ? theme.colors.retroCyanBright : theme.colors.white,
+                  bold: Boolean(isMe),
+                },
+                {
+                  text: `${entry.points} pts`,
+                  width: ptsWidth,
+                  color: isMe ? theme.colors.retroGreenBright : theme.colors.retroSlate,
+                },
+                { text: badge, width: statusWidth, color: badgeColor },
+              ]}
+              width={innerWidth}
+            />
+          );
+        })}
 
-      {/* Divider */}
-      <Text color={theme.colors.retroBlue}>
-        {"─".repeat(innerWidth)}
-      </Text>
+      {/* Fill remaining empty rows to maintain solid VS Code background across the full viewport */}
+      <SidebarEmptyRows count={Math.max(0, innerHeight - fixedChrome - contentRowsCount)} width={innerWidth} />
 
-      {/* Claude Code Style Status Footer */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-        <Text color={theme.colors.retroSlateDark}>
-          Rankings {entries.length ? scrollOffset + 1 : 0}-{Math.min(entries.length, scrollOffset + maxVisibleEntries)} of {entries.length}
-        </Text>
-        <Text color={theme.colors.retroCyanBright} dimColor>
-          'close' to hide · PgUp/PgDn
-        </Text>
-      </Box>
-    </Box>
+      {/* 6. Footer Status */}
+      <SidebarTwoColumnRow
+        left={{
+          text: `Rankings ${entries.length ? scrollOffset + 1 : 0}-${Math.min(
+            entries.length,
+            scrollOffset + maxVisibleEntries
+          )} of ${entries.length}`,
+          color: theme.colors.retroSlateDark,
+        }}
+        right={{ text: "'close' hide · PgUp/PgDn", color: theme.colors.retroSlateDark }}
+        width={innerWidth}
+      />
+    </SidebarContainer>
   );
 };
