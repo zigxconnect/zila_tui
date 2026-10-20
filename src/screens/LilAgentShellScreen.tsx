@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { theme } from "../ui/theme.js";
-import { loadAgentConfig } from "../utils/aiConfig.js";
+import { loadAgentConfig, saveAgentConfig, getProviderModelFamilies } from "../utils/aiConfig.js";
 import { generateChatResponse, type ChatMessage } from "../utils/aiClient.js";
 import { extractWorkspaceContext, type WorkspaceContext } from "../utils/contextExtractor.js";
 import { formatPlanOverview } from "../commands/plan.js";
@@ -48,6 +48,7 @@ const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/bottom", desc: "Jump to the latest live messages at the bottom" },
   { cmd: "/about", desc: "System telemetry, architecture & pair mentor profile" },
   { cmd: "/status", desc: "Check engine connection, git branch & active cohort" },
+  { cmd: "/model", desc: "Inspect or switch active AI model & family (Groq, Gemini, Claude)" },
   { cmd: "/clear", desc: "Wipe terminal conversation history" },
   { cmd: "/close", desc: "Close any active right-hand sidebar" },
   { cmd: "/exit", desc: "Return to the primary Zigex workstation shell" },
@@ -430,6 +431,39 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         `  Recent Commits: ${workspaceContext?.recentCommits.length ? workspaceContext.recentCommits[0] : "none"}`,
         `  Exercise File: ${workspaceContext?.exerciseFile ? workspaceContext.exerciseFile.path : "None detected in workspace"}`,
       ].join("\n");
+    } else if (rawCmd === "/model" || rawCmd === "model" || rawCmd.startsWith("/model ") || rawCmd.startsWith("model ")) {
+      const parts = rawCmd.split(/\s+/);
+      const targetModel = parts[1]?.trim();
+      const currentConfig = loadAgentConfig();
+
+      if (!currentConfig) {
+        reply = "No AI provider configured yet. Run 'agent' from workstation shell to configure your API key.";
+      } else if (targetModel) {
+        saveAgentConfig({ ...currentConfig, model: targetModel });
+        reply = `[✔] Successfully switched active model to: ${targetModel}\n(Provider: ${currentConfig.provider})`;
+      } else {
+        const families = getProviderModelFamilies(currentConfig.provider);
+        const familyList = families.map((fam) => {
+          const mList = fam.models.map((m) => {
+            const isCurrent = m.id === currentConfig.model ? " (Active ✔)" : "";
+            const isRec = m.recommended ? " [Recommended]" : "";
+            return `    - ${m.id}${isCurrent}${isRec}${m.description ? ` — ${m.description}` : ""}`;
+          }).join("\n");
+          return `  • ${fam.name}:\n${mList}`;
+        }).join("\n\n");
+
+        reply = [
+          "◈ Active AI Model & Provider Configuration:",
+          `  Provider:     ${currentConfig.provider.toUpperCase()}`,
+          `  Active Model: ${currentConfig.model}`,
+          `  Configured:   ${new Date(currentConfig.configuredAt).toLocaleString()}`,
+          "",
+          `◈ Available Model Families (${currentConfig.provider}):`,
+          familyList,
+          "",
+          "Tip: Type '/model <model_id>' to switch model immediately (e.g. '/model llama-3.1-8b-instant').",
+        ].join("\n");
+      }
     } else if (rawCmd === "/top" || rawCmd === "top" || rawCmd === "/scroll top") {
       setChatScrollOffset(Math.max(0, messages.length - 1));
       reply = "Scrolled to the top of the chat transcript. Press PgDn, ↓, or Esc to return.";
