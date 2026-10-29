@@ -19,6 +19,14 @@ const MAX_ITERATIONS = 5;
 const OBSERVATION_LIMIT = 8000;
 const OBSERVATION_PREVIEW = 500;
 
+export function redactSensitiveContent(content: string): string {
+  return content
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[REDACTED PRIVATE KEY]")
+    .replace(/\b(Bearer\s+)[A-Za-z0-9._~+\/-]+=*/gi, "$1[REDACTED]")
+    .replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, "[REDACTED TOKEN]")
+    .replace(/((?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret)\s*[:=]\s*)(["']?)[^\s,;"']+/gi, "$1$2[REDACTED]");
+}
+
 const AGENT_SYSTEM_PROMPT = `
 You are a repository analyst agent for ZILA, a developer tool built by the Zigex Open Source Initiative.
 You answer questions about a code repository by reasoning step by step and using tools to gather real evidence.
@@ -148,7 +156,7 @@ export async function* runAgent(
       const { tool, args } = parsed.action;
       yield { type: "action", tool, args };
 
-      let observation = runTool(tool, repoPath, args);
+      let observation = redactSensitiveContent(runTool(tool, repoPath, args));
       if (observation.length > OBSERVATION_LIMIT) {
         observation =
           observation.slice(0, OBSERVATION_LIMIT) +

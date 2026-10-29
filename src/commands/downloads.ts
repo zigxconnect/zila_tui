@@ -1,16 +1,15 @@
 import type { ZilaCommand } from "./registry.js";
-import { loadAuth } from "../utils/auth.js";
+import { API_BASE, loadAuth } from "../utils/auth.js";
 import { loadGitHubAuth } from "../utils/githubAuth.js";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { env } from "process";
 
-const API_BASE_URL = env.ZILA_API_URL || "http://localhost:5000";
+const API_BASE_URL = API_BASE.replace(/\/api$/, "");
 
-function runGitCommand(args: string[], cwd: string): Promise<{ success: boolean; output: string }> {
+function runGitCommand(args: string[], cwd: string, childEnv = process.env): Promise<{ success: boolean; output: string }> {
   return new Promise((resolve) => {
-    const proc = spawn("git", args, { cwd, shell: true });
+    const proc = spawn("git", args, { cwd, env: childEnv, shell: false });
     let stdout = "";
     let stderr = "";
 
@@ -101,10 +100,15 @@ export const downloadsCommand: ZilaCommand = {
 
         // Format authenticated URL if user is GitHub authenticated
         const ghAuth = loadGitHubAuth();
-        let cloneUrl = repoUrl;
-        if (ghAuth?.token && repoUrl.startsWith("https://github.com/")) {
-          const repoPath = repoUrl.replace("https://github.com/", "");
-          cloneUrl = `https://${ghAuth.token}@github.com/${repoPath}`;
+        const parsedRepoUrl = new URL(repoUrl);
+        if (parsedRepoUrl.protocol !== "https:" || parsedRepoUrl.username || parsedRepoUrl.password) {
+          throw new Error("Course repository URL must be an HTTPS URL without embedded credentials.");
+        }
+        const cloneEnv = { ...process.env };
+        if (ghAuth?.token && parsedRepoUrl.hostname.toLowerCase() === "github.com") {
+          cloneEnv.GIT_CONFIG_COUNT = "1";
+          cloneEnv.GIT_CONFIG_KEY_0 = "http.https://github.com/.extraheader";
+          cloneEnv.GIT_CONFIG_VALUE_0 = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${ghAuth.token}`).toString("base64")}`;
         }
 
         const parentDir = path.dirname(targetDir);
@@ -112,7 +116,7 @@ export const downloadsCommand: ZilaCommand = {
           fs.mkdirSync(parentDir, { recursive: true });
         }
 
-        const cloneRes = await runGitCommand(["clone", cloneUrl, targetDir], parentDir);
+        const cloneRes = await runGitCommand(["clone", repoUrl, targetDir], parentDir, cloneEnv);
         if (cloneRes.success) {
           output(`[SUCCESS] Cloned course materials into: ${targetDir}`, "success");
         } else {

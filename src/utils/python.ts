@@ -1,14 +1,10 @@
 import path from "node:path";
 import fs from "node:fs";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { logAssistantDiagnostic as logToFile } from "./diagnosticLog.js";
 
-const execAsync = promisify(exec);
-
-const LOG_FILE = path.join(process.cwd(), "zila-assistant-debug.log");
-function logToFile(msg: string) {
-  fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
-}
+const execFileAsync = promisify(execFile);
 
 export interface PythonInfo {
   bin: string;
@@ -55,7 +51,7 @@ export async function resolvePython(projectDir?: string): Promise<PythonInfo> {
 
 async function getPythonVersion(bin: string): Promise<string | null> {
   try {
-    const { stdout, stderr } = await execAsync(`"${bin}" --version`);
+    const { stdout, stderr } = await execFileAsync(bin, ["--version"]);
     const output = (stdout.trim() || stderr.trim()).replace("Python ", "");
     return output || null;
   } catch (error) {

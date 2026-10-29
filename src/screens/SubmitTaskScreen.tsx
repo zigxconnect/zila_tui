@@ -1,145 +1,49 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
-import { loadAuth, zilaApi } from "../utils/auth.js";
+import { loadAuth } from "../utils/auth.js";
 import { loadGitHubAuth } from "../utils/githubAuth.js";
-import {
-  executeAutomatedTaskSubmission,
-  checkDailyPrQuota,
-  DAY_WEIGHTS,
-  CURRICULUM_DOMAINS,
-  getTrackModules,
-  detectLocalGitRepoUrl,
-  type TaskSubmissionPayload,
-  type AutomatedPrResult,
-  SAMPLE_COHORT_REPO,
-} from "../utils/githubPrAutomation.js";
+import { submitTaskWithPullRequest } from "../utils/taskSubmission.js";
 import { theme } from "../ui/theme.js";
 import { Cursor } from "../ui/Cursor.js";
-import { PipelineLoader } from "../ui/PipelineLoader.js";
-import { ZigexLoader } from "../ui/Spinner.js";
-
-import { getActiveCohort, setActiveCohort, mapDepartmentToDomain, mapLevel } from "../utils/activeCohort.js";
 
 interface SubmitTaskScreenProps {
   onComplete: () => void;
 }
 
 export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }) => {
-  const activeCohort = getActiveCohort();
-
-  const [currentDomainKey, setCurrentDomainKey] = useState<string>(activeCohort?.domainKey || "ml");
-  const [currentLevel, setCurrentLevel] = useState<"beginner" | "intermediate" | "advance">(
-    ((activeCohort?.level === "advanced" ? "advance" : activeCohort?.level) as any) || "beginner"
-  );
-
-  const initialModule = getTrackModules(currentDomainKey, currentLevel)[0] || "1_fundamentals";
-  const [module, setModule] = useState(initialModule);
-  const [day, setDay] = useState("1");
+  const [taskId, setTaskId] = useState("");
+  const [pullRequestUrl, setPullRequestUrl] = useState("");
   const [summary, setSummary] = useState("");
-  const [practicals, setPracticals] = useState("");
-  const [challenges, setChallenges] = useState("");
-  const [deploymentUrl, setDeploymentUrl] = useState("");
-
-  const [activeField, setActiveField] = useState(0); // 0: module, 1: day, 2: summary, 3: practicals, 4: challenges, 5: deploymentUrl
+  const [activeField, setActiveField] = useState(0);
   const [cursorOn, setCursorOn] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [progressMsg, setProgressMsg] = useState("");
-  const [result, setResult] = useState<AutomatedPrResult | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  // Automatically fetch student placement program & level directly from endpoint if not cached
-  // Automatically fetch student placement program, level, and payment state directly from endpoint
   useEffect(() => {
-    zilaApi<{ cohorts: any[] }>("/cohorts/my-cohorts")
-      .then((res) => {
-        if (res?.cohorts && res.cohorts.length > 0) {
-          const matched = activeCohort
-            ? res.cohorts.find((c) => c.id === activeCohort.id) || res.cohorts[0]
-            : res.cohorts[0];
-
-          if (matched) {
-            const dom = mapDepartmentToDomain(matched.department, matched.name);
-            const lvl = mapLevel(matched.level, matched.name);
-            setCurrentDomainKey(dom);
-            const mappedLvl = lvl === "advanced" ? "advance" : lvl;
-            setCurrentLevel(mappedLvl);
-            const mods = getTrackModules(mappedLvl, dom);
-            if (mods.length > 0) setModule(mods[0]!);
-
-            // Update local active cohort with live payment toggle and supervisor repository
-            setActiveCohort({
-              id: matched.id,
-              name: matched.name,
-              department: matched.department,
-              level: mappedLvl,
-              supervisorName: matched.supervisorName,
-              supervisorEmail: matched.supervisorEmail,
-              githubRepoUrl: matched.githubRepoUrl,
-              isPaid: matched.isPaid,
-              tasksSubmittedCount: matched.tasksSubmittedCount,
-              freeTasksMax: matched.freeTasksMax ?? 5,
-              freeTasksRemaining: matched.freeTasksRemaining,
-            });
-          }
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const currentDomainDef = CURRICULUM_DOMAINS[currentDomainKey] || CURRICULUM_DOMAINS.ml!;
-  const quota = checkDailyPrQuota();
-
-  useEffect(() => {
-    if (result || submitting) return;
+    if (submitted || submitting) return;
     setCursorOn(true);
     const interval = setInterval(() => setCursorOn((visible) => !visible), 500);
     return () => clearInterval(interval);
-  }, [result, submitting, activeField]);
+  }, [submitted, submitting, activeField]);
 
   const sendSubmission = async () => {
     setError("");
     const session = loadAuth();
+    const github = loadGitHubAuth();
     if (!session?.token) {
       setError("Not logged in to Zigex. Run 'zila auth' first.");
       return;
     }
-
-    if (!summary.trim()) {
-      setError("Please provide an exercise summary.");
-      return;
-    }
-
-    // Free trial quota guard: unpaid students are limited to 5 free tasks & automated evaluations
-    const currentCohort = getActiveCohort();
-    if (currentCohort && !currentCohort.isPaid && (currentCohort.tasksSubmittedCount ?? 0) >= 5) {
-      setError(
-        `Free trial quota exceeded (5/5 evaluations used for cohort "${currentCohort.name}"). Please pay for your program tuition at https://zigexconnect.com to resume automated evaluations. If you have already paid, contact the platform administrators to verify your status.`
-      );
+    if (!github?.token) {
+      setError("Not connected to GitHub. Run 'zila github-auth' first.");
       return;
     }
 
     setSubmitting(true);
-    setProgressMsg("Initiating automated GitHub PR pipeline...");
     try {
-      const supervisorRepo = currentCohort?.githubRepoUrl;
-      const detectedRepo = detectLocalGitRepoUrl();
-      const targetRepo = supervisorRepo || detectedRepo || undefined;
-
-      const payload: TaskSubmissionPayload = {
-        cohortId: currentCohort?.id || activeCohort?.id || undefined,
-        domain: currentDomainKey,
-        level: currentLevel,
-        module: module.trim() || "1_fundamentals",
-        day: Math.max(1, Math.min(4, Number(day) || 1)),
-        summary,
-        practicalsDescription: practicals || "Implementation completed according to curriculum specification.",
-        challenges: challenges || "None reported.",
-        deploymentUrl: deploymentUrl || undefined,
-        githubRepoUrl: targetRepo,
-      };
-
-      const res = await executeAutomatedTaskSubmission(payload, (step) => setProgressMsg(step));
-      setResult(res);
+      await submitTaskWithPullRequest(taskId, pullRequestUrl, summary, session.token, github);
+      setSubmitted(true);
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : String(submissionError));
     } finally {
@@ -148,7 +52,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   };
 
   useInput((char, key) => {
-    if (result) {
+    if (submitted) {
       if (key.escape || char === "q" || key.return) onComplete();
       return;
     }
@@ -158,298 +62,89 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
       onComplete();
       return;
     }
-
     if (key.tab) {
-      setActiveField((prev) => (prev + 1) % 6);
+      setActiveField((previous) => (previous + 1) % 3);
       return;
     }
-
     if (key.upArrow) {
-      setActiveField((prev) => (prev > 0 ? prev - 1 : 5));
+      setActiveField((previous) => (previous > 0 ? previous - 1 : 2));
       return;
     }
-
     if (key.downArrow) {
-      setActiveField((prev) => (prev < 5 ? prev + 1 : 0));
+      setActiveField((previous) => (previous < 2 ? previous + 1 : 0));
       return;
     }
-
-    // Toggle day with left/right
-    if (activeField === 1 && (key.leftArrow || key.rightArrow)) {
-      setDay((prev) => {
-        const d = Number(prev) || 1;
-        const next = key.rightArrow ? (d < 4 ? d + 1 : 1) : d > 1 ? d - 1 : 4;
-        return String(next);
-      });
-      return;
-    }
-
     if (key.return) {
-      if (activeField < 5) setActiveField((prev) => prev + 1);
+      if (activeField < 2) setActiveField((previous) => previous + 1);
       else void sendSubmission();
       return;
     }
 
-    // Text inputs
-    const setters = [
-      setModule,
-      () => {}, // day (toggled via arrows)
-      setSummary,
-      setPracticals,
-      setChallenges,
-      setDeploymentUrl,
-    ];
-
-    const currentSetter = setters[activeField];
-    if (currentSetter && activeField !== 1) {
-      if (key.backspace || key.delete) {
-        currentSetter((prev: string) => prev.slice(0, -1));
-      } else if (char) {
-        currentSetter((prev: string) => prev + char);
-        setCursorOn(true);
-      }
+    const updateField = activeField === 0 ? setTaskId : activeField === 1 ? setPullRequestUrl : setSummary;
+    if (key.backspace || key.delete) {
+      updateField((previous) => previous.slice(0, -1));
+    } else if (char) {
+      updateField((previous) => previous + char);
+      setCursorOn(true);
     }
   });
 
-  const dayNumber = Math.max(1, Math.min(4, Number(day) || 1));
-  const dayWeightInfo = DAY_WEIGHTS[dayNumber] || { weight: 1, percentage: 12.5 };
-  const ghAuth = loadGitHubAuth();
-  const username = ghAuth?.username || "student";
-  const cleanModule = module.replace(/[^a-zA-Z0-9_]/g, "_");
-  const branchPreview = `${cleanModule}/${username}/day_${dayNumber}`;
-  const pathPreview = `contributors/${username}/${currentDomainKey}/${currentLevel}/${cleanModule}/day_${dayNumber}/exercise.md`;
-
-  const fieldLabels = [
-    "Curriculum Module:",
-    "Curriculum Day:",
-    "Exercise Summary:",
-    "Practicals Report:",
-    "Challenges / Roadblocks:",
-    "Deployment URL (opt):",
-  ];
-
-  const fieldValues = [
-    module,
-    `Day 0${dayNumber} (use ←/→ to toggle)`,
-    summary,
-    practicals,
-    challenges,
-    deploymentUrl,
-  ];
+  const values = [taskId, pullRequestUrl, summary];
+  const placeholders = ["(e.g., TASK-101)", "(https://github.com/owner/repo/pull/123)", "(optional summary)"];
+  const labels = ["Task ID:", "GitHub PR:", "Summary:"];
+  const activeHint = activeField === 2 ? "enter to submit" : "tab to switch fields";
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      {/* Top rule */}
       <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
-
-      {/* Header */}
       <Box flexDirection="row" justifyContent="space-between" alignItems="center">
         <Box flexDirection="row" gap={1}>
           <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
           <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
-          <Text color={theme.colors.white} bold>{"automated task submission pipeline"}</Text>
+          <Text color={theme.colors.white} bold>{"task submission"}</Text>
         </Box>
-        <Text color={quota.countToday >= 2 ? theme.colors.error : theme.colors.retroGreenBright}>
-          {`PR quota: ${quota.countToday}/2 used today`}
-        </Text>
+        <Text color={theme.colors.retroSlateDark}>{"GitHub pull request"}</Text>
       </Box>
-
-      {/* Active cohort indicator */}
-      {activeCohort ? (
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroSlateDark}>{"Cohort Context:"}</Text>
-          <Text color={theme.colors.retroCyanBright} bold>{`[${activeCohort.name}]`}</Text>
-          <Text color={theme.colors.retroGreenBright}>{"(Auto-selected from your placement)"}</Text>
-        </Box>
-      ) : (
-        <Box flexDirection="row" gap={1}>
-          <Text color={theme.colors.retroSlateDark}>{"Cohort Context: [None - Type 'select --cohorts' to bind]"}</Text>
-        </Box>
-      )}
-
-      {/* Contributing Repo indicator */}
-      {(() => {
-        const supervisorRepo = activeCohort?.githubRepoUrl;
-        const localDetected = detectLocalGitRepoUrl();
-        const activeTarget = supervisorRepo || localDetected || activeCohort?.githubRepoUrl;
-        if (!activeTarget) return null;
-        const cleanName = activeTarget.replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "");
-        return (
-          <Box flexDirection="row" gap={1}>
-            <Text color={theme.colors.retroSlateDark}>{"Contributing Repo:"}</Text>
-            <Text color={theme.colors.retroCyanBright} bold>{`[${cleanName}]`}</Text>
-            <Text color={theme.colors.retroGreenBright}>
-              {supervisorRepo
-                ? "(Assigned by supervisor via workspace)"
-                : localDetected
-                  ? "(Auto-detected from local git origin)"
-                  : "(Cohort default repo)"}
-            </Text>
-          </Box>
-        );
-      })()}
-
-      {/* Tuition & Quota indicator */}
-      <Box flexDirection="row" gap={1}>
-        <Text color={theme.colors.retroSlateDark}>{"Tuition & Quota:"}</Text>
-        {activeCohort?.isPaid ? (
-          <Text color={theme.colors.retroGreenBright} bold>
-            {"[PAID / UNLIMITED] (Tuition verified via ledger)"}
-          </Text>
-        ) : (
-          <Text
-            color={
-              (activeCohort?.tasksSubmittedCount ?? 0) >= 5
-                ? theme.colors.error
-                : theme.colors.warning
-            }
-            bold
-          >
-            {`[FREE TRIAL] ${(activeCohort?.tasksSubmittedCount ?? 0)}/5 evaluations used · ${Math.max(0, 5 - (activeCohort?.tasksSubmittedCount ?? 0))} remaining`}
-          </Text>
-        )}
-      </Box>
-
-      {/* Divider */}
       <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
 
-      {result ? (
+      {submitted ? (
         <Box flexDirection="column" paddingY={1}>
-          <Text color={theme.colors.retroGreenBright} bold>
-            {"✓ Automated Pull Request Created & Submitted Successfully!"}
-          </Text>
-          <Box flexDirection="column" marginTop={1} gap={0}>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Domain & Track:"}</Text></Box>
-              <Text color={theme.colors.white} bold>{`${currentDomainKey.toUpperCase()} / ${currentLevel.toUpperCase()}`}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Target Repo:"}</Text></Box>
-              <Text color={theme.colors.white} bold>{result.repositoryUrl}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Automated Branch:"}</Text></Box>
-              <Text color={theme.colors.retroBlueBright} bold>{result.branchName}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Pull Request:"}</Text></Box>
-              <Text color={theme.colors.retroGreenBright} bold>{result.pullRequestUrl}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Contributor Path:"}</Text></Box>
-              <Text color={theme.colors.text}>{result.contributorFilePath}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Rubric Weight:"}</Text></Box>
-              <Text color={theme.colors.white}>{`${result.dayWeight} pt (${result.normalizedPercentage}% normalized)`}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Remaining Quota:"}</Text></Box>
-              <Text color={theme.colors.retroBlueBright}>{`${result.quotaRemaining}/2 PRs remaining today`}</Text>
-            </Box>
-          </Box>
-          <Box marginTop={1}>
-            <Text color={theme.colors.retroSlateDark}>{"press enter or esc to return to prompt"}</Text>
-          </Box>
+          <Text color={theme.colors.retroGreenBright} bold>{"Task submitted successfully."}</Text>
+          <Text color={theme.colors.white}>{`Task: ${taskId}`}</Text>
+          <Text color={theme.colors.white}>{pullRequestUrl}</Text>
+          {summary && <Text color={theme.colors.retroSlate}>{summary}</Text>}
+          <Text color={theme.colors.retroSlateDark}>{"press enter to return"}</Text>
         </Box>
       ) : (
         <>
-          {/* Locked Program Domain & Track Level (Direct from endpoint / cohort) */}
-          <Box flexDirection="row" gap={1} marginBottom={0}>
-            <Box width={26}>
-              <Text color={theme.colors.retroSlateDark}>{"  Curriculum Domain:"}</Text>
-            </Box>
-            <Text color={theme.colors.retroCyanBright} bold>
-              {`[ ${currentDomainKey.toUpperCase()}: ${currentDomainDef.name} ]`}
-            </Text>
-            <Text color={theme.colors.retroGreenBright}>{"(Fixed from cohort)"}</Text>
-          </Box>
-
-          <Box flexDirection="row" gap={1} marginBottom={0}>
-            <Box width={26}>
-              <Text color={theme.colors.retroSlateDark}>{"  Track Level:"}</Text>
-            </Box>
-            <Text color={theme.colors.retroCyanBright} bold>
-              {`[ ${currentLevel.toUpperCase()} ]`}
-            </Text>
-            <Text color={theme.colors.retroGreenBright}>{"(Fixed from cohort)"}</Text>
-          </Box>
-
-          {/* Form Fields */}
-          {fieldLabels.map((label, index) => {
-            const isSelected = activeField === index;
-            const labelColor = isSelected ? theme.colors.retroBlueBright : theme.colors.retroSlateDark;
-            const val = fieldValues[index];
-
-            return (
-              <Box key={label} flexDirection="row" gap={1} marginBottom={0}>
-                <Box width={26}>
-                  <Text color={labelColor} bold={isSelected}>
-                    {isSelected ? `› ${label}` : `  ${label}`}
-                  </Text>
-                </Box>
-                <Text color={isSelected ? theme.colors.white : theme.colors.text}>
-                  {val || (isSelected ? "" : "—")}
+          {labels.map((label, index) => (
+            <Box key={label} flexDirection="row" gap={1} marginBottom={1}>
+              <Box width={18}>
+                <Text color={activeField === index ? theme.colors.retroBlueBright : theme.colors.retroSlateDark} bold>
+                  {activeField === index ? `› ${label}` : `  ${label}`}
                 </Text>
-                {isSelected && !submitting && index !== 1 && <Cursor on={cursorOn} />}
               </Box>
-            );
-          })}
-
-          {error && (
-            <Box marginTop={1}>
-              <Text color={theme.colors.error} bold>{`! ${error}`}</Text>
-            </Box>
-          )}
-
-          {submitting && (
-            <Box marginTop={1} flexDirection="column" gap={0}>
-              <Box marginBottom={1}>
-                <ZigexLoader suffix={progressMsg || "evaluating task pipeline"} />
-              </Box>
-              <PipelineLoader
-                label={`[PIPELINE] ${progressMsg}`}
-                width={60}
-              />
-            </Box>
-          )}
-
-          {/* Live Preview Box */}
-          <Box flexDirection="column" marginTop={1}>
-            <Text color={theme.colors.retroBlueBright} bold>{"AUTOMATED PIPELINE PREVIEW"}</Text>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Domain / Track:"}</Text></Box>
-              <Text color={theme.colors.white}>{`${currentDomainKey.toUpperCase()} · ${currentLevel}`}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Branch:"}</Text></Box>
-              <Text color={theme.colors.white}>{branchPreview}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"File Location:"}</Text></Box>
-              <Text color={theme.colors.retroSlate}>{pathPreview}</Text>
-            </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Sprint Progress:"}</Text></Box>
-              <Text color={theme.colors.retroBlueBright}>
-                {`[ ${"■ ".repeat(dayNumber)}${"□ ".repeat(4 - dayNumber)}] (Day ${dayNumber} of 4)`}
+              <Text color={theme.colors.white}>
+                {values[index] || (activeField === index ? "" : placeholders[index])}
               </Text>
+              {activeField === index && !submitting && <Cursor on={cursorOn} />}
             </Box>
-            <Box flexDirection="row" gap={1}>
-              <Box width={18}><Text color={theme.colors.retroSlateDark}>{"Normalized Score:"}</Text></Box>
-              <Text color={theme.colors.retroGreenBright}>{`${dayWeightInfo.weight} pt · ${dayWeightInfo.percentage}% of weekly 100`}</Text>
-            </Box>
+          ))}
+
+          {error && <Text color={theme.colors.error}>{error}</Text>}
+          {submitting && <Text color={theme.colors.retroCyan}>{"Verifying pull request and submitting task..."}</Text>}
+
+          <Box flexDirection="column" marginBottom={1}>
+            <Text color={theme.colors.retroBlueBright} bold>{"PREVIEW"}</Text>
+            <Text color={theme.colors.retroSlate}>{`Task: ${taskId || "—"}`}</Text>
+            <Text color={theme.colors.white}>{pullRequestUrl || "—"}</Text>
+            {summary && <Text color={theme.colors.retroSlate}>{summary}</Text>}
           </Box>
 
-          {/* Bottom rule */}
           <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
-
-          {/* Footer */}
           <Box flexDirection="row" justifyContent="space-between">
             <Text color={theme.colors.retroSlateDark}>{"tab next · enter submit · esc cancel"}</Text>
-            <Text color={theme.colors.retroSlateDark}>
-              {activeField === 7 ? "enter to launch automated PR" : "tab / ↑ / ↓ to navigate"}
-            </Text>
+            <Text color={theme.colors.retroSlateDark}>{activeHint}</Text>
           </Box>
         </>
       )}

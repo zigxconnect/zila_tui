@@ -22,21 +22,24 @@ export interface ActiveCohort {
 export function getZilaDir(): string {
   if (process.env.ZILA_CONFIG_DIR) {
     if (!fs.existsSync(process.env.ZILA_CONFIG_DIR)) {
-      fs.mkdirSync(process.env.ZILA_CONFIG_DIR, { recursive: true });
+      fs.mkdirSync(process.env.ZILA_CONFIG_DIR, { recursive: true, mode: 0o700 });
     }
+    fs.chmodSync(process.env.ZILA_CONFIG_DIR, 0o700);
     return process.env.ZILA_CONFIG_DIR;
   }
   const defaultDir = path.join(os.homedir(), ".zila");
   try {
     if (!fs.existsSync(defaultDir)) {
-      fs.mkdirSync(defaultDir, { recursive: true });
+      fs.mkdirSync(defaultDir, { recursive: true, mode: 0o700 });
     }
+    fs.chmodSync(defaultDir, 0o700);
     return defaultDir;
   } catch {
     const fallbackDir = path.join(process.cwd(), ".zila");
     if (!fs.existsSync(fallbackDir)) {
-      fs.mkdirSync(fallbackDir, { recursive: true });
+      fs.mkdirSync(fallbackDir, { recursive: true, mode: 0o700 });
     }
+    fs.chmodSync(fallbackDir, 0o700);
     return fallbackDir;
   }
 }

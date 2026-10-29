@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -6,7 +6,7 @@ const GIT_TIMEOUT = 10_000;
 
 function git(repoPath: string, args: string[]): string {
   try {
-    return execSync(`git -C "${repoPath}" ${args.join(" ")}`, {
+    return execFileSync("git", ["-C", repoPath, ...args], {
       timeout: GIT_TIMEOUT,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -101,7 +101,8 @@ export function getLastDiff(repoPath: string): string {
 }
 
 export function getFileContent(repoPath: string, filepath: string): string {
-  const full = path.join(repoPath, filepath);
+  const full = resolveRepoFile(repoPath, filepath);
+  if (!full) return "Error: file path is outside the repository or is sensitive.";
   if (!fs.existsSync(full))
     return `File '${filepath}' does not exist in the repository.`;
   try {
@@ -123,7 +124,8 @@ export function readReadme(repoPath: string, filepath = "README.md"): string {
     "README",
   ];
   for (const c of candidates) {
-    const full = path.join(repoPath, c);
+    const full = resolveRepoFile(repoPath, c);
+    if (!full) continue;
     if (fs.existsSync(full)) {
       try {
         return (
@@ -138,21 +140,42 @@ export function readReadme(repoPath: string, filepath = "README.md"): string {
   return "No README file found in the repository root.";
 }
 
+function resolveRepoFile(repoPath: string, filepath: string): string | null {
+  try {
+    const root = fs.realpathSync(repoPath);
+    const candidate = path.resolve(root, filepath);
+    const realCandidate = fs.realpathSync(candidate);
+    const relative = path.relative(root, realCandidate);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) return null;
+
+    const basename = path.basename(realCandidate).toLowerCase();
+    const isEnvFile = basename.startsWith(".env") && basename !== ".env.example";
+    const pathSegments = relative.split(path.sep);
+    const isCredentialFile = pathSegments.some((segment) => /^\.?(?:git|ssh|aws|secrets?|credentials?)$/i.test(segment)) ||
+      /(^|[\\/])(credentials?|secrets?)(\.|[\\/]|$)/i.test(relative) ||
+      /\.(pem|key|p12|pfx)$/i.test(basename) ||
+      /^(?:id_(?:rsa|dsa|ecdsa|ed25519)|\.npmrc|\.pypirc)$/i.test(basename);
+    if (isEnvFile || isCredentialFile) return null;
+    return realCandidate;
+  } catch {
+    return null;
+  }
+}
+
 export function searchCode(
   repoPath: string,
   pattern: string,
   fileGlob?: string,
 ): string {
   try {
-    const globPart = fileGlob ? `--include="${fileGlob}"` : "";
-    const result = execSync(
-      `git -C "${repoPath}" grep -n --heading ${globPart} "${pattern.replace(/"/g, '\\"')}"`,
-      {
+    const args = ["-C", repoPath, "grep", "-n", "--heading"];
+    if (fileGlob) args.push(`--include=${fileGlob}`);
+    args.push("--", pattern);
+    const result = execFileSync("git", args, {
         timeout: GIT_TIMEOUT,
         encoding: "utf-8",
         stdio: ["pipe", "pipe", "pipe"],
-      },
-    ).trim();
+      }).trim();
     return result || `No matches found for '${pattern}'.`;
   } catch {
     return `No matches found for '${pattern}'.`;

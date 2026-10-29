@@ -26,8 +26,9 @@ export class ClientCache {
 
     try {
       if (!fs.existsSync(this.cacheDir)) {
-        fs.mkdirSync(this.cacheDir, { recursive: true });
+        fs.mkdirSync(this.cacheDir, { recursive: true, mode: 0o700 });
       }
+      fs.chmodSync(this.cacheDir, 0o700);
       if (fs.existsSync(this.cacheFile)) {
         const content = fs.readFileSync(this.cacheFile, "utf8");
         const parsed = JSON.parse(content) as Record<string, CacheEntry<any>>;
@@ -46,8 +47,9 @@ export class ClientCache {
   private static persistDisk(): void {
     try {
       if (!fs.existsSync(this.cacheDir)) {
-        fs.mkdirSync(this.cacheDir, { recursive: true });
+        fs.mkdirSync(this.cacheDir, { recursive: true, mode: 0o700 });
       }
+      fs.chmodSync(this.cacheDir, 0o700);
       const serializable: Record<string, any> = {};
       const now = Date.now();
       for (const [k, v] of this.memoryStore.entries()) {
@@ -55,7 +57,8 @@ export class ClientCache {
           serializable[k] = v;
         }
       }
-      fs.writeFileSync(this.cacheFile, JSON.stringify(serializable, null, 2), "utf8");
+      fs.writeFileSync(this.cacheFile, JSON.stringify(serializable, null, 2), { encoding: "utf8", mode: 0o600 });
+      fs.chmodSync(this.cacheFile, 0o600);
     } catch {
       // Safe fallback if disk write fails
     }

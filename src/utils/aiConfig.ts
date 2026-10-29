@@ -304,7 +304,8 @@ export function loadAgentConfig(): AIProviderConfig | null {
       if (data.provider === "gemini" && (data.model === "gemini-1.5-flash" || !data.model)) {
         data.model = "gemini-2.5-flash";
         try {
-          fs.writeFileSync(configPath, JSON.stringify(data, null, 2), "utf8");
+          fs.writeFileSync(configPath, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
+          fs.chmodSync(configPath, 0o600);
         } catch {
           // Ignore write errors on read
         }
@@ -322,7 +323,8 @@ export function saveAgentConfig(config: AIProviderConfig): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(getAgentConfigPath(), JSON.stringify(config, null, 2), "utf8");
+  fs.writeFileSync(getAgentConfigPath(), JSON.stringify(config, null, 2), { encoding: "utf8", mode: 0o600 });
+  fs.chmodSync(getAgentConfigPath(), 0o600);
 }
 
 export function clearAgentConfig(): void {

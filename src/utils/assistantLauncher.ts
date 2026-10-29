@@ -1,18 +1,13 @@
-import path from "node:path";
 import fs from "node:fs";
+import path from "node:path";
 import { spawn } from "node:child_process";
 import { resolvePython } from "./python.js";
+import { logAssistantDiagnostic as logToFile } from "./diagnosticLog.js";
 
 export interface LaunchResult {
   ok: boolean;
   error?: string;
   exitCode?: number | null;
-}
-
-const LOG_FILE = path.join(process.cwd(), "zila-assistant-debug.log");
-
-function logToFile(msg: string) {
-  fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
 }
 
 export async function launchAssistant(

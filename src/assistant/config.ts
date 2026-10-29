@@ -49,8 +49,18 @@ async function callModel(
   models = DEFAULT_MODELS,
 ): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  const baseUrl = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
+  const configuredBaseUrl = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
   if (!apiKey) throw new AIResponseError("OPENROUTER_API_KEY not set");
+  let baseUrl: string;
+  try {
+    const parsedBaseUrl = new URL(configuredBaseUrl);
+    if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password) {
+      throw new Error("OpenRouter endpoint must use HTTPS and must not contain credentials.");
+    }
+    baseUrl = parsedBaseUrl.toString().replace(/\/$/, "");
+  } catch (error) {
+    throw new AIResponseError(error instanceof Error ? error.message : "Invalid OpenRouter endpoint.");
+  }
 
   const errors: Record<string, string> = {};
 

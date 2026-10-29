@@ -12,11 +12,22 @@ const homeEnv = path.join(os.homedir(), ".zila", ".env");
 dotenv.config({ path: pkgEnv });
 dotenv.config({ path: homeEnv }); // user override in ~/.zila/.env
 
-const rawUrl = process.env.ZILA_API_URL || "http://localhost:5000";
-export const API_BASE = process.env.API_BASE || (rawUrl.endsWith("/api") ? rawUrl : `${rawUrl}/api`);
+export function validateApiBase(configured: string): string {
+  const parsed = new URL(configured);
+  const localHttp = parsed.protocol === "http:" && ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+  if (parsed.protocol !== "https:" && !localHttp) {
+    throw new Error("ZILA API URL must use HTTPS (HTTP is allowed only for localhost development).");
+  }
+  if (parsed.username || parsed.password) throw new Error("ZILA API URL must not contain credentials.");
+  const base = parsed.toString().replace(/\/$/, "");
+  return base.endsWith("/api") ? base : `${base}/api`;
+}
 
-const ZILA_DIR = path.join(os.homedir(), ".zila");
-const AUTH_PATH = path.join(ZILA_DIR, "auth.json");
+export const API_BASE = validateApiBase(process.env.API_BASE || process.env.ZILA_API_URL || "https://zila-api.onrender.com");
+
+function getAuthPath(): string {
+  return path.join(process.env.ZILA_CONFIG_DIR || path.join(os.homedir(), ".zila"), "auth.json");
+}
 const TOKEN_EXPIRY_DAYS = 30;
 
 export interface AuthRecord {
@@ -40,21 +51,25 @@ export class AuthRequiredError extends Error {
 }
 
 export function saveToken(token: string, email: string): void {
-  if (!fs.existsSync(ZILA_DIR)) fs.mkdirSync(ZILA_DIR, { recursive: true });
+  const authPath = getAuthPath();
+  const zilaDir = path.dirname(authPath);
+  fs.mkdirSync(zilaDir, { recursive: true, mode: 0o700 });
+  fs.chmodSync(zilaDir, 0o700);
   const record: AuthRecord = {
     token,
     email,
     storedAt: new Date().toISOString(),
   };
-  fs.writeFileSync(AUTH_PATH, JSON.stringify(record, null, 2), {
+  fs.writeFileSync(authPath, JSON.stringify(record, null, 2), {
     encoding: "utf-8",
     mode: 0o600,
   });
+  fs.chmodSync(authPath, 0o600);
 }
 
 export function loadAuth(): AuthRecord | null {
   try {
-    const raw = fs.readFileSync(AUTH_PATH, "utf-8");
+    const raw = fs.readFileSync(getAuthPath(), "utf-8");
     return JSON.parse(raw) as AuthRecord;
   } catch {
     return null;
@@ -63,7 +78,7 @@ export function loadAuth(): AuthRecord | null {
 
 export function clearAuth(): void {
   try {
-    fs.unlinkSync(AUTH_PATH);
+    fs.unlinkSync(getAuthPath());
   } catch {
     /* already gone */
   }

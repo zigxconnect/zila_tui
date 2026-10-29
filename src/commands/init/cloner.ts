@@ -1,12 +1,20 @@
 import fs from "node:fs";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { withRetry } from "../../utils/retry.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface CloneResult {
   cloned: boolean;
+}
+
+export function validateRepositoryUrl(repoUrl: string): URL {
+  const parsed = new URL(repoUrl);
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
+    throw new Error("Curriculum repository URL must use HTTPS and must not contain credentials.");
+  }
+  return parsed;
 }
 
 export async function cloneRepo(
@@ -14,6 +22,7 @@ export async function cloneRepo(
   targetDir: string,
   onRetry?: (attempt: number, error: Error) => void,
 ): Promise<CloneResult> {
+  validateRepositoryUrl(repoUrl);
   // Already present — nothing to do
   if (fs.existsSync(targetDir)) {
     return { cloned: false };
@@ -24,7 +33,7 @@ export async function cloneRepo(
 
   await withRetry(
     async () => {
-      await execAsync(`git clone --depth 1 ${repoUrl} ${targetDir}`);
+      await execFileAsync("git", ["clone", "--depth", "1", repoUrl, targetDir]);
     },
     {
       maxAttempts: 3,

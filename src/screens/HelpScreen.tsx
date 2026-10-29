@@ -15,14 +15,14 @@ interface CommandItem {
 }
 
 const COMMAND_CATALOG: CommandItem[] = [
-  { cmd: "select --cohorts", category: "cohort", desc: "Navigate into a cohort context (lil-zila/slug ›)" },
   { cmd: "group --cohorts", category: "cohort", desc: "Pick a cohort and view its team" },
   { cmd: "cohorts", category: "cohort", desc: "List cohorts and IDs for team switching" },
+  { cmd: "leaderboard", category: "cohort", desc: "Add --cohorts to pick a cohort ranking" },
   { cmd: "downloads", category: "cohort", desc: "Clone course materials & repo" },
   { cmd: "leaderboard", category: "cohort", desc: "Cohort ranking & intern points" },
   { cmd: "achievements", category: "cohort", desc: "Intern badges & milestone achievements" },
   { cmd: "tasks", category: "work", desc: "List assigned tasks & deadlines" },
-  { cmd: "submit-task", category: "work", desc: "Automated GitHub PR task pipeline" },
+  { cmd: "submit-task", category: "work", desc: "Interactive task PR submission" },
   { cmd: "submit-report", category: "work", desc: "Draft & submit daily progress report" },
   { cmd: "docs [query]", category: "library", desc: "Search Zigex engineering documentation" },
   { cmd: "auth", category: "auth", desc: "Authenticate with Zigex credentials" },
@@ -55,7 +55,7 @@ export const HelpScreen: React.FC<HelpScreenProps> = ({ onClose }) => {
           <Text color={theme.colors.retroSlateDark}>{"›"}</Text>
           <Text color={theme.colors.white} bold>{"command reference"}</Text>
         </Box>
-        <Text color={theme.colors.retroSlateDark}>{"19 commands"}</Text>
+        <Text color={theme.colors.retroSlateDark}>{"18 commands"}</Text>
       </Box>
 
       {/* Divider */}

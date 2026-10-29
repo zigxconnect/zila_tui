@@ -43,14 +43,14 @@ function checkNode(): DependencyCheckResult {
       command: "node",
       installed: true,
       version,
-      required: ">= 18.0.0",
+      required: ">= 20.19.0",
     };
   } catch {
     return {
       name: "Node.js Runtime",
       command: "node",
       installed: false,
-      required: ">= 18.0.0",
+      required: ">= 20.19.0",
     };
   }
 }

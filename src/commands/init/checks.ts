@@ -32,7 +32,7 @@ export async function checkGit(): Promise<CheckResult> {
 
 // node
 
-const MIN_NODE_MAJOR = 18;
+const MIN_NODE_MAJOR = 20;
 
 export async function checkNode(): Promise<CheckResult> {
   try {
@@ -41,12 +41,13 @@ export async function checkNode(): Promise<CheckResult> {
     const majorStr = version.replace("v", "").split(".")[0];
     const major = parseInt(majorStr ?? "0", 10);
 
-    if (major < MIN_NODE_MAJOR) {
+    const minor = parseInt(version.replace("v", "").split(".")[1] ?? "0", 10);
+    if (major < MIN_NODE_MAJOR || (major === MIN_NODE_MAJOR && minor < 19)) {
       return {
         passed: false,
         version,
         error:
-          `Node ${version} found — ZILA needs Node ≥ ${MIN_NODE_MAJOR}.\n` +
+          `Node ${version} found — ZILA needs Node ≥ 20.19.0.\n` +
           "Upgrade at: https://nodejs.org\n",
       };
     }
@@ -56,7 +57,7 @@ export async function checkNode(): Promise<CheckResult> {
     return {
       passed: false,
       error:
-        `Node.js is not installed. ZILA needs Node ≥ ${MIN_NODE_MAJOR}.\n` +
+        "Node.js is not installed. ZILA needs Node ≥ 20.19.0.\n" +
         "Install it at: https://nodejs.org",
     };
   }

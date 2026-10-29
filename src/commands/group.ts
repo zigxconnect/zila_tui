@@ -1,10 +1,8 @@
 import type { ZilaCommand, ShellContext } from "./registry.js";
-import { loadAuth } from "../utils/auth.js";
+import { API_BASE, loadAuth } from "../utils/auth.js";
 import { ClientCache } from "../utils/cache.js";
-import { getActiveCohort } from "../utils/activeCohort.js";
-import { env } from "process";
 
-const API_BASE_URL = env.ZILA_API_URL || "http://localhost:5000";
+const API_BASE_URL = API_BASE.replace(/\/api$/, "");
 
 export interface GroupArguments {
   cohortId?: string;
@@ -85,12 +83,10 @@ export const groupCommand: ZilaCommand = {
     }
 
     const { refresh, cohortId: targetCohortId } = parsedArgs;
-    const activeCohort = getActiveCohort();
-    const effectiveCohortId = targetCohortId || activeCohort?.id;
-    const cacheKey = `group:${authRecord.email || "me"}:${effectiveCohortId || "default"}`;
+    const cacheKey = `group:${authRecord.email || "me"}:${targetCohortId || "default"}`;
 
     try {
-      if (effectiveCohortId) {
+      if (targetCohortId) {
         const cohortsCacheKey = `my-cohorts:${authRecord.email || "me"}`;
         let cohorts = refresh ? null : ClientCache.get<any[]>(cohortsCacheKey);
         if (!cohorts) {
@@ -105,8 +101,8 @@ export const groupCommand: ZilaCommand = {
           cohorts = cohortsData.cohorts ?? [];
           ClientCache.set(cohortsCacheKey, cohorts, 120);
         }
-        if (!cohorts.some((cohort) => cohort.id === effectiveCohortId)) {
-          output(`[ERROR] Cohort ${effectiveCohortId} is not in your enrolled cohorts.`, "error");
+        if (!cohorts.some((cohort) => cohort.id === targetCohortId)) {
+          output(`[ERROR] Cohort ${targetCohortId} is not in your enrolled cohorts.`, "error");
           output("Run 'zila cohorts --refresh' to see your available cohort IDs.", "dim");
           return;
         }
@@ -122,8 +118,8 @@ export const groupCommand: ZilaCommand = {
       } else {
         output("[FETCH] Loading your cohort members and placements...", "info");
 
-        const targetUrl = effectiveCohortId
-          ? `${API_BASE_URL}/api/cohorts/${encodeURIComponent(effectiveCohortId)}/chat-group`
+        const targetUrl = targetCohortId
+          ? `${API_BASE_URL}/api/cohorts/${encodeURIComponent(targetCohortId)}/chat-group`
           : `${API_BASE_URL}/api/cohorts/group`;
 
         const res = await fetch(targetUrl, {

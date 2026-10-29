@@ -14,7 +14,7 @@ test("checkEnvironmentDependencies returns structured diagnostics for node, pyth
   // In test environment, node must be installed
   assert.equal(diagnostics.node.installed, true);
   assert.ok(diagnostics.node.version?.startsWith("v"));
-  assert.equal(diagnostics.node.required, ">= 18.0.0");
+  assert.equal(diagnostics.node.required, ">= 20.19.0");
 
   // Git is installed in standard Linux dev environment
   assert.equal(diagnostics.git.installed, true);

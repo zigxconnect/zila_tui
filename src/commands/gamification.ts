@@ -1,9 +1,8 @@
 import type { ZilaCommand } from "./registry.js";
-import { loadAuth } from "../utils/auth.js";
+import { API_BASE, loadAuth } from "../utils/auth.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
-import { env } from "process";
 
-const API_BASE_URL = env.ZILA_API_URL || "http://localhost:5000";
+const API_BASE_URL = API_BASE.replace(/\/api$/, "");
 
 export const statsCommand: ZilaCommand = {
   name: "stats",
