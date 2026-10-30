@@ -7,6 +7,7 @@ import { extractWorkspaceContext, type WorkspaceContext } from "../utils/context
 import { formatPlanOverview } from "../commands/plan.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
 import { checkDailyPrQuota } from "../utils/githubPrAutomation.js";
+import { hasSeenLilAgentWelcome, markLilAgentWelcomeSeen } from "../utils/onboarding.js";
 
 import { LogbookSidebar } from "./LogbookSidebar.js";
 import { LeaderboardSidebar } from "./LeaderboardSidebar.js";
@@ -19,6 +20,7 @@ import { clearTerminalScreen } from "../ui/terminal.js";
 
 interface LilAgentShellScreenProps {
   onClose: () => void;
+  initialShowWelcome?: boolean;
 }
 
 export interface DisplayMessage {
@@ -149,8 +151,24 @@ interface SlashCommandItem {
 type SidebarMode = "logbook" | "leaderboard" | "group" | "cohorts" | null;
 type ModalMode = "submit-report" | "submit-task" | null;
 
+export const LIL_AGENT_WELCOME_MASCOT = [
+  "          .-----.          ",
+  "        .' -   - '.        ",
+  "       /   o   o   \\       ",
+  "      |      ^      |      ",
+  "       \\   '---'   /       ",
+  "       .-'-------'-.       ",
+  "      /  .-------.  \\      ",
+  "     |  /  ZILA   \\  |     ",
+  "     |  \\_________/  |     ",
+  "      \\___/     \\___/      ",
+  "         /|     |\\         ",
+  "        (_|     |_)        ",
+].join("\n");
+
 const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/help", desc: "Display interactive command directory & tips" },
+  { cmd: "/welcome", desc: "View the Lil-Zila child mascot & anti-cheating mission" },
   { cmd: "/leaderboard", desc: "Open cohort rankings & PR evaluation leaderboard on the right" },
   { cmd: "/group", desc: "Open cohort team & fellow interns roster on the right" },
   { cmd: "/cohorts", desc: "Browse enrolled programs and cohort workspaces on the right" },
@@ -169,7 +187,13 @@ const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/exit", desc: "Return to the primary Zigex workstation shell" },
 ];
 
-export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClose }) => {
+export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
+  onClose,
+  initialShowWelcome,
+}) => {
+  const [showFirstRunWelcome, setShowFirstRunWelcome] = useState(
+    () => initialShowWelcome ?? !hasSeenLilAgentWelcome(),
+  );
   const [messages, setMessages] = useState<DisplayMessage[]>([
     {
       id: "msg-0",
@@ -188,6 +212,10 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
   const [activeFocus, setActiveFocus] = useState<"chat" | "sidebar">("chat");
 
   const config = loadAgentConfig();
+
+  useEffect(() => {
+    if (showFirstRunWelcome) markLilAgentWelcomeSeen();
+  }, [showFirstRunWelcome]);
 
   const isSlashActive = inputText.startsWith("/");
   const matchingSlashCommands = isSlashActive
@@ -369,6 +397,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
 
       const trimmed = inputText.trim();
       if (!trimmed) return;
+      setShowFirstRunWelcome(false);
 
       if (trimmed.toLowerCase() === "exit" || trimmed.toLowerCase() === "quit") {
         onClose();
@@ -527,6 +556,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
       reply = [
         "◈ Zigex Lil-Agent Command Reference:",
         "  /help          — Display this interactive help directory",
+        "  /welcome       — View the Lil-Zila companion mascot & anti-cheating mission",
         "  /leaderboard   — Open cohort rankings & PR evaluation leaderboard on the right",
         "  /group         — Open cohort team & fellow interns roster on the right",
         "  /cohorts       — Browse enrolled programs and cohort workspaces on the right",
@@ -544,6 +574,9 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
         "💡 Tip: You can ask anything naturally without slashes, e.g.:",
         "   'explain this error', 'how do I structure day 3 task?', 'review my commit'",
       ].join("\n");
+    } else if (rawCmd === "/welcome" || rawCmd === "/mascot") {
+      setShowFirstRunWelcome(true);
+      reply = "Displayed Lil-Zila companion mascot & anti-cheating mission.";
     } else if (rawCmd === "/leaderboard" || rawCmd === "leaderboard" || rawCmd === "rankings" || rawCmd === "/rankings") {
       setActiveSidebar((prev) => (prev === "leaderboard" ? null : "leaderboard"));
       reply = activeSidebar !== "leaderboard"
@@ -687,6 +720,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({ onClos
   }
 
   async function handleSend(prompt: string) {
+    setShowFirstRunWelcome(false);
     const userMsg: DisplayMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -792,7 +826,7 @@ Behavior Guidelines:
   const mainContent = (
     <Box
       flexDirection="column"
-      height={isSplitActive ? fullHeight : undefined}
+      height={isSplitActive || showFirstRunWelcome ? fullHeight : undefined}
       justifyContent={isSplitActive ? "space-between" : undefined}
       paddingY={0}
     >
@@ -864,10 +898,65 @@ Behavior Guidelines:
         {/* Messages Stream */}
         <Box
           flexDirection="column"
-          height={isSplitActive ? chatViewportHeight : undefined}
+          height={isSplitActive || showFirstRunWelcome ? chatViewportHeight : undefined}
+          width="100%"
+          justifyContent={showFirstRunWelcome ? "center" : undefined}
+          alignItems={showFirstRunWelcome ? "center" : undefined}
           overflow="hidden"
         >
-          {visibleLines.map((line) => {
+          {showFirstRunWelcome ? (
+            <Box flexDirection="column" alignItems="center" justifyContent="center" width="100%">
+              {/* Lil Child Companion in Blue Zila Colors */}
+              <Box flexDirection="column" alignItems="center">
+                <Text color={theme.colors.retroCyanBright} bold>
+                  {"          .-----.          \n" +
+                   "        .' -   - '.        \n" +
+                   "       /   o   o   \\       "}
+                </Text>
+                <Text color={theme.colors.retroBlueBright} bold>
+                  {"      |      ^      |      \n" +
+                   "       \\   '---'   /       \n" +
+                   "       .-'-------'-.       \n" +
+                   "      /  .-------.  \\      "}
+                </Text>
+                <Text color={theme.colors.retroCyanBright} bold>
+                  {"     |  /  ZILA   \\  |     "}
+                </Text>
+                <Text color={theme.colors.retroBlueBright} bold>
+                  {"     |  \\_________/  |     \n" +
+                   "      \\___/     \\___/      \n" +
+                   "         /|     |\\         \n" +
+                   "        (_|     |_)        "}
+                </Text>
+              </Box>
+
+              <Box marginTop={1}>
+                <Text color={theme.colors.retroCyanBright} bold>Hi, I’m Lil-Zila.</Text>
+              </Box>
+
+              <Box
+                marginTop={1}
+                borderStyle="round"
+                borderColor={theme.colors.retroBlue}
+                paddingX={2}
+                paddingY={0}
+              >
+                <Text color={theme.colors.white}>
+                  I am here to monitor and make sure you do the writing...{"\n"}
+                  Together, we can say no to cheating the right way:{"\n"}
+                  <Text color={theme.colors.retroBlueBright} bold>
+                    That’s the aim of Lil-Zila.
+                  </Text>
+                </Text>
+              </Box>
+
+              <Box marginTop={1}>
+                <Text color={theme.colors.retroSlateDark}>
+                  Start by asking me about your code or task.
+                </Text>
+              </Box>
+            </Box>
+          ) : visibleLines.map((line) => {
             if (line.role === "blank") {
               return (
                 <Box key={line.id} height={1}>
