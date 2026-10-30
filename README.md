@@ -26,6 +26,10 @@
 9. [Command Reference](#9-command-reference)
 10. [Open Questions & Future Considerations](#10-open-questions--future-considerations)
 
+For maintainers publishing releases to npm, see the [npm release guide](NPM_RELEASE_GUIDE.md).
+For a full developer and user QA checklist with end-to-end testing and release sign-off, see [QA_TEST_PLAN.md](QA_TEST_PLAN.md).
+For a brief continuation handoff describing the current project state and the next steps, see [CONTINUATION_GUIDE.md](CONTINUATION_GUIDE.md).
+
 ---
 
 ## 1. Project Overview
