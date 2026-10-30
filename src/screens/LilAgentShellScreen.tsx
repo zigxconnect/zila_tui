@@ -192,7 +192,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   initialShowWelcome,
 }) => {
   const [showFirstRunWelcome, setShowFirstRunWelcome] = useState(
-    () => initialShowWelcome ?? !hasSeenLilAgentWelcome(),
+    () => (initialShowWelcome !== undefined ? initialShowWelcome : true),
   );
   const [messages, setMessages] = useState<DisplayMessage[]>([
     {
@@ -691,6 +691,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     } else if (rawCmd === "/clear") {
       clearTerminalScreen();
       setMessages([]);
+      setShowFirstRunWelcome(true);
       setInputText("");
       setChatScrollOffset(0);
       return;

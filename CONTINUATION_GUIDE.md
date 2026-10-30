@@ -6,7 +6,7 @@ This is a short handoff for the current state of the package and the next work t
 
 - Package name: `lil-zila`
 - CLI aliases: `zila` and `lil-zila`
-- Published version at the time of this handoff: `0.2.1`
+- Published version at the time of this handoff: `0.2.2`
 - Runtime requirement: Node `>=20.19.0`
 - Stack: TypeScript + Ink + React CLI shell + Zigex API + AI provider integrations
 - Primary entrypoint: `src/cli.ts` with compiled output under `dist/`
