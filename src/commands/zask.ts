@@ -97,6 +97,10 @@ export const submitTaskCommand: ZilaCommand = {
         output(`Branch:       ${res.branchName}`, "dim");
         output(`Path:         ${res.contributorFilePath}`, "dim");
         output(`Score Weight: ${res.dayWeight} pt (${res.normalizedPercentage}% normalized over 100)`, "info");
+        if (res.proposedMark !== undefined) {
+          output(`Proposed Mark:${(res.proposedMark * 100).toFixed(0)}% (${res.proposedMark.toFixed(2)} / 1.0)`, "success");
+        }
+        output(`Integrity:    ${res.cheatingRisk === "CLEAN" ? "✔ CLEAN (Verified Genuine Work)" : `⚠ ${res.cheatingRisk || "AUDITED"} (Malpractice Review Flagged)`}`, res.cheatingRisk === "CLEAN" ? "success" : "warning");
         output(`Daily Quota:  ${res.quotaRemaining}/2 PRs remaining today`, "dim");
         output("─".repeat(72), "dim");
       } catch (err: any) {

@@ -6,6 +6,9 @@ import { API_BASE, loadAuth } from "./auth.js";
 import { loadGitHubAuth, type GitHubAuthRecord } from "./githubAuth.js";
 import { enrichContributorLogbook } from "./logbookEnricher.js";
 import { getActiveCohort, setActiveCohort } from "./activeCohort.js";
+import { analyzeGitHistoryForCheating, type CheatingAuditReport } from "./antiCheatingDetector.js";
+import { findSupervisorInstructionsInFolder, type ExtractedSupervisorPrompt } from "./supervisorPromptExtractor.js";
+import { evaluateStudentWorkHonestly, type HonestEvaluationResult } from "./honestEvaluator.js";
 
 export interface TaskSubmissionPayload {
   domain?: string; // ml, web, cyber, embeded, app, cloud, or custom!
@@ -29,6 +32,8 @@ export interface AutomatedPrResult {
   normalizedPercentage: number;
   quotaRemaining: number;
   submissionId?: string;
+  proposedMark?: number;
+  cheatingRisk?: string;
 }
 
 export interface DomainDefinition {
@@ -278,10 +283,24 @@ export function recordPrSubmission(): number {
 /**
  * Generate formatted exercise.md content
  */
-export function generateExerciseReport(payload: TaskSubmissionPayload, githubUsername: string, branchName: string): string {
+export function generateExerciseReport(
+  payload: TaskSubmissionPayload,
+  githubUsername: string,
+  branchName: string,
+  evaluation?: HonestEvaluationResult,
+  cheatingReport?: CheatingAuditReport,
+): string {
   const dayWeightInfo = DAY_WEIGHTS[payload.day] || { weight: 1, percentage: 12.5 };
   const dateStr = new Date().toISOString().slice(0, 10);
   const domainName = (payload.domain || "ml").toUpperCase();
+
+  const proposedMarkVal = evaluation?.proposedMark !== undefined
+    ? evaluation.proposedMark
+    : (dayWeightInfo.percentage / 100);
+
+  const riskBadge = cheatingReport?.isCheatingSuspected
+    ? `FLAGGED (${cheatingReport.riskLevel} MALPRACTICE RISK)`
+    : "CLEAN (Verified Genuine Work)";
 
   return `# Daily Cohort Exercise Report — Day 0${payload.day}
 
@@ -321,6 +340,28 @@ ${payload.challenges.trim()}
 - **Day Weight:** ${dayWeightInfo.weight} point(s)
 - **Module Share:** ${dayWeightInfo.percentage}% (Normalized over 100)
 - **Status:** Automated PR Created & Dispatched for Supervisor Review
+
+---
+
+## 6. Supervisor Integrity & Anti-Cheating Audit
+- **What the Candidate Did:**
+  ${evaluation?.whatStudentDid || payload.summary.trim()}
+
+- **How the Exercise Was Solved:**
+  ${evaluation?.howTheySolved || payload.practicalsDescription.trim()}
+
+- **Malpractice & Plagiarism Audit:**
+  - **Integrity Status:** \`${riskBadge}\`
+  - **Findings:** ${cheatingReport?.findingsSummary || "Clean incremental commit history; verified genuine author."}
+  - **Commit Cadence:** ${cheatingReport?.gitMetrics.totalCommits || 1} commit(s) across ${cheatingReport?.gitMetrics.durationMinutes || 0} minute(s)
+  - **Copy-Paste Analysis:** ${cheatingReport?.signals.rapidVelocity || cheatingReport?.signals.monolithicCommit ? "⚠ FLAGGED: Monolithic or instant copy-paste dump detected" : "✔ CLEAN: Gradual developmental typing cadence"}
+  - **Author Verification:** ${cheatingReport?.signals.authorMismatch ? "⚠ FLAGGED: Author identity mismatch" : `✔ Confirmed authored by @${githubUsername}`}
+
+- **Proposed Allocation Mark (0.0 to 1.0):**
+  **\`${proposedMarkVal.toFixed(2)} / 1.0\`** (${Math.round(proposedMarkVal * 100)}%)
+
+- **Supervisor Recommendation:**
+  ${evaluation?.supervisorRecommendation || (proposedMarkVal >= 0.7 ? "Merge approved with proposed marks." : "Review required before merge.")}
 `;
 }
 
@@ -365,8 +406,30 @@ export async function executeAutomatedTaskSubmission(
 
   onProgress?.(`Configuring automated branch: ${branchName}`);
 
+  // 3b. Anti-Cheating Git History Audit & Hidden Supervisor Prompt Extraction
+  onProgress?.("Auditing Git history for plagiarism & copy-paste malpractices...");
+  const exerciseFolder = process.cwd();
+  const supervisorPrompt = findSupervisorInstructionsInFolder(exerciseFolder);
+  const cheatingReport = analyzeGitHistoryForCheating(exerciseFolder, {
+    studentUsername: githubUsername,
+    studentEmail: zigexAuth.email,
+  });
+
+  let actualDiff = "";
+  let commitLogs: string[] = [];
+  try {
+    actualDiff = execSync("git diff HEAD~1", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const rawLogs = execSync('git log -n 5 --format="%s"', { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    commitLogs = rawLogs.trim().split("\n").filter(Boolean);
+  } catch {
+    actualDiff = payload.summary;
+  }
+
+  onProgress?.("Evaluating implementation against supervisor rubric...");
+  const evaluation = await evaluateStudentWorkHonestly(supervisorPrompt, actualDiff, commitLogs, cheatingReport);
+
   // 4. Generate exercise report
-  const exerciseContent = generateExerciseReport(payload, githubUsername, branchName);
+  const exerciseContent = generateExerciseReport(payload, githubUsername, branchName, evaluation, cheatingReport);
 
   // 5. Create PR via GitHub API
   if (!githubToken) {
@@ -569,6 +632,11 @@ export async function executeAutomatedTaskSubmission(
         summary: payload.summary,
         challenges: payload.challenges,
         deploymentUrl: payload.deploymentUrl,
+        proposedMark: evaluation.proposedMark,
+        cheatingRisk: cheatingReport.riskLevel,
+        integrityReport: cheatingReport.findingsSummary,
+        whatStudentDid: evaluation.whatStudentDid,
+        howTheySolved: evaluation.howTheySolved,
       }),
     });
 
@@ -611,22 +679,16 @@ export async function executeAutomatedTaskSubmission(
       taskTitle: `[${cleanDomain.toUpperCase()} Day 0${payload.day}] ${payload.module}`,
       prUrl: pullRequestUrl,
       evaluation: {
-        score: dayInfo.percentage / 100,
-        weightedScore: dayInfo.percentage,
-        honestSummary: payload.summary,
-        requirementVerifications: [
-          {
-            requirement: `Module ${payload.module} Day 0${payload.day} Exercise`,
-            status: "PASS",
-            explanation: `Successfully committed ${contributorFilePath} and opened PR ${pullRequestUrl}`,
-          },
-          {
-            requirement: "Practical Implementation Report",
-            status: "PASS",
-            explanation: payload.practicalsDescription,
-          },
-        ],
-        supervisorRecommendation: `Good progress on Day 0${payload.day}. Score: ${dayInfo.percentage}%.`,
+        score: evaluation.proposedMark,
+        weightedScore: evaluation.weightedScore,
+        whatStudentDid: evaluation.whatStudentDid,
+        howTheySolved: evaluation.howTheySolved,
+        cheatingStatus: evaluation.cheatingStatus,
+        cheatingDetails: evaluation.cheatingDetails,
+        proposedMark: evaluation.proposedMark,
+        honestSummary: evaluation.honestSummary,
+        requirementVerifications: evaluation.requirementVerifications,
+        supervisorRecommendation: evaluation.supervisorRecommendation,
       },
       repoRoot: process.cwd(),
     });
@@ -643,5 +705,7 @@ export async function executeAutomatedTaskSubmission(
     normalizedPercentage: dayInfo.percentage,
     quotaRemaining,
     submissionId,
+    proposedMark: evaluation.proposedMark,
+    cheatingRisk: cheatingReport.riskLevel,
   };
 }

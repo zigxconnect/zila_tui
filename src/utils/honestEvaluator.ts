@@ -1,9 +1,15 @@
 import { generateChatResponse, type ChatMessage } from "./aiClient.js";
 import type { ExtractedSupervisorPrompt } from "./supervisorPromptExtractor.js";
+import type { CheatingAuditReport } from "./antiCheatingDetector.js";
 
 export interface HonestEvaluationResult {
   score: number; // 0.0 to 1.0
   weightedScore: number;
+  whatStudentDid: string;
+  howTheySolved: string;
+  cheatingStatus: "CLEAN" | "SUSPECTED" | "FLAGGED";
+  cheatingDetails: string;
+  proposedMark: number; // Strictly 0.0 to 1.0
   honestSummary: string;
   requirementVerifications: {
     requirement: string;
@@ -15,18 +21,35 @@ export interface HonestEvaluationResult {
 
 /**
  * Performs honest semantic evaluation comparing the student's actual Git diff
- * against supervisor requirements.
+ * against supervisor requirements and git history anti-cheating signals.
  */
 export async function evaluateStudentWorkHonestly(
   instructions: ExtractedSupervisorPrompt,
   gitDiff: string,
   commitLogs: string[] = [],
+  cheatingReport?: CheatingAuditReport,
 ): Promise<HonestEvaluationResult> {
+  const isFlagged = cheatingReport?.isCheatingSuspected || false;
+  const cheatingStatus = isFlagged
+    ? "FLAGGED"
+    : cheatingReport && cheatingReport.riskLevel === "LOW"
+    ? "SUSPECTED"
+    : "CLEAN";
+
+  const cheatingDetails = cheatingReport
+    ? cheatingReport.findingsSummary
+    : "No git integrity anomalies detected.";
+
   // If no diff, return 0
   if (!gitDiff || gitDiff.trim().length === 0) {
     return {
       score: 0.0,
       weightedScore: 0.0,
+      whatStudentDid: "No code changes were implemented.",
+      howTheySolved: "Branch was created without committing exercise implementation.",
+      cheatingStatus: "CLEAN",
+      cheatingDetails: "Empty submission.",
+      proposedMark: 0.0,
       honestSummary: "No code changes detected in student branch.",
       requirementVerifications: instructions.requirements.map((req) => ({
         requirement: req,
@@ -38,11 +61,16 @@ export async function evaluateStudentWorkHonestly(
   }
 
   const prompt = `You are an honest, objective supervisor evaluating a student engineer's code submission.
-Your job is to compare what the student was instructed to do against what they TRULY implemented in their Git diff.
+Your job is to compare what the student was instructed to do against what they TRULY implemented in their Git diff and Git history.
 
 SUPERVISOR REQUIREMENTS:
 ${instructions.requirements.map((r, i) => `${i + 1}. ${r}`).join("\n") || "Complete assigned task."}
 Weight: ${instructions.weight}
+
+INTEGRITY & ANTI-CHEATING AUDIT FINDINGS:
+Status: ${cheatingStatus}
+Details: ${cheatingDetails}
+Penalty Deduction: ${cheatingReport?.proposedMarkPenalty || 0.0}
 
 STUDENT GIT COMMIT LOGS:
 ${commitLogs.join("\n") || "No commit messages."}
@@ -54,16 +82,19 @@ ${gitDiff.slice(0, 4000)}
 
 EVALUATION RULES:
 1. Be completely truthful. Do not inflate marks.
-2. Check if requirements were actually implemented, or if the student only committed boilerplate or hardcoded values.
-3. Score strictly between 0.0 and 1.0.
-4. Output your response as valid JSON matching this schema exactly:
+2. Formulate "whatStudentDid" (concise explanation of features/code added).
+3. Formulate "howTheySolved" (technical approach and commit evolution).
+4. Score strictly between 0.0 and 1.0. If cheating/copy-paste was flagged, cap the score at ${cheatingReport?.proposedMarkCap ?? 0.5}.
+5. Output your response as valid JSON matching this schema exactly:
 {
+  "whatStudentDid": "Brief straightforward explanation of what code was built",
+  "howTheySolved": "How the candidate solved the problem or committed the solution",
   "score": 0.85,
-  "honestSummary": "Brief honest summary of true accomplishments and shortcomings",
+  "honestSummary": "Brief honest summary of accomplishments and shortcomings",
   "requirementVerifications": [
     { "requirement": "text", "status": "PASS" | "PARTIAL" | "FAIL", "explanation": "reason" }
   ],
-  "supervisorRecommendation": "Merge approved with full marks" | "Merge approved with partial marks" | "Request revisions"
+  "supervisorRecommendation": "Merge approved with full marks" | "Merge approved with partial marks" | "Reject: Cheating or incomplete"
 }`;
 
   try {
@@ -76,30 +107,51 @@ EVALUATION RULES:
     const cleanJson = rawResponse.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleanJson);
 
-    const score = Math.max(0.0, Math.min(1.0, parseFloat(parsed.score) || 0.0));
+    let rawScore = Math.max(0.0, Math.min(1.0, parseFloat(parsed.score) || 0.0));
+    if (cheatingReport) {
+      rawScore = Math.min(rawScore, cheatingReport.proposedMarkCap);
+      rawScore = Math.max(0.0, rawScore - cheatingReport.proposedMarkPenalty * 0.5);
+    }
+    const score = Math.round(rawScore * 100) / 100;
     const weightedScore = score * instructions.weight;
 
     return {
       score,
       weightedScore,
+      whatStudentDid: parsed.whatStudentDid || "Implemented exercise code according to diff.",
+      howTheySolved: parsed.howTheySolved || "Completed task through git commits.",
+      cheatingStatus,
+      cheatingDetails,
+      proposedMark: score,
       honestSummary: parsed.honestSummary || "Evaluation complete.",
       requirementVerifications: parsed.requirementVerifications || [],
-      supervisorRecommendation: parsed.supervisorRecommendation || "Review submitted work.",
+      supervisorRecommendation: parsed.supervisorRecommendation || (score >= 0.7 ? "Merge approved." : "Request revisions."),
     };
   } catch (err) {
     // Fallback heuristic scoring if offline or API unavailable
     const diffLines = gitDiff.split("\n").filter((l) => l.startsWith("+")).length;
-    const baseScore = diffLines > 20 ? 0.8 : diffLines > 5 ? 0.5 : 0.2;
+    let baseScore = diffLines > 20 ? 0.8 : diffLines > 5 ? 0.5 : 0.2;
+    if (cheatingReport) {
+      baseScore = Math.min(baseScore, cheatingReport.proposedMarkCap);
+    }
+    const score = Math.round(baseScore * 100) / 100;
+
     return {
-      score: baseScore,
-      weightedScore: baseScore * instructions.weight,
+      score,
+      weightedScore: score * instructions.weight,
+      whatStudentDid: `Implemented ${diffLines} line(s) of code in repository.`,
+      howTheySolved: `Submitted solution via git commit history (${commitLogs.length} commit(s)).`,
+      cheatingStatus,
+      cheatingDetails,
+      proposedMark: score,
       honestSummary: "Automated heuristic evaluation applied.",
       requirementVerifications: instructions.requirements.map((r) => ({
         requirement: r,
-        status: baseScore >= 0.8 ? "PASS" : "PARTIAL",
+        status: score >= 0.7 ? "PASS" : "PARTIAL",
         explanation: "Static code inspection heuristic.",
       })),
-      supervisorRecommendation: baseScore >= 0.7 ? "Merge approved." : "Request revisions.",
+      supervisorRecommendation: score >= 0.7 ? "Merge approved." : "Request revisions.",
     };
   }
 }
+

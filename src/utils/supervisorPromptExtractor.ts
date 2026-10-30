@@ -100,3 +100,110 @@ export function extractSupervisorInstructions(fileContent: string): ExtractedSup
     weight,
   };
 }
+
+/**
+ * Known dedicated supervisor instruction file names.
+ * These are files placed in an exercise folder specifically for the agent to read.
+ */
+export const SUPERVISOR_INSTRUCTION_FILES = [
+  ".supervisor_instructions",
+  "supervisor_instructions.json",
+  ".instructions.md",
+  "instructions.md",
+  ".supervisor/instructions.md",
+  ".zila_instructions.json",
+  ".zila_rubric.json",
+  "supervisor_prompt.txt",
+];
+
+import fs from "node:fs";
+import path from "node:path";
+
+/**
+ * Searches an exercise directory for supervisor instructions:
+ * 1. Checks dedicated instruction files (hidden or supervisor-specific).
+ * 2. Checks code files in the directory for top-level supervisor docstrings/comments.
+ * 3. Falls back gracefully with empty instructions if none found.
+ */
+export function findSupervisorInstructionsInFolder(folderPath: string): ExtractedSupervisorPrompt {
+  if (!fs.existsSync(folderPath)) {
+    return { hasInstructions: false, rawHeader: "", requirements: [], weight: 1.0 };
+  }
+
+  // 1. Check dedicated supervisor instruction files first
+  for (const filename of SUPERVISOR_INSTRUCTION_FILES) {
+    const filePath = path.join(folderPath, filename);
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = fs.readFileSync(filePath, "utf8").trim();
+        if (filename.endsWith(".json") || content.startsWith("{")) {
+          const parsed = JSON.parse(content);
+          return {
+            hasInstructions: true,
+            rawHeader: content,
+            title: parsed.title || parsed.task,
+            taskDescription: parsed.taskDescription || parsed.description || parsed.task,
+            requirements: Array.isArray(parsed.requirements) ? parsed.requirements : [],
+            weight: typeof parsed.weight === "number" ? parsed.weight : (typeof parsed.gradingWeight === "number" ? parsed.gradingWeight : 1.0),
+          };
+        }
+
+        // Markdown or plain text
+        const extracted = extractSupervisorInstructions(content);
+        if (extracted.hasInstructions && extracted.requirements.length > 0) {
+          return extracted;
+        }
+
+        // If simple markdown bullets without docstring markers
+        const lines = content.split("\n").map((l) => l.trim());
+        const reqs = lines
+          .filter((l) => l.startsWith("- ") || l.startsWith("* ") || /^\d+\.\s/.test(l))
+          .map((l) => l.replace(/^[-*]\s+|\d+\.\s+/, ""));
+
+        if (reqs.length > 0) {
+          return {
+            hasInstructions: true,
+            rawHeader: content,
+            title: lines.find((l) => l.startsWith("# "))?.replace(/^#\s+/, ""),
+            taskDescription: content.slice(0, 300),
+            requirements: reqs,
+            weight: 1.0,
+          };
+        }
+      } catch {
+        // continue to next file
+      }
+    }
+  }
+
+  // 2. Check code files in the folder for docstrings / header comments
+  try {
+    const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+    // Sort prioritized files first: exercise.*, task.*, main.*
+    const sorted = entries
+      .filter((e) => e.isFile())
+      .sort((a, b) => {
+        const aPri = /^(?:exercise|task|main|solution)/i.test(a.name) ? -1 : 1;
+        const bPri = /^(?:exercise|task|main|solution)/i.test(b.name) ? -1 : 1;
+        return aPri - bPri;
+      });
+
+    for (const entry of sorted) {
+      if (entry.name === "exercise.md") continue; // Skip student submission markdown
+      const ext = path.extname(entry.name).toLowerCase();
+      if ([".py", ".ts", ".js", ".c", ".cpp", ".rs", ".go", ".html", ".sh"].includes(ext)) {
+        const fullPath = path.join(folderPath, entry.name);
+        const codeContent = fs.readFileSync(fullPath, "utf8");
+        const extracted = extractSupervisorInstructions(codeContent);
+        if (extracted.hasInstructions && extracted.requirements.length > 0) {
+          return extracted;
+        }
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+
+  return { hasInstructions: false, rawHeader: "", requirements: [], weight: 1.0 };
+}
+

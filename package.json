@@ -1,6 +1,6 @@
 {
   "name": "lil-zila",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Autonomous AI coding companion & anti-cheating mentor for terminal developers, interns, and engineers. Multi-model LLM support (Groq, Gemini, Claude), real-time TUI pairing, automated PR verification, and daily engineering logbook generation.",
   "type": "module",
   "bin": {
