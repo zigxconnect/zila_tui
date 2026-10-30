@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   GROQ_MODEL_FAMILIES,
+  GEMINI_MODEL_FAMILIES,
   getProviderModelFamilies,
   fetchProviderModels,
   SUPPORTED_PROVIDERS,
@@ -46,6 +47,12 @@ test("getProviderModelFamilies returns correct families for all providers", () =
   assert.ok(getProviderModelFamilies("claude").length >= 1);
   assert.ok(getProviderModelFamilies("openai").length >= 1);
   assert.ok(getProviderModelFamilies("openrouter").length >= 1);
+});
+
+test("Gemini model choices include the requested Flash models", () => {
+  const modelIds = GEMINI_MODEL_FAMILIES.flatMap((family) => family.models.map((model) => model.id));
+  assert.ok(modelIds.includes("gemini-2.5-flash"));
+  assert.ok(modelIds.includes("gemini-3.8-flash"));
 });
 
 test("fetchProviderModels falls back gracefully when network fails", async () => {

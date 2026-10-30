@@ -101,6 +101,7 @@ export const GEMINI_MODEL_FAMILIES: ModelFamily[] = [
     name: "Google Gemini",
     models: [
       { id: "gemini-2.5-flash", name: "gemini-2.5-flash", description: "Ultra-fast next-gen flash reasoning (Recommended)", recommended: true },
+      { id: "gemini-3.8-flash", name: "gemini-3.8-flash", description: "Fast Gemini model for responsive coding assistance" },
       { id: "gemini-2.5-pro", name: "gemini-2.5-pro", description: "Deep architectural reasoning and heavy coding" },
       { id: "gemini-1.5-pro", name: "gemini-1.5-pro", description: "1M token long-context flagship model" },
       { id: "gemini-1.5-flash", name: "gemini-1.5-flash", description: "High-frequency lightweight model" },

@@ -366,6 +366,11 @@ export const Shell: React.FC<ShellProps> = ({ inkInstance }) => {
             setShowAgentSetup(false);
             pushLine("Welcome back to lil-zila.", "success");
           }}
+          onConfigured={() => {
+            clearTerminalScreen();
+            setShowAgentSetup(false);
+            setShowLilAgent(true);
+          }}
         />
       ) : showLilAgent ? (
         <LilAgentShellScreen
