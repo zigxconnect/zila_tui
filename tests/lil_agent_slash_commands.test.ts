@@ -93,7 +93,7 @@ test("LilAgentShellScreen - renders autonomous developer shell with chat navigat
   let rendered = "";
   stdout.on("data", (chunk: Buffer) => { rendered += chunk.toString(); });
 
-  const instance = render(React.createElement(LilAgentShellScreen, { onClose: () => {} }), {
+  const instance = render(React.createElement(LilAgentShellScreen, { onClose: () => {}, initialShowWelcome: false }), {
     stdout,
     debug: true,
     patchConsole: false,
