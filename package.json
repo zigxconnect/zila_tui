@@ -1,7 +1,7 @@
 {
   "name": "lil-zila",
-  "version": "0.2.0",
-  "description": "ZILA : Zigex Intelligent Layer for Agents. Terminal-first developer productivity.",
+  "version": "0.2.1",
+  "description": "Autonomous AI coding companion & anti-cheating mentor for terminal developers, interns, and engineers. Multi-model LLM support (Groq, Gemini, Claude), real-time TUI pairing, automated PR verification, and daily engineering logbook generation.",
   "type": "module",
   "bin": {
     "zila": "./bin/zila.js",
@@ -21,13 +21,35 @@
     "prepack": "npm run build"
   },
   "keywords": [
-    "ZILA",
+    "ai",
+    "ai-agent",
+    "coding-agent",
+    "coding-assistant",
+    "pair-programming",
+    "terminal",
+    "terminal-ui",
+    "tui",
+    "cli",
+    "developer-tools",
+    "anti-cheat",
+    "llm",
+    "groq",
+    "gemini",
+    "claude",
+    "ink",
+    "react",
     "zigex",
-    "CLI",
-    "AI",
-    "agent",
-    "terminal"
+    "zila",
+    "lil-zila"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zigxconnect/zila_tui.git"
+  },
+  "homepage": "https://github.com/zigxconnect/zila_tui#readme",
+  "bugs": {
+    "url": "https://github.com/zigxconnect/zila_tui/issues"
+  },
   "author": "Zigex Open Source Initiative",
   "license": "MIT",
   "dependencies": {
