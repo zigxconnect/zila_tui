@@ -17,6 +17,7 @@ import { SubmitReportScreen } from "./SubmitReportScreen.js";
 import { SubmitTaskScreen } from "./SubmitTaskScreen.js";
 import { ZigexLoader } from "../ui/Spinner.js";
 import { clearTerminalScreen } from "../ui/terminal.js";
+import { LLAMA_ART, LIL_ZILA_TEXT } from "../ui/LilZilaBanner.js";
 
 interface LilAgentShellScreenProps {
   onClose: () => void;
@@ -151,20 +152,7 @@ interface SlashCommandItem {
 type SidebarMode = "logbook" | "leaderboard" | "group" | "cohorts" | null;
 type ModalMode = "submit-report" | "submit-task" | null;
 
-export const LIL_AGENT_WELCOME_MASCOT = [
-  "          .-----.          ",
-  "        .' -   - '.        ",
-  "       /   o   o   \\       ",
-  "      |      ^      |      ",
-  "       \\   '---'   /       ",
-  "       .-'-------'-.       ",
-  "      /  .-------.  \\      ",
-  "     |  /  ZILA   \\  |     ",
-  "     |  \\_________/  |     ",
-  "      \\___/     \\___/      ",
-  "         /|     |\\         ",
-  "        (_|     |_)        ",
-].join("\n");
+export const LIL_AGENT_WELCOME_MASCOT = LLAMA_ART.join("\n");
 
 const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/help", desc: "Display interactive command directory & tips" },
@@ -907,29 +895,33 @@ Behavior Guidelines:
         >
           {showFirstRunWelcome ? (
             <Box flexDirection="column" alignItems="center" justifyContent="center" width="100%">
-              {/* Lil Child Companion in Blue Zila Colors */}
-              <Box flexDirection="column" alignItems="center">
-                <Text color={theme.colors.retroCyanBright} bold>
-                  {"          .-----.          \n" +
-                   "        .' -   - '.        \n" +
-                   "       /   o   o   \\       "}
-                </Text>
-                <Text color={theme.colors.retroBlueBright} bold>
-                  {"      |      ^      |      \n" +
-                   "       \\   '---'   /       \n" +
-                   "       .-'-------'-.       \n" +
-                   "      /  .-------.  \\      "}
-                </Text>
-                <Text color={theme.colors.retroCyanBright} bold>
-                  {"     |  /  ZILA   \\  |     "}
-                </Text>
-                <Text color={theme.colors.retroBlueBright} bold>
-                  {"     |  \\_________/  |     \n" +
-                   "      \\___/     \\___/      \n" +
-                   "         /|     |\\         \n" +
-                   "        (_|     |_)        "}
-                </Text>
-              </Box>
+              {/* Main Zila Logo that appears when first opening Zila */}
+              {activeLineWidth >= 92 ? (
+                <Box flexDirection="column" alignItems="center">
+                  {Array.from({ length: Math.max(LLAMA_ART.length, 7) }).map((_, i) => {
+                    const defaultLen = LLAMA_ART[0]?.length || 18;
+                    const llamaLine = (i < LLAMA_ART.length ? LLAMA_ART[i] : null) || " ".repeat(defaultLen);
+                    const textLine = (i < 7 ? LIL_ZILA_TEXT[i] : null) || "";
+                    return (
+                      <Box key={i} flexDirection="row">
+                        <Text color={theme.colors.retroBlue}>{llamaLine}</Text>
+                        <Box marginLeft={3}>
+                          <Text color={theme.colors.white} bold>{textLine}</Text>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              ) : (
+                <Box flexDirection="column" alignItems="center">
+                  {LLAMA_ART.map((line, i) => (
+                    <Text key={i} color={theme.colors.retroBlue}>{line}</Text>
+                  ))}
+                  <Box marginTop={1}>
+                    <Text color={theme.colors.white} bold>L I L - Z I L A</Text>
+                  </Box>
+                </Box>
+              )}
 
               <Box marginTop={1}>
                 <Text color={theme.colors.retroCyanBright} bold>Hi, I’m Lil-Zila.</Text>
