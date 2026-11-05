@@ -42,8 +42,10 @@ import { quotaCommand } from "./quota.js";
 import { planCommand } from "./plan.js";
 import { agentSetupCommand } from "./agentSetup.js";
 import { lilAgentCommand } from "./lilAgent.js";
+import { attachRepoCommand } from "./attachRepo.js";
 
 export function registerAllCommands(): void {
+  registerCommand(attachRepoCommand);
   registerCommand(agentSetupCommand);
   registerCommand(lilAgentCommand);
   registerCommand(planCommand);
