@@ -6,6 +6,8 @@ import { getActiveCohort } from "../utils/activeCohort.js";
 import {
   executeAutomatedTaskSubmission,
   checkDailyPrQuota,
+  parseGitHubRepoUrl,
+  CURRICULUM_DOMAINS,
   type TaskSubmissionPayload,
   type AutomatedPrResult,
 } from "../utils/githubPrAutomation.js";
@@ -21,17 +23,32 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   const defaultDomain = activeCohort?.domainKey || "ml";
   const defaultLevel = (activeCohort?.level === "advanced" ? "advance" : activeCohort?.level) || "beginner";
 
+  const domainInfo = CURRICULUM_DOMAINS[defaultDomain] || CURRICULUM_DOMAINS["ml"] || {
+    id: "ml",
+    name: "Machine Learning",
+    levels: { beginner: ["1_python", "2_eda_and_classical_ml"] },
+  };
+  const availableModules: string[] =
+    domainInfo.levels[defaultLevel] || domainInfo.levels["beginner"] || ["1_python", "2_eda_and_classical_ml"];
+
   const [selectedDay, setSelectedDay] = useState<number>(1);
-  const [moduleName, setModuleName] = useState<string>("1_python");
+  const [selectedModuleIndex, setSelectedModuleIndex] = useState<number>(0);
   const [summary, setSummary] = useState<string>("");
   const [challenges, setChallenges] = useState<string>("");
   const [projectRepo, setProjectRepo] = useState<string>("");
-  const [activeField, setActiveField] = useState<number>(0); // 0: Day, 1: Module, 2: Summary, 3: Challenges, 4: Project/Deploy
+  const [activeField, setActiveField] = useState<number>(0); // 0: Day, 1: Module, 2: Summary, 3: Challenges, 4: Deploy
   const [cursorOn, setCursorOn] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [currentProgress, setCurrentProgress] = useState<string>("");
   const [submissionResult, setSubmissionResult] = useState<AutomatedPrResult | null>(null);
   const [error, setError] = useState<string>("");
+
+  const activeModule = availableModules[selectedModuleIndex] || "1_python";
+  const repoInfo = parseGitHubRepoUrl(activeCohort?.githubRepoUrl);
+  const githubAuth = loadGitHubAuth();
+  const session = loadAuth();
+  const studentUser = githubAuth?.username || (session?.email ? session.email.split("@")[0] : "intern");
+  const targetBranch = `${activeModule}/${studentUser}/day_${selectedDay}`;
 
   useEffect(() => {
     if (submissionResult || submitting) return;
@@ -42,13 +59,11 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
 
   const sendSubmission = async () => {
     setError("");
-    const session = loadAuth();
-    const github = loadGitHubAuth();
     if (!session?.token) {
       setError("Not logged in to Zigex. Run 'zila auth' first.");
       return;
     }
-    if (!github?.token) {
+    if (!githubAuth?.token) {
       setError("Not connected to GitHub. Run 'zila github-auth' first.");
       return;
     }
@@ -72,13 +87,13 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
         cohortId: activeCohort?.id || undefined,
         domain: defaultDomain,
         level: defaultLevel as "beginner" | "intermediate" | "advance",
-        module: moduleName.trim() || "1_python",
+        module: activeModule,
         day: selectedDay,
         summary: summary.trim(),
         practicalsDescription: summary.trim(),
         challenges: challenges.trim() || "None reported.",
         deploymentUrl: projectRepo.trim() || undefined,
-        githubRepoUrl: activeCohort?.githubRepoUrl || undefined,
+        githubRepoUrl: activeCohort?.githubRepoUrl || repoInfo.url,
       };
 
       const result = await executeAutomatedTaskSubmission(payload, (step) => {
@@ -106,20 +121,29 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     }
 
     // Day selection shortcuts (1, 2, 3, 4)
-    if (char === "1" || char === "2" || char === "3" || char === "4") {
-      if (activeField === 0) {
+    if (activeField === 0) {
+      if (char === "1" || char === "2" || char === "3" || char === "4") {
         setSelectedDay(Number(char));
         return;
       }
-    }
-
-    if (activeField === 0) {
       if (key.leftArrow) {
         setSelectedDay((prev) => (prev > 1 ? prev - 1 : 4));
         return;
       }
       if (key.rightArrow) {
         setSelectedDay((prev) => (prev < 4 ? prev + 1 : 1));
+        return;
+      }
+    }
+
+    // Module selection shortcuts
+    if (activeField === 1) {
+      if (key.leftArrow) {
+        setSelectedModuleIndex((prev) => (prev > 0 ? prev - 1 : availableModules.length - 1));
+        return;
+      }
+      if (key.rightArrow) {
+        setSelectedModuleIndex((prev) => (prev < availableModules.length - 1 ? prev + 1 : 0));
         return;
       }
     }
@@ -145,13 +169,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
       return;
     }
 
-    if (activeField === 1) {
-      if (key.backspace || key.delete) {
-        setModuleName((prev) => prev.slice(0, -1));
-      } else if (char) {
-        setModuleName((prev) => prev + char);
-      }
-    } else if (activeField === 2) {
+    if (activeField === 2) {
       if (key.backspace || key.delete) {
         setSummary((prev) => prev.slice(0, -1));
       } else if (char) {
@@ -196,6 +214,9 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
             <Text color={theme.colors.white} bold>
               {`PR Link:     `}
               <Text color={theme.colors.retroCyanBright} underline>{submissionResult.pullRequestUrl}</Text>
+            </Text>
+            <Text color={theme.colors.retroSlate}>
+              {`Target Repo: ${submissionResult.repositoryUrl}`}
             </Text>
             <Text color={theme.colors.retroSlate}>
               {`Branch:      ${submissionResult.branchName}`}
@@ -256,18 +277,35 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
                 </Box>
               );
             })}
-            <Text color={theme.colors.retroSlateDark}>{"(Use ←/→ arrows or 1-4 keys)"}</Text>
+            <Text color={theme.colors.retroSlateDark}>{"(←/→ arrows or 1-4 keys)"}</Text>
           </Box>
 
-          {/* Field 1: Module */}
-          <Box flexDirection="row" gap={1} marginBottom={1}>
+          {/* Field 1: Module Selector (Switch between curriculum modules) */}
+          <Box flexDirection="row" gap={1} marginBottom={1} alignItems="center">
             <Box width={16}>
               <Text color={activeField === 1 ? theme.colors.retroBlueBright : theme.colors.retroSlateDark} bold>
                 {activeField === 1 ? "› Module:" : "  Module:"}
               </Text>
             </Box>
-            <Text color={theme.colors.white}>{moduleName || "(e.g. 1_python)"}</Text>
-            {activeField === 1 && !submitting && <Cursor on={cursorOn} />}
+            {availableModules.map((mod, idx) => {
+              const isSelected = selectedModuleIndex === idx;
+              return (
+                <Box
+                  key={mod}
+                  paddingX={1}
+                  borderStyle={isSelected ? "round" : undefined}
+                  borderColor={isSelected ? theme.colors.retroBlueBright : undefined}
+                >
+                  <Text
+                    color={isSelected ? theme.colors.retroCyanBright : theme.colors.retroSlateDark}
+                    bold={isSelected}
+                  >
+                    {mod}
+                  </Text>
+                </Box>
+              );
+            })}
+            <Text color={theme.colors.retroSlateDark}>{"(←/→ arrows to switch module)"}</Text>
           </Box>
 
           {/* Field 2: Summary */}
@@ -292,7 +330,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
             {activeField === 3 && !submitting && <Cursor on={cursorOn} />}
           </Box>
 
-          {/* Field 4: Project / Deploy Link */}
+          {/* Field 4: Deploy Link */}
           <Box flexDirection="row" gap={1} marginBottom={1}>
             <Box width={16}>
               <Text color={activeField === 4 ? theme.colors.retroBlueBright : theme.colors.retroSlateDark} bold>
@@ -316,13 +354,20 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
             </Box>
           )}
 
-          <Box flexDirection="column" marginTop={1} marginBottom={1}>
-            <Text color={theme.colors.retroBlueBright} bold>{"SUBMISSION TARGET"}</Text>
+          {/* Verified Repository & Destination Details */}
+          <Box flexDirection="column" marginTop={1} marginBottom={1} paddingX={1} borderStyle="single" borderColor={theme.colors.retroBlue}>
+            <Text color={theme.colors.retroBlueBright} bold>{"SUBMISSION TARGET & VERIFIED REPOSITORY"}</Text>
+            <Text color={theme.colors.white}>
+              {`Target Repo:    ${repoInfo.owner}/${repoInfo.repo} (${repoInfo.url})`}
+            </Text>
+            <Text color={theme.colors.retroCyanBright}>
+              {`Target Branch:  ${targetBranch}`}
+            </Text>
             <Text color={theme.colors.retroSlate}>
-              {`Domain: ${defaultDomain.toUpperCase()} | Track: ${defaultLevel.toUpperCase()} | Target: Day 0${selectedDay} (${moduleName})`}
+              {`Destination:    Pull Request -> ${repoInfo.owner}/${repoInfo.repo} (base: main)`}
             </Text>
             <Text color={theme.colors.retroSlateDark}>
-              {`Target Repo: ${activeCohort?.githubRepoUrl || "Default Supervisor Cohort Repository"}`}
+              {`Cohort:         ${activeCohort?.name || "General Track"} [${defaultDomain.toUpperCase()} / ${defaultLevel.toUpperCase()}]`}
             </Text>
           </Box>
 
