@@ -166,6 +166,40 @@ export async function executeGenerateRepo(
     ].join("\n");
   }
 
+  // 3. Supervisor Verification & Program Identification
+  let supervisorEmail = "anonymous";
+  let supervisorRole = "student";
+  let supervisingCohort: any = null;
+
+  if (isAuthenticated()) {
+    try {
+      const rolesRes = await zilaApi<{ roles?: string[] }>("/profile/roles");
+      if (rolesRes.roles && (rolesRes.roles.includes("supervisor") || rolesRes.roles.includes("company"))) {
+        supervisorRole = "supervisor";
+      } else {
+        const meRes = await zilaApi<{ profile?: any; type?: string }>("/profile/me");
+        if (meRes.type === "supervisor" || meRes.type === "company") {
+          supervisorRole = "supervisor";
+        }
+        supervisorEmail = meRes.profile?.email || meRes.profile?.contact_email || "supervisor";
+      }
+    } catch {
+      // If profile endpoint offline, check active cohort
+    }
+  }
+
+  const active = getActiveCohort();
+  if (active) {
+    supervisingCohort = active;
+  } else if (options.cohortId) {
+    try {
+      const cohortRes = await zilaApi<{ cohort: any }>(`/cohorts/${options.cohortId}`);
+      if (cohortRes.cohort) supervisingCohort = cohortRes.cohort;
+    } catch {
+      // ignore
+    }
+  }
+
   const resolvedSpec = path.resolve(specPath);
   if (!fs.existsSync(resolvedSpec)) {
     return `Error: Specification file not found at: ${resolvedSpec}`;
@@ -192,21 +226,54 @@ export async function executeGenerateRepo(
         `${spec.organization.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${spec.domain.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
     );
 
-  // 3. Generate Local Repository
+  // 4. Build File Tree Preview Manifest
+  const manifestLines: string[] = [
+    `◈ ZILA CURRICULUM BLUEPRINT & FOLDER MANIFEST`,
+    `Supervisor:   ${supervisorRole === "supervisor" ? `✔ Verified Supervisor (${supervisorEmail})` : "Local Supervisor Session"}`,
+    `Cohort:       ${supervisingCohort ? `${supervisingCohort.name} [ID: ${supervisingCohort.id}]` : spec.cohort}`,
+    `Domain:       ${spec.domain}`,
+    `Organization: ${options.org || "zigxconnect"} (PUBLIC)`,
+    "",
+    "Folder & File Structure to be generated:",
+    "  ├── README.md (Course syllabus & track index)",
+    "  ├── cohort.json (Standard prototype cohort descriptor)",
+    "  ├── .gitignore",
+    "  ├── templates/",
+    "  │   └── exercise.md (Report deliverable template)",
+    "  ├── contributors/",
+    "  │   └── .gitkeep (Isolated intern workspace root)",
+  ];
+
+  let totalFilesCount = 4;
+  for (const track of spec.tracks) {
+    manifestLines.push(`  ├── ${track.name}/`);
+    for (let mi = 0; mi < track.modules.length; mi++) {
+      const mod = track.modules[mi];
+      if (!mod) continue;
+      const modDir = mod.dir || `${mi + 1}_${mod.title.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+      manifestLines.push(`  │   ├── ${modDir}/`);
+      for (let di = 0; di < mod.days.length; di++) {
+        const d = mod.days[di];
+        if (!d) continue;
+        const starter = d.starterFile || (spec.starterLanguage === "javascript" ? "solution.js" : "solution.py");
+        manifestLines.push(`  │   │   ├── day_${di + 1}/ (${starter}, README.md, .supervisor_instructions)`);
+        totalFilesCount += 3;
+      }
+    }
+  }
+
+  manifestLines.push("");
+  manifestLines.push(`Total Files to Generate: ${totalFilesCount} files across ${spec.tracks.length} tracks.`);
+  manifestLines.push("─".repeat(72));
+
+  // 5. Generate Local Repository
   const { totalDays, outputPath } = generateLocalCurriculumRepo(spec, outDir);
 
   const lines: string[] = [
-    `◈ ZILA CURRICULUM REPOSITORY GENERATOR`,
-    `Organization: ${spec.organization}`,
-    `Domain:       ${spec.domain}`,
-    `Cohort:       ${spec.cohort}`,
-    `Output Path:  ${outputPath}`,
-    `Total Days:   ${totalDays} day folders generated`,
+    ...manifestLines,
     "",
-    "✔ Created root README.md, cohort.json, .gitignore",
-    "✔ Created templates/exercise.md deliverable report",
-    "✔ Created contributors/.gitkeep intern workspaces",
-    "✔ Created tracks (beginner, intermediate, advanced) with day exercises and .supervisor_instructions",
+    `✔ Successfully generated curriculum repository at: ${outputPath}`,
+    `Total Exercise Days: ${totalDays} day folders ready.`,
   ];
 
   // 4. Publish to GitHub if --push requested
