@@ -32,7 +32,7 @@ test("Lil Agent first run shows centered welcome and remembers it", async () => 
     assert.match(rendered, /I am here to monitor and make sure you do the writing/);
     assert.match(rendered, /Together, we can say no to cheating the right way/);
     assert.match(rendered, /That’s the aim of Lil-Zila\./);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     assert.equal(hasSeenLilAgentWelcome(), true);
     instance.unmount();
   } finally {

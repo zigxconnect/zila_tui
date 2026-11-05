@@ -895,33 +895,14 @@ Behavior Guidelines:
         >
           {showFirstRunWelcome ? (
             <Box flexDirection="column" alignItems="center" justifyContent="center" width="100%">
-              {/* Main Zila Logo that appears when first opening Zila */}
-              {activeLineWidth >= 92 ? (
-                <Box flexDirection="column" alignItems="center">
-                  {Array.from({ length: Math.max(LLAMA_ART.length, 7) }).map((_, i) => {
-                    const defaultLen = LLAMA_ART[0]?.length || 18;
-                    const llamaLine = (i < LLAMA_ART.length ? LLAMA_ART[i] : null) || " ".repeat(defaultLen);
-                    const textLine = (i < 7 ? LIL_ZILA_TEXT[i] : null) || "";
-                    return (
-                      <Box key={i} flexDirection="row">
-                        <Text color={theme.colors.retroBlue}>{llamaLine}</Text>
-                        <Box marginLeft={3}>
-                          <Text color={theme.colors.white} bold>{textLine}</Text>
-                        </Box>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              ) : (
-                <Box flexDirection="column" alignItems="center">
-                  {LLAMA_ART.map((line, i) => (
-                    <Text key={i} color={theme.colors.retroBlue}>{line}</Text>
-                  ))}
-                  <Box marginTop={1}>
-                    <Text color={theme.colors.white} bold>L I L - Z I L A</Text>
-                  </Box>
-                </Box>
-              )}
+              {/* Little ASCII llama mascot in blue */}
+              <Box flexDirection="column" alignItems="center">
+                {LLAMA_ART.map((line, i) => (
+                  <Text key={i} color={theme.colors.retroBlue} bold>
+                    {line}
+                  </Text>
+                ))}
+              </Box>
 
               <Box marginTop={1}>
                 <Text color={theme.colors.retroCyanBright} bold>Hi, I’m Lil-Zila.</Text>
