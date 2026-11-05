@@ -9,8 +9,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const pkgEnv = path.resolve(__dirname, "../../.env");
 const homeEnv = path.join(os.homedir(), ".zila", ".env");
-dotenv.config({ path: pkgEnv });
-dotenv.config({ path: homeEnv }); // user override in ~/.zila/.env
+dotenv.config({ path: pkgEnv, quiet: true });
+dotenv.config({ path: homeEnv, quiet: true }); // user override in ~/.zila/.env
 
 export function validateApiBase(configured: string): string {
   const parsed = new URL(configured);

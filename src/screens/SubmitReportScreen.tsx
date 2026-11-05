@@ -5,11 +5,19 @@ import { Cursor } from "../ui/Cursor.js";
 
 interface SubmitReportScreenProps {
   onComplete: () => void;
+  width?: number;
+  height?: number;
+  isFocused?: boolean;
 }
 
 const statuses = ["Draft", "Ready", "Review"] as const;
 
-export const SubmitReportScreen: React.FC<SubmitReportScreenProps> = ({ onComplete }) => {
+export const SubmitReportScreen: React.FC<SubmitReportScreenProps> = ({
+  onComplete,
+  width,
+  height,
+  isFocused = true,
+}) => {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [notes, setNotes] = useState("");
@@ -26,6 +34,7 @@ export const SubmitReportScreen: React.FC<SubmitReportScreenProps> = ({ onComple
   }, [submitted, activeField]);
 
   useInput((char, key) => {
+    if (isFocused === false) return;
     if (submitted) {
       if (key.escape || char === "q" || key.return) onComplete();
       return;

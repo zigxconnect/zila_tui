@@ -151,7 +151,14 @@ interface SlashCommandItem {
   desc: string;
 }
 
-type SidebarMode = "logbook" | "leaderboard" | "group" | "cohorts" | null;
+type SidebarMode =
+  | "logbook"
+  | "leaderboard"
+  | "group"
+  | "cohorts"
+  | "submit-task"
+  | "submit-report"
+  | null;
 type ModalMode = "submit-report" | "submit-task" | null;
 
 export const LIL_AGENT_WELCOME_MASCOT = LLAMA_ART.join("\n");
@@ -163,8 +170,8 @@ const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/group", desc: "Open cohort team & fellow interns roster on the right" },
   { cmd: "/cohorts", desc: "Browse enrolled programs and cohort workspaces on the right" },
   { cmd: "/logbook", desc: "Toggle right-hand Contributor Audit Ledger logbook sidebar" },
-  { cmd: "/submit-report", desc: "Open interactive daily sprint engineering report modal" },
-  { cmd: "/submit-task", desc: "Launch automated task submission & PR evaluation pipeline" },
+  { cmd: "/submit-report", desc: "Open interactive daily sprint engineering report modal on the right" },
+  { cmd: "/submit-task", desc: "Launch automated task submission & PR evaluation pipeline on the right" },
   { cmd: "/attach-repo", desc: "Scan, validate and attach curriculum repo to cohort (Supervisor)" },
   { cmd: "/generate-repo", desc: "Build & push a prototype curriculum repository to GitHub (Supervisor)" },
   { cmd: "/plan", desc: "View program enrollment, tuition plan & evaluation quota" },
@@ -194,6 +201,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     },
   ]);
   const [inputText, setInputText] = useState("");
+  const [cursorIndex, setCursorIndex] = useState(0);
   const [isThinking, setIsThinking] = useState(false);
   const [statusText, setStatusText] = useState("Ready");
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceContext | null>(null);
@@ -279,9 +287,26 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   }, [chatScrollOffset, maxScroll]);
 
   useInput((input, key) => {
+    // When focus is on the right sidebar, pass keyboard input to sidebar
+    if (activeFocus === "sidebar") {
+      if (key.tab) {
+        setActiveFocus("chat");
+        return;
+      }
+      if (key.escape) {
+        clearTerminalScreen();
+        setActiveSidebar(null);
+        setActiveFocus("chat");
+        return;
+      }
+      // Let sidebar component handle all other keystrokes
+      return;
+    }
+
     if (key.escape) {
       if (isSlashActive) {
         setInputText("");
+        setCursorIndex(0);
         return;
       }
       if (chatScrollOffset > 0) {
@@ -291,7 +316,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       if (activeSidebar !== null) {
         clearTerminalScreen();
         setActiveSidebar(null);
-        setActiveFocus("chat");
         return;
       }
       clearTerminalScreen();
@@ -305,36 +329,36 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
 
     // Tab key toggles focus between Chat and Sidebar when split view is active
     if (key.tab && !isSlashActive && activeSidebar !== null) {
-      setActiveFocus((prev) => (prev === "chat" ? "sidebar" : "chat"));
+      setActiveFocus("sidebar");
       return;
     }
 
     // PageUp / PageDown chat scrolling when chat has focus
-    if (key.pageUp && (!isSplitActive || activeFocus === "chat")) {
+    if (key.pageUp) {
       setChatScrollOffset((prev) => Math.min(maxScroll, prev + 5));
       return;
     }
-    if (key.pageDown && (!isSplitActive || activeFocus === "chat")) {
+    if (key.pageDown) {
       setChatScrollOffset((prev) => Math.max(0, prev - 5));
       return;
     }
 
     // Ctrl+U / Ctrl+D scrolling
-    if (key.ctrl && input === "u" && (!isSplitActive || activeFocus === "chat")) {
+    if (key.ctrl && input === "u") {
       setChatScrollOffset((prev) => Math.min(maxScroll, prev + 10));
       return;
     }
-    if (key.ctrl && input === "d" && (!isSplitActive || activeFocus === "chat")) {
+    if (key.ctrl && input === "d") {
       setChatScrollOffset((prev) => Math.max(0, prev - 10));
       return;
     }
 
     // Ctrl+B / Ctrl+F (vim-style scrolling)
-    if (key.ctrl && input === "b" && (!isSplitActive || activeFocus === "chat")) {
+    if (key.ctrl && input === "b") {
       setChatScrollOffset((prev) => Math.min(maxScroll, prev + 10));
       return;
     }
-    if (key.ctrl && input === "f" && (!isSplitActive || activeFocus === "chat")) {
+    if (key.ctrl && input === "f") {
       setChatScrollOffset((prev) => Math.max(0, prev - 10));
       return;
     }
@@ -357,24 +381,40 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         const picked = matchingSlashCommands[selectedSlashIndex];
         if (picked) {
           setInputText(picked.cmd);
+          setCursorIndex(picked.cmd.length);
         }
         return;
       }
     }
 
-    // When not typing, Up/Down arrows scroll chat line-by-line
-    if (key.upArrow && !isSlashActive && inputText === "" && (!isSplitActive || activeFocus === "chat")) {
-      setChatScrollOffset((prev) => Math.min(maxScroll, prev + 1));
+    // Left / Right arrow cursor navigation in text input
+    if (key.leftArrow) {
+      setCursorIndex((prev) => Math.max(0, prev - 1));
       return;
     }
-    if (key.downArrow && !isSlashActive && inputText === "" && (!isSplitActive || activeFocus === "chat")) {
-      setChatScrollOffset((prev) => Math.max(0, prev - 1));
+    if (key.rightArrow) {
+      setCursorIndex((prev) => Math.min(inputText.length, prev + 1));
       return;
     }
 
-    // Typing any character or backspace immediately returns focus to chat
-    if (activeFocus === "sidebar" && (input || key.backspace || key.delete)) {
-      setActiveFocus("chat");
+    // Ctrl+A / Ctrl+E Home and End navigation
+    if (key.ctrl && input === "a") {
+      setCursorIndex(0);
+      return;
+    }
+    if (key.ctrl && input === "e") {
+      setCursorIndex(inputText.length);
+      return;
+    }
+
+    // When not typing, Up/Down arrows scroll chat line-by-line
+    if (key.upArrow && !isSlashActive && inputText === "") {
+      setChatScrollOffset((prev) => Math.min(maxScroll, prev + 1));
+      return;
+    }
+    if (key.downArrow && !isSlashActive && inputText === "") {
+      setChatScrollOffset((prev) => Math.max(0, prev - 1));
+      return;
     }
 
     if (key.return) {
@@ -404,15 +444,17 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
 
       const lowerTrimmed = trimmed.toLowerCase();
 
-      // Interactive modal triggers
+      // Interactive modal/sidebar triggers
       if (
         lowerTrimmed === "/submit-report" ||
         lowerTrimmed === "submit-report" ||
         lowerTrimmed === "/report" ||
         lowerTrimmed === "report"
       ) {
-        setActiveModal("submit-report");
+        setActiveSidebar("submit-report");
+        setActiveFocus("sidebar");
         setInputText("");
+        setCursorIndex(0);
         return;
       }
 
@@ -424,8 +466,10 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         lowerTrimmed === "zila-submit" ||
         lowerTrimmed === "/zila-submit"
       ) {
-        setActiveModal("submit-task");
+        setActiveSidebar("submit-task");
+        setActiveFocus("sidebar");
         setInputText("");
+        setCursorIndex(0);
         return;
       }
 
@@ -526,11 +570,21 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         return;
       }
 
+      setInputText("");
+      setCursorIndex(0);
       handleSend(trimmed);
-    } else if (key.backspace || key.delete) {
-      setInputText((prev) => prev.slice(0, -1));
+    } else if (key.backspace) {
+      if (cursorIndex > 0) {
+        setInputText((prev) => prev.slice(0, cursorIndex - 1) + prev.slice(cursorIndex));
+        setCursorIndex((prev) => Math.max(0, prev - 1));
+      }
+    } else if (key.delete) {
+      if (cursorIndex < inputText.length) {
+        setInputText((prev) => prev.slice(0, cursorIndex) + prev.slice(cursorIndex + 1));
+      }
     } else if (input && !key.ctrl && !key.meta) {
-      setInputText((prev) => prev + input);
+      setInputText((prev) => prev.slice(0, cursorIndex) + input + prev.slice(cursorIndex));
+      setCursorIndex((prev) => prev + input.length);
     }
   });
 
@@ -571,31 +625,39 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       reply = "Displayed Lil-Zila companion mascot & anti-cheating mission.";
     } else if (rawCmd === "/leaderboard" || rawCmd === "leaderboard" || rawCmd === "rankings" || rawCmd === "/rankings") {
       setActiveSidebar((prev) => (prev === "leaderboard" ? null : "leaderboard"));
+      setActiveFocus("sidebar");
       reply = activeSidebar !== "leaderboard"
         ? "Opened Cohort Leaderboard on the right. Type 'close' or /leaderboard to toggle."
         : "Closed Cohort Leaderboard.";
     } else if (rawCmd === "/group" || rawCmd === "group" || rawCmd === "peers" || rawCmd === "/peers") {
       setActiveSidebar((prev) => (prev === "group" ? null : "group"));
+      setActiveFocus("sidebar");
       reply = activeSidebar !== "group"
         ? "Opened Cohort Team & Intern Roster on the right. Type 'close' or /group to toggle."
         : "Closed Cohort Team Roster.";
     } else if (rawCmd === "/cohorts" || rawCmd === "cohorts" || rawCmd === "programs" || rawCmd === "/programs") {
       setActiveSidebar((prev) => (prev === "cohorts" ? null : "cohorts"));
+      setActiveFocus("sidebar");
       reply = activeSidebar !== "cohorts"
         ? "Opened Enrolled Programs & Cohorts on the right. Type 'close' or /cohorts to toggle."
         : "Closed Enrolled Programs & Cohorts.";
     } else if (rawCmd === "/logbook" || rawCmd === "logbook" || rawCmd === "ledger") {
       setActiveSidebar((prev) => (prev === "logbook" ? null : "logbook"));
+      setActiveFocus("sidebar");
       reply = activeSidebar !== "logbook"
         ? "Opened Contributor Audit Ledger logbook sidebar on the right. Type 'close' to hide."
         : "Closed Contributor Audit Ledger logbook sidebar.";
     } else if (rawCmd === "/submit-report" || rawCmd === "submit-report" || rawCmd === "/report" || rawCmd === "report") {
-      setActiveModal("submit-report");
+      setActiveSidebar("submit-report");
+      setActiveFocus("sidebar");
       setInputText("");
+      setCursorIndex(0);
       return;
     } else if (rawCmd === "/submit-task" || rawCmd === "submit-task" || rawCmd === "/submit" || rawCmd === "submit" || rawCmd === "zila-submit" || rawCmd === "/zila-submit") {
-      setActiveModal("submit-task");
+      setActiveSidebar("submit-task");
+      setActiveFocus("sidebar");
       setInputText("");
+      setCursorIndex(0);
       return;
     } else if (rawCmd.startsWith("/attach-repo") || rawCmd.startsWith("attach-repo") || rawCmd.startsWith("/link-repo") || rawCmd.startsWith("link-repo")) {
       const parts = commandStr.trim().split(/\s+/);
@@ -835,9 +897,6 @@ Behavior Guidelines:
       paddingY={0}
     >
       <Box flexDirection="column">
-        {/* Top rule */}
-        <Text color={theme.colors.retroBlue}>{"─".repeat(activeLineWidth)}</Text>
-
         {/* Header */}
         <Box flexDirection="row" justifyContent="space-between" alignItems="center">
           <Box flexDirection="row" gap={1}>
@@ -1081,12 +1140,22 @@ Behavior Guidelines:
           <Text color={theme.colors.retroCyanBright} bold>
             ❯{" "}
           </Text>
-          <Text color={theme.colors.white}>
-            {inputText}
-          </Text>
-          <Text color={theme.colors.retroCyanBright} bold>
-            █
-          </Text>
+          {cursorIndex >= inputText.length ? (
+            <>
+              <Text color={theme.colors.white}>{inputText}</Text>
+              <Text color={theme.colors.retroCyanBright} bold>
+                █
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text color={theme.colors.white}>{inputText.slice(0, cursorIndex)}</Text>
+              <Text backgroundColor={theme.colors.retroCyanBright} color="#000000" bold>
+                {inputText[cursorIndex]}
+              </Text>
+              <Text color={theme.colors.white}>{inputText.slice(cursorIndex + 1)}</Text>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -1136,6 +1205,48 @@ Behavior Guidelines:
         )}
         {activeSidebar === "cohorts" && (
           <CohortsSidebar width={splitRightWidth} height={fullHeight} isFocused={activeFocus === "sidebar"} />
+        )}
+        {activeSidebar === "submit-task" && (
+          <Box
+            flexDirection="column"
+            width={splitRightWidth}
+            height={fullHeight}
+            borderStyle="single"
+            borderColor={activeFocus === "sidebar" ? theme.colors.retroBlueBright : theme.colors.retroSlateDark}
+            paddingX={1}
+            overflow="hidden"
+          >
+            <SubmitTaskScreen
+              width={splitRightWidth - 4}
+              isFocused={activeFocus === "sidebar"}
+              onComplete={() => {
+                clearTerminalScreen();
+                setActiveSidebar(null);
+                setActiveFocus("chat");
+              }}
+            />
+          </Box>
+        )}
+        {activeSidebar === "submit-report" && (
+          <Box
+            flexDirection="column"
+            width={splitRightWidth}
+            height={fullHeight}
+            borderStyle="single"
+            borderColor={activeFocus === "sidebar" ? theme.colors.retroBlueBright : theme.colors.retroSlateDark}
+            paddingX={1}
+            overflow="hidden"
+          >
+            <SubmitReportScreen
+              width={splitRightWidth - 4}
+              isFocused={activeFocus === "sidebar"}
+              onComplete={() => {
+                clearTerminalScreen();
+                setActiveSidebar(null);
+                setActiveFocus("chat");
+              }}
+            />
+          </Box>
         )}
       </Box>
     );

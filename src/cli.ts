@@ -1,9 +1,12 @@
-import "dotenv/config";
+process.env.DOTENV_CONFIG_QUIET = "true";
+import dotenv from "dotenv";
+dotenv.config({ quiet: true });
 import fs from "node:fs";
 import React from "react";
 import { render } from "ink";
 import { fileURLToPath } from "node:url";
 import { Shell } from "./shell/Shell.js";
+import { clearTerminalScreen } from "./ui/terminal.js";
 
 const args = process.argv.slice(2);
 const packageJsonPath = fileURLToPath(new URL("../package.json", import.meta.url));
@@ -31,6 +34,7 @@ if (args.includes("--help") || args.includes("-h") || !process.stdin.isTTY || !p
   process.exit(0);
 }
 
+clearTerminalScreen();
 const inkInstance = render(
   React.createElement(Shell, { inkInstance: { unmount: () => inkInstance.unmount() } }),
 );

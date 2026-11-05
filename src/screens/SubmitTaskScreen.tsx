@@ -16,9 +16,17 @@ import { Cursor } from "../ui/Cursor.js";
 
 interface SubmitTaskScreenProps {
   onComplete: () => void;
+  width?: number;
+  height?: number;
+  isFocused?: boolean;
 }
 
-export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }) => {
+export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({
+  onComplete,
+  width,
+  height,
+  isFocused = true,
+}) => {
   const activeCohort = getActiveCohort();
   const defaultDomain = activeCohort?.domainKey || "ml";
   const defaultLevel = (activeCohort?.level === "advanced" ? "advance" : activeCohort?.level) || "beginner";
@@ -109,6 +117,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
   };
 
   useInput((char, key) => {
+    if (isFocused === false) return;
     if (submissionResult) {
       if (key.escape || char === "q" || key.return) onComplete();
       return;
@@ -190,9 +199,12 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
     }
   });
 
+  const effectiveWidth = width ? Math.max(30, width) : 72;
+  const ruleLen = Math.min(effectiveWidth, 72);
+
   return (
-    <Box flexDirection="column" paddingY={1}>
-      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+    <Box flexDirection="column" width={width} paddingY={1}>
+      <Text color={theme.colors.retroBlue}>{"─".repeat(ruleLen)}</Text>
       <Box flexDirection="row" justifyContent="space-between" alignItems="center">
         <Box flexDirection="row" gap={1}>
           <Text color={theme.colors.retroBlue} bold>{"lil-zila"}</Text>
@@ -203,7 +215,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
           {activeCohort?.name ? `[${activeCohort.name.slice(0, 24)}]` : "[General Track]"}
         </Text>
       </Box>
-      <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+      <Text color={theme.colors.retroBlue}>{"─".repeat(ruleLen)}</Text>
 
       {submissionResult ? (
         <Box flexDirection="column" paddingY={1}>
@@ -371,7 +383,7 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({ onComplete }
             </Text>
           </Box>
 
-          <Text color={theme.colors.retroBlue}>{"─".repeat(72)}</Text>
+          <Text color={theme.colors.retroBlue}>{"─".repeat(ruleLen)}</Text>
           <Box flexDirection="row" justifyContent="space-between">
             <Text color={theme.colors.retroSlateDark}>{"tab next · enter submit · esc cancel"}</Text>
             <Text color={theme.colors.retroSlateDark}>
