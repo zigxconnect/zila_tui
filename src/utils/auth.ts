@@ -23,7 +23,7 @@ export function validateApiBase(configured: string): string {
   return base.endsWith("/api") ? base : `${base}/api`;
 }
 
-export const API_BASE = validateApiBase(process.env.API_BASE || process.env.ZILA_API_URL || "https://zila-api.onrender.com");
+export const API_BASE = validateApiBase(process.env.API_BASE || process.env.ZILA_API_URL || "https://zila.zigexconnect.com");
 
 function getAuthPath(): string {
   return path.join(process.env.ZILA_CONFIG_DIR || path.join(os.homedir(), ".zila"), "auth.json");

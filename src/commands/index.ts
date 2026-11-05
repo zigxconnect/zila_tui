@@ -43,8 +43,10 @@ import { planCommand } from "./plan.js";
 import { agentSetupCommand } from "./agentSetup.js";
 import { lilAgentCommand } from "./lilAgent.js";
 import { attachRepoCommand } from "./attachRepo.js";
+import { generateRepoCommand } from "./generateRepo.js";
 
 export function registerAllCommands(): void {
+  registerCommand(generateRepoCommand);
   registerCommand(attachRepoCommand);
   registerCommand(agentSetupCommand);
   registerCommand(lilAgentCommand);

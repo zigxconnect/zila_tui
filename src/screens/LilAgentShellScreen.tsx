@@ -19,6 +19,7 @@ import { ZigexLoader } from "../ui/Spinner.js";
 import { clearTerminalScreen } from "../ui/terminal.js";
 import { LLAMA_ART, LIL_ZILA_TEXT } from "../ui/LilZilaBanner.js";
 import { executeAttachRepo } from "../commands/attachRepo.js";
+import { executeGenerateRepo } from "../commands/generateRepo.js";
 
 interface LilAgentShellScreenProps {
   onClose: () => void;
@@ -165,6 +166,7 @@ const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/submit-report", desc: "Open interactive daily sprint engineering report modal" },
   { cmd: "/submit-task", desc: "Launch automated task submission & PR evaluation pipeline" },
   { cmd: "/attach-repo", desc: "Scan, validate and attach curriculum repo to cohort (Supervisor)" },
+  { cmd: "/generate-repo", desc: "Build & push a prototype curriculum repository to GitHub (Supervisor)" },
   { cmd: "/plan", desc: "View program enrollment, tuition plan & evaluation quota" },
   { cmd: "/quota", desc: "Check daily GitHub PR & tuition submission quota" },
   { cmd: "/top", desc: "Jump to the very beginning of the chat transcript" },
@@ -600,6 +602,12 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       const repoArg = parts[1];
       setStatusText("Scanning repository structure...");
       reply = await executeAttachRepo(repoArg);
+    } else if (rawCmd.startsWith("/generate-repo") || rawCmd.startsWith("generate-repo") || rawCmd.startsWith("/create-curriculum")) {
+      const parts = commandStr.trim().split(/\s+/);
+      const specArg = parts[1];
+      const pushFlag = commandStr.includes("--push");
+      setStatusText("Generating curriculum prototype repository...");
+      reply = await executeGenerateRepo(specArg, { push: pushFlag });
     } else if (rawCmd === "/close" || rawCmd === "close" || rawCmd === "hide") {
       setActiveSidebar(null);
       clearTerminalScreen();
