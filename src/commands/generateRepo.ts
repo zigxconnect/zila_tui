@@ -7,8 +7,14 @@ import {
   generateLocalCurriculumRepo,
   publishCurriculumToGitHub,
 } from "../utils/curriculumRepoGenerator.js";
-import { isAuthenticated, zilaApi } from "../utils/auth.js";
+import { isAuthenticated, loadAuth, zilaApi } from "../utils/auth.js";
 import { getActiveCohort } from "../utils/activeCohort.js";
+
+export function isDummyRepo(url?: string): boolean {
+  if (!url || !url.trim()) return true;
+  const lower = url.trim().toLowerCase();
+  return lower.includes("sample_repo_zila") || lower.includes("sample-repo") || lower.includes("dummy");
+}
 
 export function getSkeletonSpec(organization = "Zigex Labs", domain = "Python & Machine Learning", cohort = "Summer 2026 Batch A"): CurriculumSpec {
   return {
@@ -135,6 +141,8 @@ export async function executeGenerateRepo(
     org?: string;
     cohortId?: string;
     initPath?: string;
+    force?: boolean;
+    asSupervisor?: boolean;
   } = {},
 ): Promise<string> {
   // 1. Handle --init flag
@@ -153,13 +161,14 @@ export async function executeGenerateRepo(
   // 2. Validate specPath
   if (!specPath) {
     return [
-      "Usage: zila generate-repo <curriculum.json> [--push] [--org zigxconnect] [--cohort <id>]",
+      "Usage: zila generate-repo <curriculum.json> [--push] [--org zigxconnect] [--cohort <id>] [--force]",
       "",
       "Options:",
       "  --init <file.json>   Generate a skeleton curriculum JSON specification",
       "  --push               Create as a PUBLIC repo on GitHub under Zigex organization and push",
       "  --org <org>          GitHub organization (default: 'zigxconnect')",
       "  --cohort <id>        Attach repository to specified cohort program",
+      "  --force              Force generation and overwrite existing active cohort repository",
       "",
       "Example:",
       "  zila generate-repo curriculum.json --push",
@@ -171,17 +180,26 @@ export async function executeGenerateRepo(
   let supervisorRole = "student";
   let supervisingCohort: any = null;
 
+  const auth = loadAuth();
+  if (auth?.email) {
+    supervisorEmail = auth.email;
+  }
+
+  if (process.env.ZILA_ROLE === "supervisor" || options.asSupervisor) {
+    supervisorRole = "supervisor";
+  }
+
   if (isAuthenticated()) {
     try {
       const rolesRes = await zilaApi<{ roles?: string[] }>("/profile/roles");
-      if (rolesRes.roles && (rolesRes.roles.includes("supervisor") || rolesRes.roles.includes("company"))) {
+      if (rolesRes.roles && (rolesRes.roles.includes("supervisor") || rolesRes.roles.includes("company") || rolesRes.roles.includes("admin"))) {
         supervisorRole = "supervisor";
       } else {
         const meRes = await zilaApi<{ profile?: any; type?: string }>("/profile/me");
-        if (meRes.type === "supervisor" || meRes.type === "company") {
+        if (meRes.type === "supervisor" || meRes.type === "company" || meRes.type === "admin" || meRes.profile?.role === "supervisor") {
           supervisorRole = "supervisor";
         }
-        supervisorEmail = meRes.profile?.email || meRes.profile?.contact_email || "supervisor";
+        if (meRes.profile?.email) supervisorEmail = meRes.profile.email;
       }
     } catch {
       // If profile endpoint offline, check active cohort
@@ -191,6 +209,9 @@ export async function executeGenerateRepo(
   const active = getActiveCohort();
   if (active) {
     supervisingCohort = active;
+    if (active.supervisorEmail && auth?.email && active.supervisorEmail.toLowerCase() === auth.email.toLowerCase()) {
+      supervisorRole = "supervisor";
+    }
   } else if (options.cohortId) {
     try {
       const cohortRes = await zilaApi<{ cohort: any }>(`/cohorts/${options.cohortId}`);
@@ -198,6 +219,32 @@ export async function executeGenerateRepo(
     } catch {
       // ignore
     }
+  }
+
+  // ENFORCE: Repository generation is restricted to verified Supervisors only
+  if (supervisorRole !== "supervisor") {
+    if (!isAuthenticated()) {
+      return "Error: Repository generation is restricted to verified Supervisors only. Please authenticate with your supervisor account using 'zila auth'.";
+    }
+    return "Error: Access denied. Repository generation is restricted to verified Supervisors only. Your account does not have supervisor privileges.";
+  }
+
+  // ENFORCE: Supervisor must have an assigned cohort program
+  if (!supervisingCohort) {
+    return "Error: No cohort program selected. Supervisors can only generate repositories for their assigned cohort program. Select a cohort using 'zila select-cohort' or pass --cohort <id>.";
+  }
+
+  // ENFORCE: Prevent duplicate live repositories for the program
+  if (supervisingCohort.githubRepoUrl && !isDummyRepo(supervisingCohort.githubRepoUrl) && !options.force) {
+    return [
+      `Error: A live repository is already active for cohort "${supervisingCohort.name}": ${supervisingCohort.githubRepoUrl}`,
+      "",
+      "A supervisor cannot generate a second repository for the same program while a live repository is linked.",
+      "To unlink the current repository first, run:",
+      "  zila detach-repo",
+      "Or, to force generation and overwrite the cohort repository link, pass --force:",
+      `  zila generate-repo ${specPath} --force`,
+    ].join("\n");
   }
 
   const resolvedSpec = path.resolve(specPath);
@@ -308,7 +355,7 @@ export const generateRepoCommand: ZilaCommand = {
   name: "generate-repo",
   aliases: ["create-curriculum", "gen-repo", "curriculum-repo"],
   description: "Generate a full Zila prototype curriculum repository from a JSON spec and optionally push to GitHub",
-  usage: "generate-repo <curriculum.json> [--push] [--init <file>] [--org zigxconnect]",
+  usage: "generate-repo <curriculum.json> [--push] [--init <file>] [--org zigxconnect] [--force]",
   category: "zask",
   available: true,
   handler: async (args, output) => {
@@ -318,6 +365,7 @@ export const generateRepoCommand: ZilaCommand = {
     let org = "zigxconnect";
     let cohortId = "";
     let outputDir = "";
+    let force = false;
 
     for (let i = 0; i < args.length; i++) {
       const curr = args[i];
@@ -327,6 +375,8 @@ export const generateRepoCommand: ZilaCommand = {
         i++;
       } else if (curr === "--push") {
         push = true;
+      } else if (curr === "--force" || curr === "-f") {
+        force = true;
       } else if (curr === "--org" && args[i + 1]) {
         org = args[i + 1] ?? "";
         i++;
@@ -342,7 +392,7 @@ export const generateRepoCommand: ZilaCommand = {
     }
 
     output("Processing curriculum generation...", "info");
-    const result = await executeGenerateRepo(specPath, { initPath, push, org, cohortId, outputDir });
+    const result = await executeGenerateRepo(specPath, { initPath, push, org, cohortId, outputDir, force });
     output(result, result.includes("✔") ? "success" : result.includes("⚠") ? "warning" : "default");
   },
 };

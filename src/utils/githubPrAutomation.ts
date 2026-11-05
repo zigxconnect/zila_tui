@@ -6,7 +6,11 @@ import { API_BASE, loadAuth } from "./auth.js";
 import { loadGitHubAuth, type GitHubAuthRecord } from "./githubAuth.js";
 import { enrichContributorLogbook } from "./logbookEnricher.js";
 import { getActiveCohort, setActiveCohort } from "./activeCohort.js";
-import { analyzeGitHistoryForCheating, type CheatingAuditReport } from "./antiCheatingDetector.js";
+import {
+  analyzeGitHistoryForCheating,
+  detectExerciseWorkInFolder,
+  type CheatingAuditReport,
+} from "./antiCheatingDetector.js";
 import { findSupervisorInstructionsInFolder, type ExtractedSupervisorPrompt } from "./supervisorPromptExtractor.js";
 import { evaluateStudentWorkHonestly, type HonestEvaluationResult } from "./honestEvaluator.js";
 
@@ -415,18 +419,33 @@ export async function executeAutomatedTaskSubmission(
     studentEmail: zigexAuth.email,
   });
 
+  onProgress?.("Detecting practical exercise work in folder...");
+  const workDetection = detectExerciseWorkInFolder(exerciseFolder, {
+    module: payload.module,
+    day: payload.day,
+    studentUsername: githubUsername,
+  });
+
   let actualDiff = "";
   let commitLogs: string[] = [];
   try {
     actualDiff = execSync("git diff HEAD~1", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    if (!actualDiff.trim()) {
+      actualDiff = execSync("git diff HEAD", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    }
     const rawLogs = execSync('git log -n 5 --format="%s"', { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     commitLogs = rawLogs.trim().split("\n").filter(Boolean);
   } catch {
-    actualDiff = payload.summary;
+    actualDiff = "";
+  }
+
+  // If git diff is empty but student wrote practical code files, use substantive snippet
+  if (!actualDiff.trim() && workDetection.hasWork && workDetection.codeSnippet) {
+    actualDiff = workDetection.codeSnippet;
   }
 
   onProgress?.("Evaluating implementation against supervisor rubric...");
-  const evaluation = await evaluateStudentWorkHonestly(supervisorPrompt, actualDiff, commitLogs, cheatingReport);
+  const evaluation = await evaluateStudentWorkHonestly(supervisorPrompt, actualDiff, commitLogs, cheatingReport, workDetection);
 
   // 4. Generate exercise report
   const exerciseContent = generateExerciseReport(payload, githubUsername, branchName, evaluation, cheatingReport);

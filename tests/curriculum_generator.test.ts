@@ -69,3 +69,73 @@ test("GenerateRepoCommand - command metadata and usage prompt", async () => {
   assert.equal(outputText.includes("--push"), true);
   assert.equal(outputText.includes("--init"), true);
 });
+
+test("GenerateRepo - rejects non-supervisor users", async () => {
+  const { executeGenerateRepo } = await import("../dist/commands/generateRepo.js");
+  const tempSpec = path.join(os.tmpdir(), `test_spec_${Date.now()}.json`);
+  fs.writeFileSync(tempSpec, JSON.stringify(getSkeletonSpec()));
+
+  try {
+    const prevRole = process.env.ZILA_ROLE;
+    delete process.env.ZILA_ROLE;
+
+    const result = await executeGenerateRepo(tempSpec, { asSupervisor: false });
+    assert.ok(result.includes("restricted to verified Supervisors only") || result.includes("Access denied"));
+
+    process.env.ZILA_ROLE = prevRole;
+  } finally {
+    fs.rmSync(tempSpec, { force: true });
+  }
+});
+
+test("GenerateRepo - checks program scoping and prevents duplicate live repos", async () => {
+  const { executeGenerateRepo, isDummyRepo } = await import("../dist/commands/generateRepo.js");
+  const { setActiveCohort, clearActiveCohort } = await import("../dist/utils/activeCohort.js");
+  const { executeDetachRepo, detachRepoCommand } = await import("../dist/commands/detachRepo.js");
+
+  // Verify dummy repo helper
+  assert.equal(isDummyRepo("https://github.com/iws3/sample_repo_zila.git"), true);
+  assert.equal(isDummyRepo("https://github.com/zigxconnect/ml_internship_live.git"), false);
+
+  const tempSpec = path.join(os.tmpdir(), `test_spec_${Date.now()}.json`);
+  fs.writeFileSync(tempSpec, JSON.stringify(getSkeletonSpec()));
+
+  try {
+    process.env.ZILA_ROLE = "supervisor";
+
+    // 1. Without active cohort
+    clearActiveCohort();
+    const noCohortResult = await executeGenerateRepo(tempSpec, { asSupervisor: true });
+    assert.ok(noCohortResult.includes("No cohort program selected"));
+
+    // 2. With active cohort having a LIVE repository attached
+    setActiveCohort({
+      id: "cohort-test-99",
+      name: "Autonomous Agents 2026",
+      githubRepoUrl: "https://github.com/zigxconnect/live_agents_repo.git",
+    });
+
+    const duplicateResult = await executeGenerateRepo(tempSpec, { asSupervisor: true });
+    assert.ok(duplicateResult.includes("A live repository is already active"));
+    assert.ok(duplicateResult.includes("zila detach-repo"));
+
+    // 3. With --force flag, duplicate block is bypassed
+    const forceResult = await executeGenerateRepo(tempSpec, {
+      asSupervisor: true,
+      force: true,
+      outputDir: path.join(os.tmpdir(), `zila_force_out_${Date.now()}`),
+    });
+    assert.ok(forceResult.includes("Successfully generated curriculum repository"));
+
+    // 4. Detach repo unlinks the live repo
+    const detachMsg = await executeDetachRepo({ asSupervisor: true });
+    assert.ok(detachMsg.includes("Successfully detached repository"));
+
+    // 5. With detachRepoCommand metadata
+    assert.equal(detachRepoCommand.name, "detach-repo");
+    assert.ok(detachRepoCommand.aliases.includes("unlink-repo"));
+  } finally {
+    clearActiveCohort();
+    fs.rmSync(tempSpec, { force: true });
+  }
+});

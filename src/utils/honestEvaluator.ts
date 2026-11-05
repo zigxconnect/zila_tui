@@ -1,6 +1,6 @@
 import { generateChatResponse, type ChatMessage } from "./aiClient.js";
 import type { ExtractedSupervisorPrompt } from "./supervisorPromptExtractor.js";
-import type { CheatingAuditReport } from "./antiCheatingDetector.js";
+import type { CheatingAuditReport, ExerciseWorkDetectionResult } from "./antiCheatingDetector.js";
 
 export interface HonestEvaluationResult {
   score: number; // 0.0 to 1.0
@@ -20,14 +20,16 @@ export interface HonestEvaluationResult {
 }
 
 /**
- * Performs honest semantic evaluation comparing the student's actual Git diff
+ * Performs honest semantic evaluation comparing the student's actual Git diff or implementation code
  * against supervisor requirements and git history anti-cheating signals.
+ * Eliminates sycophancy and strictly awards marks between 0.0 and 1.0.
  */
 export async function evaluateStudentWorkHonestly(
   instructions: ExtractedSupervisorPrompt,
   gitDiff: string,
   commitLogs: string[] = [],
   cheatingReport?: CheatingAuditReport,
+  workDetection?: ExerciseWorkDetectionResult,
 ): Promise<HonestEvaluationResult> {
   const isFlagged = cheatingReport?.isCheatingSuspected || false;
   const cheatingStatus = isFlagged
@@ -40,28 +42,32 @@ export async function evaluateStudentWorkHonestly(
     ? cheatingReport.findingsSummary
     : "No git integrity anomalies detected.";
 
-  // If no diff, return 0
-  if (!gitDiff || gitDiff.trim().length === 0) {
+  // If work detection explicitly determined no work was done, or no code and empty diff: return 0.0 / 1.0
+  const effectiveCode = gitDiff && gitDiff.trim().length > 0 ? gitDiff : workDetection?.codeSnippet || "";
+  const hasNoWork = (workDetection && !workDetection.hasWork) || (!effectiveCode || effectiveCode.trim().length === 0);
+
+  if (hasNoWork) {
     return {
       score: 0.0,
       weightedScore: 0.0,
-      whatStudentDid: "No code changes were implemented.",
-      howTheySolved: "Branch was created without committing exercise implementation.",
+      whatStudentDid: "No task was done. Exercise files are empty or contain only untouched starter boilerplate.",
+      howTheySolved: "No implementation found. Solution files remain untouched in exercise directory.",
       cheatingStatus: "CLEAN",
-      cheatingDetails: "Empty submission.",
+      cheatingDetails: workDetection?.summaryMessage || "Empty submission: 0 lines of implementation.",
       proposedMark: 0.0,
-      honestSummary: "No code changes detected in student branch.",
+      honestSummary: "Student attempted task submission without implementing the required exercise code.",
       requirementVerifications: instructions.requirements.map((req) => ({
         requirement: req,
         status: "FAIL",
-        explanation: "No implementation found in diff.",
+        explanation: "No implementation detected in exercise folder.",
       })),
-      supervisorRecommendation: "Reject PR: Branch contains no code changes.",
+      supervisorRecommendation: "Reject submission: 0.0 / 1.0 mark. No exercise code completed.",
     };
   }
 
   const prompt = `You are an honest, objective supervisor evaluating a student engineer's code submission.
-Your job is to compare what the student was instructed to do against what they TRULY implemented in their Git diff and Git history.
+Your job is to compare what the student was instructed to do against what they TRULY implemented in their code and Git history.
+Eliminate all sycophancy: do not offer empty praise or flatter incomplete attempts. State points of truth directly.
 
 SUPERVISOR REQUIREMENTS:
 ${instructions.requirements.map((r, i) => `${i + 1}. ${r}`).join("\n") || "Complete assigned task."}

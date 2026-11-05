@@ -44,8 +44,10 @@ import { agentSetupCommand } from "./agentSetup.js";
 import { lilAgentCommand } from "./lilAgent.js";
 import { attachRepoCommand } from "./attachRepo.js";
 import { generateRepoCommand } from "./generateRepo.js";
+import { detachRepoCommand } from "./detachRepo.js";
 
 export function registerAllCommands(): void {
+  registerCommand(detachRepoCommand);
   registerCommand(generateRepoCommand);
   registerCommand(attachRepoCommand);
   registerCommand(agentSetupCommand);

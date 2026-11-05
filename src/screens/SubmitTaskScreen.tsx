@@ -13,6 +13,7 @@ import {
 } from "../utils/githubPrAutomation.js";
 import { theme } from "../ui/theme.js";
 import { Cursor } from "../ui/Cursor.js";
+import { detectExerciseWorkInFolder } from "../utils/antiCheatingDetector.js";
 
 interface SubmitTaskScreenProps {
   onComplete: () => void;
@@ -84,6 +85,18 @@ export const SubmitTaskScreen: React.FC<SubmitTaskScreenProps> = ({
 
     if (!summary.trim()) {
       setError("Please provide a brief summary of what you implemented.");
+      return;
+    }
+
+    const workCheck = detectExerciseWorkInFolder(process.cwd(), {
+      module: activeModule,
+      day: selectedDay,
+      studentUsername: studentUser,
+    });
+    if (!workCheck.hasWork) {
+      setError(
+        "No task was done: No implementation code detected in the exercise folder. Please write your code in the exercise folder before submitting."
+      );
       return;
     }
 

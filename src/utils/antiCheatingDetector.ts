@@ -351,3 +351,205 @@ export function analyzeGitHistoryForCheating(
     proposedMarkCap,
   };
 }
+
+export interface ExerciseWorkDetectionResult {
+  hasWork: boolean;
+  codeLinesCount: number;
+  implementationFiles: string[];
+  unmodifiedStarters: string[];
+  summaryMessage: string;
+  reason?: string;
+  codeSnippet?: string;
+}
+
+const CODE_EXTENSIONS = new Set([
+  ".py",
+  ".js",
+  ".ts",
+  ".jsx",
+  ".tsx",
+  ".html",
+  ".css",
+  ".c",
+  ".cpp",
+  ".h",
+  ".hpp",
+  ".rs",
+  ".go",
+  ".java",
+  ".sh",
+  ".sql",
+]);
+
+const IGNORED_FILENAMES = new Set([
+  "exercise.md",
+  "readme.md",
+  "cohort.json",
+  "grading.yml",
+  ".gitignore",
+  "package.json",
+  "package-lock.json",
+  "tsconfig.json",
+]);
+
+/**
+ * Checks if a code line is genuine implementation vs comments, blank, or placeholder stubs
+ */
+export function isSubstantiveCodeLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/*") ||
+    trimmed.startsWith("*") ||
+    trimmed.startsWith("*/")
+  ) {
+    return false;
+  }
+  if (trimmed.startsWith('"""') || trimmed.startsWith("'''")) {
+    return false;
+  }
+  const stubPatterns = [
+    /^pass\b/i,
+    /^\.\.\.$/,
+    /^return\s*(None|null|undefined|{}|\[\]|""|0)?\s*;?$/i,
+    /^raise\s+NotImplementedError(\(.*\))?/i,
+    /^throw\s+new\s+Error\s*\(.*(todo|not implemented).*\)/i,
+    /^\/\/\s*TODO/i,
+    /^#\s*TODO/i,
+    /^TODO\b/i,
+  ];
+  for (const pat of stubPatterns) {
+    if (pat.test(trimmed)) return false;
+  }
+  return true;
+}
+
+/**
+ * Detects whether the student has genuinely implemented code in their exercise directory or git branch.
+ * Distinguishes untouched starter templates/empty files from real student contributions.
+ */
+export function detectExerciseWorkInFolder(
+  folderPath: string,
+  options: { module?: string; day?: number; studentUsername?: string } = {},
+): ExerciseWorkDetectionResult {
+  let targetDir = folderPath;
+  if (!fs.existsSync(targetDir)) {
+    return {
+      hasWork: false,
+      codeLinesCount: 0,
+      implementationFiles: [],
+      unmodifiedStarters: [],
+      summaryMessage: "Exercise folder does not exist.",
+      reason: `Folder not found: ${targetDir}`,
+    };
+  }
+
+  if (options.day) {
+    const candidateDay = path.join(targetDir, `day_${options.day}`);
+    if (fs.existsSync(candidateDay) && fs.statSync(candidateDay).isDirectory()) {
+      targetDir = candidateDay;
+    } else if (options.module) {
+      const candidateNested = path.join(targetDir, options.module, `day_${options.day}`);
+      if (fs.existsSync(candidateNested) && fs.statSync(candidateNested).isDirectory()) {
+        targetDir = candidateNested;
+      }
+    }
+  }
+
+  let gitDiffLines = 0;
+  let gitDiffOutput = "";
+  try {
+    gitDiffOutput = execSync("git diff HEAD~1", {
+      cwd: folderPath,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    if (!gitDiffOutput.trim()) {
+      gitDiffOutput = execSync("git diff HEAD", {
+        cwd: folderPath,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+    }
+    const additions = gitDiffOutput
+      .split("\n")
+      .filter((l) => l.startsWith("+") && !l.startsWith("+++"))
+      .map((l) => l.slice(1))
+      .filter(isSubstantiveCodeLine);
+    gitDiffLines = additions.length;
+  } catch {
+    // Not a git repo or diff failed
+  }
+
+  const implementationFiles: string[] = [];
+  const unmodifiedStarters: string[] = [];
+  let totalCodeLines = 0;
+  let codeSnippet = "";
+
+  function scanDir(dir: string, depth = 0): void {
+    if (depth > 4) return;
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "__pycache__") continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          scanDir(fullPath, depth + 1);
+        } else if (entry.isFile()) {
+          const lowerName = entry.name.toLowerCase();
+          const ext = path.extname(lowerName);
+          if (IGNORED_FILENAMES.has(lowerName)) continue;
+          if (!CODE_EXTENSIONS.has(ext)) continue;
+
+          try {
+            const content = fs.readFileSync(fullPath, "utf8");
+            const lines = content.split("\n");
+            const substantive = lines.filter(isSubstantiveCodeLine);
+
+            if (substantive.length >= 2) {
+              implementationFiles.push(path.relative(folderPath, fullPath));
+              totalCodeLines += substantive.length;
+              if (!codeSnippet) {
+                codeSnippet = substantive.slice(0, 50).join("\n");
+              }
+            } else {
+              unmodifiedStarters.push(path.relative(folderPath, fullPath));
+            }
+          } catch {
+            // ignore read error
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  scanDir(targetDir);
+
+  const hasWork = totalCodeLines >= 2 || gitDiffLines >= 2;
+  const effectiveCodeLines = Math.max(totalCodeLines, gitDiffLines);
+
+  if (!hasWork) {
+    return {
+      hasWork: false,
+      codeLinesCount: 0,
+      implementationFiles,
+      unmodifiedStarters,
+      summaryMessage: "No task was done: Exercise files are empty or contain only untouched starter boilerplate.",
+      reason: "No practical implementation detected in the exercise folder.",
+      codeSnippet: "",
+    };
+  }
+
+  return {
+    hasWork: true,
+    codeLinesCount: effectiveCodeLines,
+    implementationFiles,
+    unmodifiedStarters,
+    summaryMessage: `Practical implementation detected: ${effectiveCodeLines} line(s) of code across ${implementationFiles.length || 1} file(s).`,
+    codeSnippet,
+  };
+}

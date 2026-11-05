@@ -20,6 +20,7 @@ import { clearTerminalScreen } from "../ui/terminal.js";
 import { LLAMA_ART, LIL_ZILA_TEXT } from "../ui/LilZilaBanner.js";
 import { executeAttachRepo } from "../commands/attachRepo.js";
 import { executeGenerateRepo } from "../commands/generateRepo.js";
+import { executeDetachRepo } from "../commands/detachRepo.js";
 
 interface LilAgentShellScreenProps {
   onClose: () => void;
@@ -158,10 +159,121 @@ type SidebarMode =
   | "cohorts"
   | "submit-task"
   | "submit-report"
+  | "command-output"
   | null;
 type ModalMode = "submit-report" | "submit-task" | null;
 
 export const LIL_AGENT_WELCOME_MASCOT = LLAMA_ART.join("\n");
+
+export interface CommandPanelData {
+  title: string;
+  command: string;
+  content: string;
+}
+
+export function getCommandPanelTitle(cmd: string): string {
+  const base = cmd.trim().toLowerCase().split(/\s+/)[0]?.replace(/^\//, "") || "command";
+  switch (base) {
+    case "help":
+      return "Command Reference & Help";
+    case "plan":
+    case "my-plan":
+      return "Internship Program & Tuition Plan";
+    case "quota":
+      return "Daily PR & Submission Quota";
+    case "status":
+      return "Agent Runtime & Workspace Status";
+    case "about":
+      return "System Architecture & Mentor Profile";
+    case "model":
+      return "AI Model & Provider Config";
+    case "generate-repo":
+    case "create-curriculum":
+      return "Curriculum Prototype Generator";
+    case "attach-repo":
+    case "link-repo":
+      return "Curriculum Repo Validator & Attachment";
+    case "detach-repo":
+    case "unlink-repo":
+    case "remove-repo":
+      return "Cohort Repository Unlink (Supervisor)";
+    case "welcome":
+    case "mascot":
+      return "Lil-Zila Mascot & Anti-Cheating Mission";
+    default:
+      return `${base.toUpperCase()} Command Output`;
+  }
+}
+
+interface CommandOutputSidebarProps {
+  title: string;
+  command: string;
+  content: string;
+  width: number;
+  height: number;
+  isFocused?: boolean;
+  onClose: () => void;
+  scrollOffset: number;
+}
+
+export const CommandOutputSidebar: React.FC<CommandOutputSidebarProps> = ({
+  title,
+  command,
+  content,
+  width,
+  height,
+  isFocused = false,
+  onClose,
+  scrollOffset,
+}) => {
+  const contentLines = useMemo(() => {
+    return wrapTextToLines(content, Math.max(20, width - 4));
+  }, [content, width]);
+
+  const viewportHeight = Math.max(5, height - 6);
+  const maxScroll = Math.max(0, contentLines.length - viewportHeight);
+  const clampedOffset = Math.min(scrollOffset, maxScroll);
+  const visibleLines = contentLines.slice(clampedOffset, clampedOffset + viewportHeight);
+
+  return (
+    <Box
+      flexDirection="column"
+      width={width}
+      height={height}
+      borderStyle="single"
+      borderColor={isFocused ? theme.colors.retroBlueBright : theme.colors.retroSlateDark}
+      paddingX={1}
+      overflow="hidden"
+    >
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box flexDirection="row" gap={1}>
+          <Text color={theme.colors.retroBlue} bold>{"◈"}</Text>
+          <Text color={theme.colors.white} bold>{title}</Text>
+        </Box>
+        <Text color={theme.colors.retroCyanBright} bold>{`[ ${command} ]`}</Text>
+      </Box>
+      <Text color={theme.colors.retroBlue}>{"─".repeat(Math.max(10, width - 4))}</Text>
+
+      <Box flexDirection="column" flexGrow={1} height={viewportHeight} overflow="hidden">
+        {visibleLines.map((line, idx) => (
+          <Text key={idx} color={theme.colors.white}>
+            {line}
+          </Text>
+        ))}
+      </Box>
+
+      <Text color={theme.colors.retroBlue}>{"─".repeat(Math.max(10, width - 4))}</Text>
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={theme.colors.retroSlateDark}>
+          {`Line ${clampedOffset + 1}-${Math.min(clampedOffset + viewportHeight, contentLines.length)} of ${contentLines.length}`}
+        </Text>
+        <Text color={theme.colors.retroBlueBright}>
+          {"Tab chat · ↑/↓ scroll · Esc close"}
+        </Text>
+      </Box>
+    </Box>
+  );
+};
 
 const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/help", desc: "Display interactive command directory & tips" },
@@ -174,6 +286,7 @@ const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/submit-task", desc: "Launch automated task submission & PR evaluation pipeline on the right" },
   { cmd: "/attach-repo", desc: "Scan, validate and attach curriculum repo to cohort (Supervisor)" },
   { cmd: "/generate-repo", desc: "Build & push a prototype curriculum repository to GitHub (Supervisor)" },
+  { cmd: "/detach-repo", desc: "Detach and unlink the live repository from the active cohort (Supervisor)" },
   { cmd: "/plan", desc: "View program enrollment, tuition plan & evaluation quota" },
   { cmd: "/quota", desc: "Check daily GitHub PR & tuition submission quota" },
   { cmd: "/top", desc: "Jump to the very beginning of the chat transcript" },
@@ -210,6 +323,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   const [activeModal, setActiveModal] = useState<ModalMode>(null);
   const [chatScrollOffset, setChatScrollOffset] = useState<number>(0);
   const [activeFocus, setActiveFocus] = useState<"chat" | "sidebar">("chat");
+  const [commandPanelData, setCommandPanelData] = useState<CommandPanelData | null>(null);
+  const [sidebarScrollOffset, setSidebarScrollOffset] = useState<number>(0);
 
   const config = loadAgentConfig();
 
@@ -298,6 +413,30 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         setActiveSidebar(null);
         setActiveFocus("chat");
         return;
+      }
+      if (activeSidebar === "command-output") {
+        if (key.upArrow) {
+          setSidebarScrollOffset((prev) => Math.max(0, prev - 1));
+          return;
+        }
+        if (key.downArrow) {
+          setSidebarScrollOffset((prev) => prev + 1);
+          return;
+        }
+        if (key.pageUp) {
+          setSidebarScrollOffset((prev) => Math.max(0, prev - 10));
+          return;
+        }
+        if (key.pageDown) {
+          setSidebarScrollOffset((prev) => prev + 10);
+          return;
+        }
+        if (input === "q" || key.return) {
+          clearTerminalScreen();
+          setActiveSidebar(null);
+          setActiveFocus("chat");
+          return;
+        }
       }
       // Let sidebar component handle all other keystrokes
       return;
@@ -670,6 +809,14 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       const pushFlag = commandStr.includes("--push");
       setStatusText("Generating curriculum prototype repository...");
       reply = await executeGenerateRepo(specArg, { push: pushFlag });
+    } else if (rawCmd.startsWith("/detach-repo") || rawCmd.startsWith("detach-repo") || rawCmd.startsWith("/unlink-repo") || rawCmd.startsWith("unlink-repo") || rawCmd.startsWith("/remove-repo")) {
+      const parts = commandStr.trim().split(/\s+/);
+      let cohortId = "";
+      if (parts.includes("--cohort")) {
+        cohortId = parts[parts.indexOf("--cohort") + 1] || "";
+      }
+      setStatusText("Detaching repository from cohort...");
+      reply = await executeDetachRepo({ cohortId });
     } else if (rawCmd === "/close" || rawCmd === "close" || rawCmd === "hide") {
       setActiveSidebar(null);
       clearTerminalScreen();
@@ -768,6 +915,20 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       reply = `Unknown command '${commandStr}'. Type /help to see all available agent commands.`;
     }
 
+    if (
+      reply &&
+      !["/clear", "/exit", "/quit", "/top", "/bottom", "/scroll top", "/scroll bottom", "/close", "close", "hide"].includes(rawCmd)
+    ) {
+      setCommandPanelData({
+        title: getCommandPanelTitle(rawCmd),
+        command: rawCmd.split(/\s+/)[0] || "/command",
+        content: reply,
+      });
+      setSidebarScrollOffset(0);
+      setActiveSidebar("command-output");
+      setActiveFocus("sidebar");
+    }
+
     setMessages((prev) => [
       ...prev,
       userMsg,
@@ -782,7 +943,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     if (rawCmd !== "/top" && rawCmd !== "top" && rawCmd !== "/scroll top") {
       setChatScrollOffset(0);
     }
-    setActiveFocus("chat");
   }
 
   async function handleSend(prompt: string) {
@@ -1247,6 +1407,22 @@ Behavior Guidelines:
               }}
             />
           </Box>
+        )}
+        {activeSidebar === "command-output" && commandPanelData && (
+          <CommandOutputSidebar
+            title={commandPanelData.title}
+            command={commandPanelData.command}
+            content={commandPanelData.content}
+            width={splitRightWidth}
+            height={fullHeight}
+            isFocused={activeFocus === "sidebar"}
+            scrollOffset={sidebarScrollOffset}
+            onClose={() => {
+              clearTerminalScreen();
+              setActiveSidebar(null);
+              setActiveFocus("chat");
+            }}
+          />
         )}
       </Box>
     );
