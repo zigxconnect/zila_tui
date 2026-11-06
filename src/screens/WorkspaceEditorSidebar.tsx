@@ -29,6 +29,36 @@ interface WorkspaceEditorSidebarProps {
   onClose?: () => void;
 }
 
+function getLineAndCol(
+  text: string,
+  cursorIndex: number,
+): { lineIdx: number; colIdx: number; lines: string[] } {
+  const lines = text.split("\n");
+  let accumulated = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const lineLen = lines[i]?.length || 0;
+    if (cursorIndex <= accumulated + lineLen) {
+      return { lineIdx: i, colIdx: Math.max(0, cursorIndex - accumulated), lines };
+    }
+    accumulated += lineLen + 1; // +1 for newline
+  }
+  return {
+    lineIdx: Math.max(0, lines.length - 1),
+    colIdx: lines[lines.length - 1]?.length || 0,
+    lines,
+  };
+}
+
+function getIndexFromLineAndCol(lines: string[], lineIdx: number, colIdx: number): number {
+  let idx = 0;
+  const targetLine = Math.max(0, Math.min(lines.length - 1, lineIdx));
+  for (let i = 0; i < targetLine; i++) {
+    idx += (lines[i]?.length || 0) + 1;
+  }
+  const targetCol = Math.max(0, Math.min(lines[targetLine]?.length || 0, colIdx));
+  return idx + targetCol;
+}
+
 export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
   width,
   height,
@@ -59,6 +89,8 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
   const [viewerScrollOffset, setViewerScrollOffset] = useState<number>(0);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [editBuffer, setEditBuffer] = useState<string>("");
+  const [editCursor, setEditCursor] = useState<number>(0);
+  const [editScrollOffset, setEditScrollOffset] = useState<number>(0);
 
   // Initialize repo
   useEffect(() => {
@@ -250,6 +282,8 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
       // 'e' edit file
       if (input === "e" || input === "E") {
         setViewMode("edit");
+        setEditCursor(activeFile ? activeFile.content.length : 0);
+        setEditScrollOffset(0);
         return;
       }
 
@@ -268,10 +302,10 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
     }
 
     // ─────────────────────────────────────────────
-    // EDIT MODE (Quick Inline Append / Edit)
+    // EDIT MODE (Full In-Terminal Text Editor)
     // ─────────────────────────────────────────────
     if (viewMode === "edit") {
-      if (key.ctrl && input === "s") {
+      if ((key.ctrl && input === "s") || (key.ctrl && input === "w")) {
         if (activeFile) {
           const saveRes = saveWorkspaceFile(activeFile.path, editBuffer);
           if (saveRes.success) {
@@ -290,18 +324,104 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
         return;
       }
 
+      // Left arrow
+      if (key.leftArrow) {
+        setEditCursor((prev) => Math.max(0, prev - 1));
+        return;
+      }
+
+      // Right arrow
+      if (key.rightArrow) {
+        setEditCursor((prev) => Math.min(editBuffer.length, prev + 1));
+        return;
+      }
+
+      // Up arrow
+      if (key.upArrow) {
+        const { lineIdx, colIdx, lines } = getLineAndCol(editBuffer, editCursor);
+        if (lineIdx > 0) {
+          const nextIdx = getIndexFromLineAndCol(lines, lineIdx - 1, colIdx);
+          setEditCursor(nextIdx);
+        } else {
+          setEditCursor(0);
+        }
+        return;
+      }
+
+      // Down arrow
+      if (key.downArrow) {
+        const { lineIdx, colIdx, lines } = getLineAndCol(editBuffer, editCursor);
+        if (lineIdx < lines.length - 1) {
+          const nextIdx = getIndexFromLineAndCol(lines, lineIdx + 1, colIdx);
+          setEditCursor(nextIdx);
+        } else {
+          setEditCursor(editBuffer.length);
+        }
+        return;
+      }
+
+      // Home / Ctrl+A
+      if ((key as any).home || (key.ctrl && input === "a")) {
+        const { lineIdx, lines } = getLineAndCol(editBuffer, editCursor);
+        setEditCursor(getIndexFromLineAndCol(lines, lineIdx, 0));
+        return;
+      }
+
+      // End / Ctrl+E
+      if ((key as any).end || (key.ctrl && input === "e")) {
+        const { lineIdx, lines } = getLineAndCol(editBuffer, editCursor);
+        setEditCursor(getIndexFromLineAndCol(lines, lineIdx, lines[lineIdx]?.length || 0));
+        return;
+      }
+
+      // PageUp / PageDown
+      if (key.pageUp) {
+        const { lineIdx, colIdx, lines } = getLineAndCol(editBuffer, editCursor);
+        setEditCursor(getIndexFromLineAndCol(lines, Math.max(0, lineIdx - 6), colIdx));
+        return;
+      }
+      if (key.pageDown) {
+        const { lineIdx, colIdx, lines } = getLineAndCol(editBuffer, editCursor);
+        setEditCursor(getIndexFromLineAndCol(lines, Math.min(lines.length - 1, lineIdx + 6), colIdx));
+        return;
+      }
+
+      // Enter key (newline at cursor)
       if (key.return) {
-        setEditBuffer((prev) => prev + "\n");
+        const cur = editCursor;
+        const newBuf = editBuffer.slice(0, cur) + "\n" + editBuffer.slice(cur);
+        setEditBuffer(newBuf);
+        setEditCursor(cur + 1);
         return;
       }
 
+      // Backspace key (delete character before cursor)
       if (key.backspace || input === "\x7f" || input === "\b") {
-        setEditBuffer((prev) => prev.slice(0, -1));
+        const cur = editCursor;
+        if (cur > 0) {
+          const newBuf = editBuffer.slice(0, cur - 1) + editBuffer.slice(cur);
+          setEditBuffer(newBuf);
+          setEditCursor(cur - 1);
+        }
         return;
       }
 
+      // Delete key (delete character at cursor)
+      if (key.delete || input === "\x1b[3~") {
+        const cur = editCursor;
+        if (cur < editBuffer.length) {
+          const newBuf = editBuffer.slice(0, cur) + editBuffer.slice(cur + 1);
+          setEditBuffer(newBuf);
+        }
+        return;
+      }
+
+      // Text typing
       if (input && !key.ctrl && !key.meta && input !== "\r" && input !== "\n") {
-        setEditBuffer((prev) => prev + input);
+        const cur = editCursor;
+        const newBuf = editBuffer.slice(0, cur) + input + editBuffer.slice(cur);
+        setEditBuffer(newBuf);
+        setEditCursor(cur + input.length);
         return;
       }
     }
@@ -448,31 +568,79 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
       )}
 
       {/* ─────────────────── EDIT MODE ─────────────────── */}
-      {!loading && viewMode === "edit" && (
-        <Box flexDirection="column" height={viewportHeight} overflow="hidden">
-          <SidebarLine
-            text="INLINE EDITOR · Type to append · Ctrl+S save · Esc cancel"
-            width={innerWidth}
-            color={theme.colors.retroAmberBright}
-            bold
-          />
-          <Box
-            flexDirection="column"
-            borderStyle="single"
-            borderColor={theme.colors.retroCyanBright}
-            paddingX={1}
-            marginX={1}
-            height={viewportHeight - 2}
-          >
-            <Text color={theme.colors.white}>
-              {editBuffer.slice(-300)}
-              <Text color={theme.colors.retroCyanBright} bold>
-                █
-              </Text>
-            </Text>
+      {!loading && viewMode === "edit" && (() => {
+        const editLines = editBuffer.split("\n");
+        const { lineIdx: curLine, colIdx: curCol } = getLineAndCol(editBuffer, editCursor);
+        const editorViewportH = Math.max(3, viewportHeight - 1);
+
+        // Keep active line within viewport
+        let currentScroll = editScrollOffset;
+        if (curLine < currentScroll) {
+          currentScroll = curLine;
+        } else if (curLine >= currentScroll + editorViewportH) {
+          currentScroll = curLine - editorViewportH + 1;
+        }
+
+        const visibleEditLines = editLines.slice(currentScroll, currentScroll + editorViewportH);
+        const emptyRows = Math.max(0, editorViewportH - visibleEditLines.length);
+
+        return (
+          <Box flexDirection="column" height={viewportHeight} overflow="hidden">
+            <SidebarTwoColumnRow
+              left={{
+                text: `Ln ${curLine + 1}, Col ${curCol + 1} (${editBuffer.length} chars)`,
+                color: theme.colors.retroAmberBright,
+                bold: true,
+              }}
+              right={{
+                text: "Ctrl+S save · Esc cancel",
+                color: theme.colors.retroSlateDark,
+              }}
+              width={innerWidth}
+            />
+            {visibleEditLines.map((lineText, vIdx) => {
+              const actualLineNum = currentScroll + vIdx + 1;
+              const isCurrent = currentScroll + vIdx === curLine;
+              const numStr = String(actualLineNum).padStart(3, " ");
+              const availTextW = Math.max(10, innerWidth - 7);
+
+              if (isCurrent) {
+                const before = lineText.slice(0, curCol);
+                const curChar = curCol < lineText.length ? lineText[curCol] : " ";
+                const after = curCol < lineText.length ? lineText.slice(curCol + 1) : "";
+                return (
+                  <Box key={vIdx} flexDirection="row" width={innerWidth} height={1} overflow="hidden">
+                    <Text color={theme.colors.retroCyanBright} backgroundColor={theme.colors.sidebarBg} bold>
+                      {` ${numStr} `}
+                    </Text>
+                    <Text color={theme.colors.white} backgroundColor={theme.colors.sidebarBg}>
+                      {before}
+                    </Text>
+                    <Text color="#000000" backgroundColor={theme.colors.retroCyanBright} bold>
+                      {curChar}
+                    </Text>
+                    <Text color={theme.colors.white} backgroundColor={theme.colors.sidebarBg}>
+                      {after}
+                    </Text>
+                  </Box>
+                );
+              }
+
+              return (
+                <Box key={vIdx} flexDirection="row" width={innerWidth} height={1} overflow="hidden">
+                  <Text color={theme.colors.retroSlateDark} backgroundColor={theme.colors.sidebarBg}>
+                    {` ${numStr} `}
+                  </Text>
+                  <Text color={theme.colors.white} backgroundColor={theme.colors.sidebarBg}>
+                    {lineText.length > availTextW ? lineText.slice(0, availTextW - 1) + "…" : lineText}
+                  </Text>
+                </Box>
+              );
+            })}
+            <SidebarEmptyRows count={emptyRows} width={innerWidth} />
           </Box>
-        </Box>
-      )}
+        );
+      })()}
 
       {/* Footer */}
       <SidebarDivider width={innerWidth} />
@@ -483,11 +651,11 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
               ? "Enter/→ open · Backspace/← up · 'O' editor"
               : viewMode === "viewer"
               ? "↑/↓ scroll · 'O' editor · 'E' edit"
-              : "Ctrl+S save · Esc cancel",
+              : "Arrows navigate · Enter newline",
           color: theme.colors.retroSlateDark,
         }}
         right={{
-          text: "'S' Submit Task · Tab chat",
+          text: viewMode === "edit" ? "Ctrl+S save · Esc back" : "'S' Submit Task · Tab chat",
           color: theme.colors.retroCyanBright,
           bold: true,
         }}

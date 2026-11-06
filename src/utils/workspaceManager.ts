@@ -187,10 +187,92 @@ export async function ensureSupervisorRepoCloned(
 
 /**
  * Lists files and directories in a workspace directory.
+/**
+ * Determines whether the current active user has supervisor or administrator privileges.
+ */
+export function isSupervisorUser(): boolean {
+  if (process.env.ZILA_ROLE === "supervisor" || process.env.ZILA_ROLE === "admin") {
+    return true;
+  }
+  const auth = loadAuth();
+  const active = getActiveCohort();
+  if (
+    active?.supervisorEmail &&
+    auth?.email &&
+    active.supervisorEmail.toLowerCase() === auth.email.toLowerCase()
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks whether a given path or filename is a critical supervisor file
+ * (grading keys, supervisor rubrics, solutions, or secret environment keys)
+ * that must NEVER be accessible to students.
+ */
+export function isCriticalFile(filePath: string): boolean {
+  const normalized = filePath.toLowerCase().replace(/\\/g, "/");
+  const baseName = path.basename(normalized);
+
+  // 1. Solution files or directories
+  if (
+    normalized === "solution" ||
+    normalized.startsWith("solution/") ||
+    normalized.includes("/solution/") ||
+    normalized === "solutions" ||
+    normalized.startsWith("solutions/") ||
+    normalized.includes("/solutions/") ||
+    baseName === "solution.py" ||
+    baseName === "solution.ts" ||
+    baseName === "solution.js" ||
+    baseName === "solution.md" ||
+    baseName === "solutions.json" ||
+    baseName.includes(".solution.") ||
+    baseName.startsWith("solution_") ||
+    baseName.startsWith("solutions_")
+  ) {
+    return true;
+  }
+
+  // 2. Supervisor instruction rubrics, grading files & evaluator keys
+  if (
+    baseName === "grading.yml" ||
+    baseName === "grading.yaml" ||
+    baseName.startsWith(".supervisor") ||
+    baseName.startsWith("supervisor_instructions") ||
+    baseName.startsWith("supervisor_notes") ||
+    baseName.includes("rubric_private") ||
+    baseName.includes("private_rubric") ||
+    baseName === ".rubric.secret" ||
+    baseName === ".evaluator_keys"
+  ) {
+    return true;
+  }
+
+  // 3. Environment files & secrets
+  if (
+    baseName === ".env" ||
+    baseName.startsWith(".env.") ||
+    baseName === "credentials.json" ||
+    baseName.endsWith(".secret") ||
+    baseName.endsWith(".key") ||
+    baseName.endsWith(".pem")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Lists files and directories in a workspace directory.
+ * Automatically filters out critical supervisor files for students.
  */
 export function listWorkspaceFiles(
   rootDir: string,
   subRelative: string = "",
+  isSupervisor: boolean = isSupervisorUser(),
 ): WorkspaceFileEntry[] {
   const targetDir = path.join(rootDir, subRelative);
   if (!fs.existsSync(targetDir)) return [];
@@ -204,6 +286,11 @@ export function listWorkspaceFiles(
 
       const rel = subRelative ? path.join(subRelative, ent.name) : ent.name;
       const full = path.join(targetDir, ent.name);
+
+      // Hide critical supervisor files from students
+      if (!isSupervisor && isCriticalFile(rel)) {
+        continue;
+      }
 
       if (ent.isDirectory()) {
         results.push({
@@ -240,12 +327,22 @@ export function listWorkspaceFiles(
 
 /**
  * Reads file contents from a workspace file safely.
+ * Blocks students from reading critical supervisor files.
  */
 export function readWorkspaceFile(
   fullPath: string,
   maxLines: number = 200,
+  isSupervisor: boolean = isSupervisorUser(),
 ): { success: boolean; content: string; lines: number; error?: string } {
   try {
+    if (!isSupervisor && isCriticalFile(fullPath)) {
+      return {
+        success: false,
+        content: "",
+        lines: 0,
+        error: "Access Denied: Critical file reserved for supervisors only.",
+      };
+    }
     if (!fs.existsSync(fullPath)) {
       return { success: false, content: "", lines: 0, error: "File does not exist." };
     }
@@ -264,12 +361,20 @@ export function readWorkspaceFile(
 
 /**
  * Saves edits to a workspace file.
+ * Blocks students from overwriting critical supervisor files.
  */
 export function saveWorkspaceFile(
   fullPath: string,
   content: string,
+  isSupervisor: boolean = isSupervisorUser(),
 ): { success: boolean; error?: string } {
   try {
+    if (!isSupervisor && isCriticalFile(fullPath)) {
+      return {
+        success: false,
+        error: "Access Denied: Critical file modification restricted to supervisors only.",
+      };
+    }
     const dir = path.dirname(fullPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
