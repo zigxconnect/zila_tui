@@ -337,6 +337,14 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     setInputText(newText);
     setCursorIndex(clampedCursor);
   }, []);
+
+  useEffect(() => {
+    textRef.current = inputText;
+  }, [inputText]);
+
+  useEffect(() => {
+    cursorRef.current = cursorIndex;
+  }, [cursorIndex]);
   const [isThinking, setIsThinking] = useState(false);
   const [statusText, setStatusText] = useState("Ready");
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceContext | null>(null);
@@ -649,7 +657,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
 
       if (trimmed.toLowerCase() === "clear") {
         setMessages([]);
-        setInputText("");
+        updateInputAndCursor("", 0);
         return;
       }
 
@@ -664,8 +672,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       ) {
         setActiveSidebar("submit-report");
         setActiveFocus("sidebar");
-        setInputText("");
-        setCursorIndex(0);
+        updateInputAndCursor("", 0);
         return;
       }
 
@@ -679,8 +686,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       ) {
         setActiveSidebar("submit-task");
         setActiveFocus("sidebar");
-        setInputText("");
-        setCursorIndex(0);
+        updateInputAndCursor("", 0);
         return;
       }
 
@@ -699,6 +705,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         lowerTrimmed === "close cohorts"
       ) {
         setActiveSidebar(null);
+        setActiveFocus("chat");
         setMessages((prev) => [
           ...prev,
           {
@@ -712,7 +719,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
             content: "Closed right-hand sidebar.",
           },
         ]);
-        setInputText("");
+        updateInputAndCursor("", 0);
         return;
       }
 
@@ -783,28 +790,49 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
 
       updateInputAndCursor("", 0);
       handleSend(trimmed);
-    } else if (key.backspace || input === "\x7f" || input === "\b" || input === "\x08") {
-      const cur = cursorRef.current;
-      const txt = textRef.current;
-      if (cur > 0) {
-        const newTxt = txt.slice(0, cur - 1) + txt.slice(cur);
-        updateInputAndCursor(newTxt, cur - 1);
-      } else if (txt.length > 0) {
-        const newTxt = txt.slice(0, -1);
-        updateInputAndCursor(newTxt, Math.min(cur, newTxt.length));
+    } else {
+      const isBackspace =
+        key.backspace ||
+        input === "\x7f" ||
+        input === "\b" ||
+        input === "\x08";
+
+      const isDelete = key.delete || input === "\x1b[3~";
+
+      if (isBackspace) {
+        const txt = textRef.current;
+        const cur = Math.min(cursorRef.current, txt.length);
+        if (cur > 0) {
+          const newTxt = txt.slice(0, cur - 1) + txt.slice(cur);
+          updateInputAndCursor(newTxt, cur - 1);
+        } else if (txt.length > 0) {
+          const newTxt = txt.slice(0, -1);
+          updateInputAndCursor(newTxt, newTxt.length);
+        }
+        return;
       }
-    } else if (key.delete) {
-      const cur = cursorRef.current;
-      const txt = textRef.current;
-      if (cur < txt.length) {
-        const newTxt = txt.slice(0, cur) + txt.slice(cur + 1);
-        updateInputAndCursor(newTxt, cur);
+
+      if (isDelete) {
+        const txt = textRef.current;
+        const cur = Math.min(cursorRef.current, txt.length);
+        if (cur < txt.length) {
+          const newTxt = txt.slice(0, cur) + txt.slice(cur + 1);
+          updateInputAndCursor(newTxt, cur);
+        } else if (txt.length > 0) {
+          // Fallback for terminals that map physical Backspace to key.delete
+          const newTxt = txt.slice(0, -1);
+          updateInputAndCursor(newTxt, newTxt.length);
+        }
+        return;
       }
-    } else if (input && !key.ctrl && !key.meta && input !== "\x7f" && input !== "\b" && input !== "\x08") {
-      const cur = cursorRef.current;
-      const txt = textRef.current;
-      const newTxt = txt.slice(0, cur) + input + txt.slice(cur);
-      updateInputAndCursor(newTxt, cur + input.length);
+
+      if (input && !key.ctrl && !key.meta && !isBackspace && !isDelete && input !== "\r" && input !== "\n") {
+        const txt = textRef.current;
+        const cur = Math.min(cursorRef.current, txt.length);
+        const newTxt = txt.slice(0, cur) + input + txt.slice(cur);
+        updateInputAndCursor(newTxt, cur + input.length);
+        return;
+      }
     }
   });
 
@@ -862,14 +890,12 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     } else if (rawCmd === "/submit-report" || rawCmd === "submit-report" || rawCmd === "/report" || rawCmd === "report") {
       setActiveSidebar("submit-report");
       setActiveFocus("sidebar");
-      setInputText("");
-      setCursorIndex(0);
+      updateInputAndCursor("", 0);
       return;
     } else if (rawCmd === "/submit-task" || rawCmd === "submit-task" || rawCmd === "/submit" || rawCmd === "submit" || rawCmd === "zila-submit" || rawCmd === "/zila-submit") {
       setActiveSidebar("submit-task");
       setActiveFocus("sidebar");
-      setInputText("");
-      setCursorIndex(0);
+      updateInputAndCursor("", 0);
       return;
     } else if (rawCmd.startsWith("/attach-repo") || rawCmd.startsWith("attach-repo") || rawCmd.startsWith("/link-repo") || rawCmd.startsWith("link-repo")) {
       const parts = commandStr.trim().split(/\s+/);
@@ -977,7 +1003,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       clearTerminalScreen();
       setMessages([]);
       setShowFirstRunWelcome(true);
-      setInputText("");
+      updateInputAndCursor("", 0);
       setChatScrollOffset(0);
       return;
     } else if (rawCmd === "/exit" || rawCmd === "/quit") {
@@ -1018,7 +1044,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         content: reply,
       },
     ]);
-    setInputText("");
+    updateInputAndCursor("", 0);
     setStatusText("Ready");
     if (rawCmd !== "/top" && rawCmd !== "top" && rawCmd !== "/scroll top") {
       setChatScrollOffset(0);
@@ -1034,7 +1060,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    setInputText("");
+    updateInputAndCursor("", 0);
     setIsThinking(true);
     setStatusText("Analyzing context & generating response...");
 
