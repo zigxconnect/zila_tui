@@ -1,0 +1,11 @@
+.env
+.env.*
+*.key
+*.pem
+*.secret
+credentials.json
+tests/
+src/
+scratch/
+*.log
+coverage/
