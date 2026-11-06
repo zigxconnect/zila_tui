@@ -18,6 +18,7 @@ import { SubmitReportScreen } from "./SubmitReportScreen.js";
 import { SubmitTaskScreen } from "./SubmitTaskScreen.js";
 import { OpportunitiesSidebar } from "./OpportunitiesSidebar.js";
 import { HistorySidebar } from "./HistorySidebar.js";
+import { WorkspaceEditorSidebar } from "./WorkspaceEditorSidebar.js";
 import { formatTerminalText } from "../utils/terminalTextFormatter.js";
 import {
   saveLocalChatSession,
@@ -172,6 +173,7 @@ type SidebarMode =
   | "command-output"
   | "search"
   | "history"
+  | "editor"
   | null;
 type ModalMode = "submit-report" | "submit-task" | null;
 
@@ -199,6 +201,11 @@ export function getCommandPanelTitle(cmd: string): string {
       return "System Architecture & Mentor Profile";
     case "model":
       return "AI Model & Provider Config";
+    case "code":
+    case "editor":
+    case "workspace":
+    case "work":
+      return "Supervisor Code Workspace & Editor";
     case "search":
     case "opportunities":
       return "Tavily Career & Opportunity Radar";
@@ -307,6 +314,8 @@ export const CommandOutputSidebar: React.FC<CommandOutputSidebarProps> = ({
 const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/help", desc: "Display interactive command directory & tips" },
   { cmd: "/welcome", desc: "View the Lil-Zila child mascot & anti-cheating mission" },
+  { cmd: "/code", desc: "Open supervisor curriculum repo & in-terminal editor on the right" },
+  { cmd: "/submit-task", desc: "Launch automated task submission & PR evaluation pipeline on the right" },
   { cmd: "/search", desc: "Search internships, bounties & opportunities via Tavily API" },
   { cmd: "/history", desc: "Browse and resume previous Lil-Zila chat sessions" },
   { cmd: "/leaderboard", desc: "Open cohort rankings & PR evaluation leaderboard on the right" },
@@ -501,12 +510,13 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       return;
     }
 
-    // When focus is on an interactive sidebar (submit-task, submit-report, search, or history), pass keyboard input to sidebar
+    // When focus is on an interactive sidebar (submit-task, submit-report, search, history, or editor), pass keyboard input to sidebar
     const isInteractiveSidebar =
       activeSidebar === "submit-task" ||
       activeSidebar === "submit-report" ||
       activeSidebar === "search" ||
-      activeSidebar === "history";
+      activeSidebar === "history" ||
+      activeSidebar === "editor";
 
     if (activeFocus === "sidebar" && isInteractiveSidebar) {
       if (key.tab) {
@@ -774,7 +784,10 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         lowerTrimmed === "close group" ||
         lowerTrimmed === "close cohorts" ||
         lowerTrimmed === "close search" ||
-        lowerTrimmed === "close history"
+        lowerTrimmed === "close history" ||
+        lowerTrimmed === "close editor" ||
+        lowerTrimmed === "close workspace" ||
+        lowerTrimmed === "close code"
       ) {
         setActiveSidebar(null);
         setActiveFocus("chat");
@@ -796,6 +809,22 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       }
 
       // Direct shortcuts for sidebars
+      if (
+        lowerTrimmed === "code" ||
+        lowerTrimmed === "/code" ||
+        lowerTrimmed.startsWith("code ") ||
+        lowerTrimmed.startsWith("/code ") ||
+        lowerTrimmed === "editor" ||
+        lowerTrimmed === "/editor" ||
+        lowerTrimmed === "workspace" ||
+        lowerTrimmed === "/workspace" ||
+        lowerTrimmed === "work" ||
+        lowerTrimmed === "/work"
+      ) {
+        handleSlashCommand("/code");
+        return;
+      }
+
       if (
         lowerTrimmed === "leaderboard" ||
         lowerTrimmed === "/leaderboard" ||
@@ -945,6 +974,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         "◈ Zigex Lil-Agent Command Reference:",
         "  /help          — Display this interactive help directory",
         "  /welcome       — View the Lil-Zila companion mascot & anti-cheating mission",
+        "  /code          — Open supervisor curriculum repo & in-terminal editor on the right",
+        "  /submit-task   — Launch automated task submission & PR evaluation pipeline",
         "  /search        — Search internships, bounties & opportunities via Tavily API",
         "  /history       — View and resume previous Lil-Zila chat sessions",
         "  /leaderboard   — Open cohort rankings & PR evaluation leaderboard on the right",
@@ -952,7 +983,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         "  /cohorts       — Browse enrolled programs and cohort workspaces on the right",
         "  /logbook       — Toggle right-hand Contributor Audit Ledger logbook sidebar",
         "  /submit-report — Open interactive daily sprint engineering report modal",
-        "  /submit-task   — Launch automated task submission & PR evaluation pipeline",
         "  /plan          — View program enrollment, tuition plan & evaluation quota",
         "  /quota         — Check daily GitHub PR & tuition submission quota",
         "  /about         — System telemetry, architecture & pair mentor profile",
@@ -967,6 +997,21 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     } else if (rawCmd === "/welcome" || rawCmd === "/mascot") {
       setShowFirstRunWelcome(true);
       reply = "Displayed Lil-Zila companion mascot & anti-cheating mission.";
+    } else if (
+      rawCmd === "/code" ||
+      rawCmd === "code" ||
+      rawCmd.startsWith("/code ") ||
+      rawCmd.startsWith("code ") ||
+      rawCmd === "/editor" ||
+      rawCmd === "editor" ||
+      rawCmd === "/workspace" ||
+      rawCmd === "workspace" ||
+      rawCmd === "/work" ||
+      rawCmd === "work"
+    ) {
+      setActiveSidebar("editor");
+      setActiveFocus("sidebar");
+      reply = "Opened Supervisor Code Workspace & Editor on the right. Navigate files with ↑/↓, press Enter to view, 'O' for VS Code, or 'S' to submit task.";
     } else if (
       rawCmd === "/search" ||
       rawCmd === "search" ||
@@ -1142,6 +1187,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       "/submit-report", "submit-report", "/report", "report",
       "/search", "search", "/opportunities", "opportunities",
       "/history", "history", "/sessions", "sessions",
+      "/code", "code", "/editor", "editor", "/workspace", "workspace", "/work", "work",
       "/clear", "/exit", "/quit", "/top", "/bottom", "/scroll top", "/scroll bottom", "/close", "close", "hide",
     ];
 
@@ -1200,6 +1246,7 @@ Your Architecture & Capabilities:
 - Contributor Ledger: You audit daily progress into the local engineering logbook (diffs, test execution, commit hash integrity).
 - Evaluation Quota: Daily quota of 2 GitHub PR evaluations per day for fair resource allocation.
 - Opportunity Radar: You integrate Tavily search to match intern skills with verified internships, bounties, and hackathons.
+- Code Workspace & Editor: You provide the /code command to open the supervisor's cloned repository and files directly in the right panel so interns can inspect exercise prompts, edit code in-terminal or launch desktop editors (VS Code, Cursor), and trigger /submit-task.
 - Chat History: All conversations are persisted locally in ~/.zila/history/ and synced with the Neon Postgres backend.
 
 Current Workspace & Student Context:
@@ -1735,6 +1782,21 @@ CRITICAL STYLING & FORMATTING RULES:
               );
               setActiveSidebar(null);
               setActiveFocus("chat");
+            }}
+            onClose={() => {
+              setActiveSidebar(null);
+              setActiveFocus("chat");
+            }}
+          />
+        )}
+        {activeSidebar === "editor" && (
+          <WorkspaceEditorSidebar
+            width={splitRightWidth}
+            height={fullHeight}
+            isFocused={activeFocus === "sidebar"}
+            onOpenSubmitTask={() => {
+              setActiveSidebar("submit-task");
+              setActiveFocus("sidebar");
             }}
             onClose={() => {
               setActiveSidebar(null);
