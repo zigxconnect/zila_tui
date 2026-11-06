@@ -20,6 +20,8 @@ import {
   SidebarLoadingRow,
   SidebarEmptyRows,
 } from "../ui/sidebarLayout.js";
+import { isMouseOrControlSequence, cleanTypedInput } from "../utils/terminalInputSanitizer.js";
+import { tokenizeCodeLine, VSCODE_DARK } from "../utils/codeHighlighter.js";
 
 interface WorkspaceEditorSidebarProps {
   width?: number;
@@ -57,6 +59,18 @@ function getIndexFromLineAndCol(lines: string[], lineIdx: number, colIdx: number
   }
   const targetCol = Math.max(0, Math.min(lines[targetLine]?.length || 0, colIdx));
   return idx + targetCol;
+}
+
+function getFileInfo(fileName: string): { icon: string; lang: string } {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".py")) return { icon: "🐍", lang: "Python" };
+  if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return { icon: "📘", lang: "TypeScript" };
+  if (lower.endsWith(".js") || lower.endsWith(".jsx")) return { icon: "🟨", lang: "JavaScript" };
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) return { icon: "📝", lang: "Markdown" };
+  if (lower.endsWith(".json")) return { icon: "📦", lang: "JSON" };
+  if (lower.endsWith(".yml") || lower.endsWith(".yaml")) return { icon: "⚙️", lang: "YAML" };
+  if (lower.endsWith(".sh") || lower.endsWith(".bash")) return { icon: "🐚", lang: "Shell" };
+  return { icon: "📄", lang: "Plain Text" };
 }
 
 export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
@@ -147,6 +161,7 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
 
   useInput((input, key) => {
     if (!isFocused) return;
+    if (isMouseOrControlSequence(input)) return;
 
     // Clear notice on keypress
     if (statusNotice && !input.includes("\x1b")) {
@@ -418,10 +433,12 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
 
       // Text typing
       if (input && !key.ctrl && !key.meta && input !== "\r" && input !== "\n") {
+        const cleaned = cleanTypedInput(input);
+        if (!cleaned) return;
         const cur = editCursor;
-        const newBuf = editBuffer.slice(0, cur) + input + editBuffer.slice(cur);
+        const newBuf = editBuffer.slice(0, cur) + cleaned + editBuffer.slice(cur);
         setEditBuffer(newBuf);
-        setEditCursor(cur + input.length);
+        setEditCursor(cur + cleaned.length);
         return;
       }
     }
@@ -447,32 +464,60 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
   return (
     <SidebarContainer width={effectiveWidth} height={effectiveHeight} isFocused={isFocused}>
       {/* Header */}
-      <SidebarTwoColumnRow
-        left={{
-          text: `◈ WORKSPACE: ${repoInfo?.repoName || "Curriculum Repo"}`,
-          color: theme.colors.retroCyanBright,
-          bold: true,
-        }}
-        right={{
-          text: `[${repoInfo?.branch || "main"}]`,
-          color: theme.colors.retroBlueBright,
-          bold: true,
-        }}
-        width={innerWidth}
-      />
+      {viewMode === "explorer" ? (
+        <>
+          <SidebarTwoColumnRow
+            left={{
+              text: `◈ EXPLORER: ${repoInfo?.repoName || "Curriculum Repo"}`,
+              color: theme.colors.retroCyanBright,
+              bold: true,
+            }}
+            right={{
+              text: `[git: ${repoInfo?.branch || "main"}]`,
+              color: theme.colors.retroBlueBright,
+              bold: true,
+            }}
+            width={innerWidth}
+          />
 
-      <SidebarTwoColumnRow
-        left={{
-          text: currentSubDir ? `📁 /${currentSubDir}` : "📁 / (repo root)",
-          color: theme.colors.white,
-          bold: Boolean(currentSubDir),
-        }}
-        right={{
-          text: viewMode === "explorer" ? `${files.length} items` : `viewing: ${path.basename(activeFile?.path || "")}`,
-          color: theme.colors.retroSlateDark,
-        }}
-        width={innerWidth}
-      />
+          <SidebarTwoColumnRow
+            left={{
+              text: currentSubDir ? `📁 /${currentSubDir}` : "📁 / (workspace root)",
+              color: theme.colors.white,
+              bold: Boolean(currentSubDir),
+            }}
+            right={{
+              text: `${files.length} items`,
+              color: theme.colors.retroSlateDark,
+            }}
+            width={innerWidth}
+          />
+        </>
+      ) : (
+        <>
+          {/* VS Code Tab Bar */}
+          <Box flexDirection="row" width={innerWidth} height={1} overflow="hidden">
+            <Text color="#FFFFFF" backgroundColor={VSCODE_DARK.editorBg} bold>
+              {` [ ${getFileInfo(activeFile?.relativePath || "").icon} ${path.basename(activeFile?.path || "")} ${viewMode === "edit" ? "●" : "×"} ] `}
+            </Text>
+            <Text color={theme.colors.retroSlateDark} backgroundColor={VSCODE_DARK.tabInactiveBg}>
+              {` [${viewMode.toUpperCase()}] `}
+            </Text>
+            <Text backgroundColor={VSCODE_DARK.tabInactiveBg}>
+              {" ".repeat(Math.max(0, innerWidth - (path.basename(activeFile?.path || "").length + 18)))}
+            </Text>
+          </Box>
+          {/* Breadcrumbs */}
+          <Box flexDirection="row" width={innerWidth} height={1} overflow="hidden">
+            <Text color={VSCODE_DARK.gutterFg} backgroundColor={VSCODE_DARK.editorBg}>
+              {` 📁 ${activeFile?.relativePath.split("/").join(" › ")} `}
+            </Text>
+            <Text backgroundColor={VSCODE_DARK.editorBg}>
+              {" ".repeat(Math.max(0, innerWidth - (activeFile?.relativePath.length || 0) - 6))}
+            </Text>
+          </Box>
+        </>
+      )}
       <SidebarDivider width={innerWidth} />
 
       {/* Loading Row */}
@@ -503,9 +548,10 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
           ) : (
             visibleFiles.map((file) => {
               const isSelected = files[selectedIndex]?.relativePath === file.relativePath;
-              const prefix = isSelected ? "❯ " : "  ";
-              const icon = file.isDir ? "📂 " : "📄 ";
+              const fileInfo = file.isDir ? { icon: "📁", lang: "Directory" } : getFileInfo(file.name);
+              const icon = `${fileInfo.icon} `;
               const isExercise = file.name.toLowerCase().includes("exercise") || file.name.endsWith(".md");
+              const prefix = isSelected ? "▎ " : "  ";
 
               return (
                 <SidebarTwoColumnRow
@@ -523,7 +569,7 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
                   }}
                   right={{
                     text: file.isDir ? "DIR" : `${Math.round((file.size || 0) / 1024)}KB`,
-                    color: theme.colors.retroSlateDark,
+                    color: isSelected ? theme.colors.white : theme.colors.retroSlateDark,
                   }}
                   width={innerWidth}
                 />
@@ -546,17 +592,45 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
           {visibleFileLines.map((line, idx) => {
             const lineNum = clampedViewerOffset + idx + 1;
             const lineNumStr = String(lineNum).padStart(3, " ");
-            const availW = Math.max(10, innerWidth - 7);
-            const truncated = line.length > availW ? line.slice(0, availW - 1) + "…" : line;
+            const tokens = tokenizeCodeLine(line, activeFile?.relativePath || "");
+            const gutterText = ` ${lineNumStr} │ `;
+            const availCodeW = Math.max(10, innerWidth - gutterText.length);
+
+            let lineLen = 0;
+            const renderedTokens: React.ReactNode[] = [];
+
+            for (let tIdx = 0; tIdx < tokens.length; tIdx++) {
+              const token = tokens[tIdx]!;
+              if (lineLen >= availCodeW) break;
+              const remaining = availCodeW - lineLen;
+              const tokenStr = token.text.length > remaining ? token.text.slice(0, remaining) : token.text;
+              lineLen += tokenStr.length;
+              renderedTokens.push(
+                <Text
+                  key={tIdx}
+                  color={token.color}
+                  backgroundColor={VSCODE_DARK.editorBg}
+                  bold={token.bold}
+                  dimColor={token.dim}
+                >
+                  {tokenStr}
+                </Text>
+              );
+            }
+
+            const padW = Math.max(0, availCodeW - lineLen);
 
             return (
               <Box key={idx} flexDirection="row" width={innerWidth} height={1} overflow="hidden">
-                <Text color={theme.colors.retroSlateDark} backgroundColor={theme.colors.sidebarBg}>
-                  {` ${lineNumStr} `}
+                <Text color={VSCODE_DARK.gutterFg} backgroundColor={VSCODE_DARK.gutterBg}>
+                  {gutterText}
                 </Text>
-                <Text color={theme.colors.white} backgroundColor={theme.colors.sidebarBg}>
-                  {truncated}
-                </Text>
+                {renderedTokens}
+                {padW > 0 && (
+                  <Text backgroundColor={VSCODE_DARK.editorBg}>
+                    {" ".repeat(padW)}
+                  </Text>
+                )}
               </Box>
             );
           })}
@@ -583,57 +657,99 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
 
         const visibleEditLines = editLines.slice(currentScroll, currentScroll + editorViewportH);
         const emptyRows = Math.max(0, editorViewportH - visibleEditLines.length);
+        const fileInfo = getFileInfo(activeFile?.relativePath || "");
 
         return (
           <Box flexDirection="column" height={viewportHeight} overflow="hidden">
-            <SidebarTwoColumnRow
-              left={{
-                text: `Ln ${curLine + 1}, Col ${curCol + 1} (${editBuffer.length} chars)`,
-                color: theme.colors.retroAmberBright,
-                bold: true,
-              }}
-              right={{
-                text: "Ctrl+S save · Esc cancel",
-                color: theme.colors.retroSlateDark,
-              }}
-              width={innerWidth}
-            />
+            {/* VS Code Status Bar */}
+            <Box flexDirection="row" width={innerWidth} height={1} overflow="hidden">
+              <Text color={VSCODE_DARK.statusBarFg} backgroundColor={VSCODE_DARK.statusBarBg} bold>
+                {` ⚡ Ln ${curLine + 1}, Col ${curCol + 1}  │  UTF-8  │  ${fileInfo.lang}  │  Spaces: 4 `}
+              </Text>
+              <Text color={VSCODE_DARK.statusBarFg} backgroundColor={VSCODE_DARK.statusBarBg}>
+                {" ".repeat(Math.max(1, innerWidth - (fileInfo.lang.length + String(curLine).length + String(curCol).length + (repoInfo?.branch?.length || 4) + 38)))}
+              </Text>
+              <Text color={VSCODE_DARK.statusBarFg} backgroundColor={VSCODE_DARK.statusBarBg} bold>
+                {`[git: ${repoInfo?.branch || "main"}] `}
+              </Text>
+            </Box>
+
             {visibleEditLines.map((lineText, vIdx) => {
               const actualLineNum = currentScroll + vIdx + 1;
               const isCurrent = currentScroll + vIdx === curLine;
               const numStr = String(actualLineNum).padStart(3, " ");
-              const availTextW = Math.max(10, innerWidth - 7);
+              const gutterText = ` ${numStr} │ `;
+              const availCodeW = Math.max(10, innerWidth - gutterText.length);
+              const rowBg = isCurrent ? VSCODE_DARK.editorActiveLineBg : VSCODE_DARK.editorBg;
+              const gutterColor = isCurrent ? VSCODE_DARK.activeLineGutterFg : VSCODE_DARK.gutterFg;
 
               if (isCurrent) {
                 const before = lineText.slice(0, curCol);
                 const curChar = curCol < lineText.length ? lineText[curCol] : " ";
                 const after = curCol < lineText.length ? lineText.slice(curCol + 1) : "";
+                const curCharW = 1;
+                const remainingW = Math.max(0, availCodeW - before.length - curCharW - after.length);
+
                 return (
                   <Box key={vIdx} flexDirection="row" width={innerWidth} height={1} overflow="hidden">
-                    <Text color={theme.colors.retroCyanBright} backgroundColor={theme.colors.sidebarBg} bold>
-                      {` ${numStr} `}
+                    <Text color={gutterColor} backgroundColor={rowBg} bold>
+                      {gutterText}
                     </Text>
-                    <Text color={theme.colors.white} backgroundColor={theme.colors.sidebarBg}>
+                    <Text color={VSCODE_DARK.plain} backgroundColor={rowBg}>
                       {before}
                     </Text>
-                    <Text color="#000000" backgroundColor={theme.colors.retroCyanBright} bold>
+                    <Text color="#000000" backgroundColor={VSCODE_DARK.cursor} bold>
                       {curChar}
                     </Text>
-                    <Text color={theme.colors.white} backgroundColor={theme.colors.sidebarBg}>
+                    <Text color={VSCODE_DARK.plain} backgroundColor={rowBg}>
                       {after}
                     </Text>
+                    {remainingW > 0 && (
+                      <Text backgroundColor={rowBg}>
+                        {" ".repeat(remainingW)}
+                      </Text>
+                    )}
                   </Box>
                 );
               }
 
+              // Inactive lines: tokenize for syntax coloring
+              const tokens = tokenizeCodeLine(lineText, activeFile?.relativePath || "");
+              let lineLen = 0;
+              const renderedTokens: React.ReactNode[] = [];
+
+              for (let tIdx = 0; tIdx < tokens.length; tIdx++) {
+                const token = tokens[tIdx]!;
+                if (lineLen >= availCodeW) break;
+                const remaining = availCodeW - lineLen;
+                const tokenStr = token.text.length > remaining ? token.text.slice(0, remaining) : token.text;
+                lineLen += tokenStr.length;
+                renderedTokens.push(
+                  <Text
+                    key={tIdx}
+                    color={token.color}
+                    backgroundColor={rowBg}
+                    bold={token.bold}
+                    dimColor={token.dim}
+                  >
+                    {tokenStr}
+                  </Text>
+                );
+              }
+
+              const padW = Math.max(0, availCodeW - lineLen);
+
               return (
                 <Box key={vIdx} flexDirection="row" width={innerWidth} height={1} overflow="hidden">
-                  <Text color={theme.colors.retroSlateDark} backgroundColor={theme.colors.sidebarBg}>
-                    {` ${numStr} `}
+                  <Text color={gutterColor} backgroundColor={rowBg}>
+                    {gutterText}
                   </Text>
-                  <Text color={theme.colors.white} backgroundColor={theme.colors.sidebarBg}>
-                    {lineText.length > availTextW ? lineText.slice(0, availTextW - 1) + "…" : lineText}
-                  </Text>
+                  {renderedTokens}
+                  {padW > 0 && (
+                    <Text backgroundColor={rowBg}>
+                      {" ".repeat(padW)}
+                    </Text>
+                  )}
                 </Box>
               );
             })}
@@ -648,14 +764,14 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
         left={{
           text:
             viewMode === "explorer"
-              ? "Enter/→ open · Backspace/← up · 'O' editor"
+              ? "Enter/→ open · Backspace/← up · 'O' VS Code"
               : viewMode === "viewer"
-              ? "↑/↓ scroll · 'O' editor · 'E' edit"
-              : "Arrows navigate · Enter newline",
+              ? "↑/↓ scroll · 'E' edit · 'O' VS Code"
+              : "Arrows navigate · Enter newline · Backspace del",
           color: theme.colors.retroSlateDark,
         }}
         right={{
-          text: viewMode === "edit" ? "Ctrl+S save · Esc back" : "'S' Submit Task · Tab chat",
+          text: viewMode === "edit" ? "Ctrl+S save · Esc back" : "'S' Submit · Tab focus",
           color: theme.colors.retroCyanBright,
           bold: true,
         }}

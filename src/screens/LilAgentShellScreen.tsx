@@ -32,6 +32,7 @@ import { LLAMA_ART, LIL_ZILA_TEXT } from "../ui/LilZilaBanner.js";
 import { executeAttachRepo } from "../commands/attachRepo.js";
 import { executeGenerateRepo } from "../commands/generateRepo.js";
 import { executeDetachRepo } from "../commands/detachRepo.js";
+import { isMouseOrControlSequence, cleanTypedInput } from "../utils/terminalInputSanitizer.js";
 
 interface LilAgentShellScreenProps {
   onClose: () => void;
@@ -410,14 +411,15 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
 
   useEffect(() => {
     try {
-      // Enable SGR mouse tracking: mouse clicks and wheel
-      process.stdout.write("\x1b[?1000h\x1b[?1002h\x1b[?1006h");
+      // Disable terminal mouse tracking modes so user can natively highlight,
+      // select, and copy text in terminal with mouse without escape code leaks.
+      process.stdout.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l");
     } catch {
       // Ignore
     }
     return () => {
       try {
-        process.stdout.write("\x1b[?1006l\x1b[?1002l\x1b[?1000l");
+        process.stdout.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l");
       } catch {
         // Ignore
       }
@@ -474,39 +476,9 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   }, [chatScrollOffset, maxScroll]);
 
   useInput((input, key) => {
-    // Intercept SGR mouse tracking escape sequences: \x1b[<btn;x;yM or m
-    const mouseMatch = input.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
-    if (mouseMatch) {
-      const btn = mouseMatch[1] ? parseInt(mouseMatch[1], 10) : 0;
-      const x = mouseMatch[2] ? parseInt(mouseMatch[2], 10) : 0;
-      const action = mouseMatch[4];
-
-      if (action === "M") {
-        if (btn === 0) {
-          // Left mouse button click
-          if (isSplitActive) {
-            if (x <= splitLeftWidth) {
-              setActiveFocus("chat");
-            } else {
-              setActiveFocus("sidebar");
-            }
-          }
-        } else if (btn === 64) {
-          // Mouse wheel up
-          if (isSplitActive && x > splitLeftWidth) {
-            setSidebarScrollOffset((prev) => Math.max(0, prev - 3));
-          } else {
-            setChatScrollOffset((prev) => Math.min(maxScroll, prev + 3));
-          }
-        } else if (btn === 65) {
-          // Mouse wheel down
-          if (isSplitActive && x > splitLeftWidth) {
-            setSidebarScrollOffset((prev) => prev + 3);
-          } else {
-            setChatScrollOffset((prev) => Math.max(0, prev - 3));
-          }
-        }
-      }
+    // Intercept and discard any stray SGR mouse tracking escape sequences or control noise
+    // so no gibberish leaks into the prompt or buffer.
+    if (isMouseOrControlSequence(input)) {
       return;
     }
 
@@ -950,10 +922,12 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       }
 
       if (input && !key.ctrl && !key.meta && !isBackspace && !isDelete && input !== "\r" && input !== "\n") {
+        const cleaned = cleanTypedInput(input);
+        if (!cleaned) return;
         const txt = textRef.current;
         const cur = Math.min(cursorRef.current, txt.length);
-        const newTxt = txt.slice(0, cur) + input + txt.slice(cur);
-        updateInputAndCursor(newTxt, cur + input.length);
+        const newTxt = txt.slice(0, cur) + cleaned + txt.slice(cur);
+        updateInputAndCursor(newTxt, cur + cleaned.length);
         return;
       }
     }

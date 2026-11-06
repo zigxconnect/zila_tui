@@ -40,6 +40,16 @@ export const theme = {
     sidebarDivider: "#1E293B",  // Soft divider line
     sidebarHeaderBg: "#1E293B", // Dark header background
 
+    // VS Code Dark+ Theme Palette
+    vscodeEditorBg: "#1E1E1E",
+    vscodeSidebarBg: "#252526",
+    vscodeActiveLineBg: "#2A2D2E",
+    vscodeGutterFg: "#6E7681",
+    vscodeGutterActiveFg: "#FFFFFF",
+    vscodeSelectionBg: "#094771",
+    vscodeStatusBarBg: "#007ACC",
+    vscodeStatusBarFg: "#FFFFFF",
+
     // Semantic colors
     link: "#38BDF8",
     linkHover: "#60A5FA",
