@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
+import stringWidth from "string-width";
 import { theme } from "../ui/theme.js";
 import { loadAgentConfig, saveAgentConfig, getProviderModelFamilies } from "../utils/aiConfig.js";
 import { generateChatResponse, type ChatMessage } from "../utils/aiClient.js";
@@ -235,13 +236,16 @@ export const CommandOutputSidebar: React.FC<CommandOutputSidebarProps> = ({
   const clampedOffset = Math.min(scrollOffset, maxScroll);
   const visibleLines = contentLines.slice(clampedOffset, clampedOffset + viewportHeight);
 
+  const availLineW = Math.max(10, width - 4);
+  const emptyRows = Math.max(0, viewportHeight - visibleLines.length);
+
   return (
     <Box
       flexDirection="column"
       width={width}
       height={height}
       borderStyle="single"
-      borderColor={isFocused ? theme.colors.retroBlueBright : theme.colors.retroSlateDark}
+      borderColor={isFocused ? theme.colors.retroBlueBright : theme.colors.retroBlue}
       paddingX={1}
       overflow="hidden"
     >
@@ -252,22 +256,30 @@ export const CommandOutputSidebar: React.FC<CommandOutputSidebarProps> = ({
         </Box>
         <Text color={theme.colors.retroCyanBright} bold>{`[ ${command} ]`}</Text>
       </Box>
-      <Text color={theme.colors.retroBlue}>{"─".repeat(Math.max(10, width - 4))}</Text>
+      <Text color={theme.colors.sidebarDivider}>{"─".repeat(Math.max(10, width - 4))}</Text>
 
       <Box flexDirection="column" flexGrow={1} height={viewportHeight} overflow="hidden">
-        {visibleLines.map((line, idx) => (
-          <Text key={idx} color={theme.colors.white}>
-            {line}
+        {visibleLines.map((line, idx) => {
+          const pad = Math.max(0, availLineW - stringWidth(line));
+          return (
+            <Text key={idx} color={theme.colors.white} backgroundColor={theme.colors.sidebarBg}>
+              {line + " ".repeat(pad)}
+            </Text>
+          );
+        })}
+        {Array.from({ length: emptyRows }).map((_, idx) => (
+          <Text key={`empty-${idx}`} backgroundColor={theme.colors.sidebarBg}>
+            {" ".repeat(availLineW)}
           </Text>
         ))}
       </Box>
 
-      <Text color={theme.colors.retroBlue}>{"─".repeat(Math.max(10, width - 4))}</Text>
+      <Text color={theme.colors.sidebarDivider}>{"─".repeat(Math.max(10, width - 4))}</Text>
       <Box flexDirection="row" justifyContent="space-between">
         <Text color={theme.colors.retroSlateDark}>
           {`Line ${clampedOffset + 1}-${Math.min(clampedOffset + viewportHeight, contentLines.length)} of ${contentLines.length}`}
         </Text>
-        <Text color={theme.colors.retroBlueBright}>
+        <Text color={theme.colors.retroCyanBright}>
           {"Tab chat · ↑/↓ scroll · Esc close"}
         </Text>
       </Box>
@@ -315,6 +327,16 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   ]);
   const [inputText, setInputText] = useState("");
   const [cursorIndex, setCursorIndex] = useState(0);
+  const textRef = useRef("");
+  const cursorRef = useRef(0);
+
+  const updateInputAndCursor = useCallback((newText: string, newCursor: number) => {
+    const clampedCursor = Math.max(0, Math.min(newText.length, newCursor));
+    textRef.current = newText;
+    cursorRef.current = clampedCursor;
+    setInputText(newText);
+    setCursorIndex(clampedCursor);
+  }, []);
   const [isThinking, setIsThinking] = useState(false);
   const [statusText, setStatusText] = useState("Ready");
   const [workspaceContext, setWorkspaceContext] = useState<WorkspaceContext | null>(null);
@@ -402,7 +424,24 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   }, [chatScrollOffset, maxScroll]);
 
   useInput((input, key) => {
-    // When focus is on the right sidebar, pass keyboard input to sidebar
+    // When focus is on an interactive form modal (submit-task or submit-report), pass keyboard input to sidebar
+    const isInteractiveForm = activeSidebar === "submit-task" || activeSidebar === "submit-report";
+    if (activeFocus === "sidebar" && isInteractiveForm) {
+      if (key.tab) {
+        setActiveFocus("chat");
+        return;
+      }
+      if (key.escape) {
+        clearTerminalScreen();
+        setActiveSidebar(null);
+        setActiveFocus("chat");
+        return;
+      }
+      // Let interactive modal form handle its field inputs
+      return;
+    }
+
+    // When focus is on a display sidebar (leaderboard, group, cohorts, logbook, command-output):
     if (activeFocus === "sidebar") {
       if (key.tab) {
         setActiveFocus("chat");
@@ -414,38 +453,35 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         setActiveFocus("chat");
         return;
       }
-      if (activeSidebar === "command-output") {
-        if (key.upArrow) {
-          setSidebarScrollOffset((prev) => Math.max(0, prev - 1));
-          return;
-        }
-        if (key.downArrow) {
-          setSidebarScrollOffset((prev) => prev + 1);
-          return;
-        }
-        if (key.pageUp) {
-          setSidebarScrollOffset((prev) => Math.max(0, prev - 10));
-          return;
-        }
-        if (key.pageDown) {
-          setSidebarScrollOffset((prev) => prev + 10);
-          return;
-        }
-        if (input === "q" || key.return) {
-          clearTerminalScreen();
-          setActiveSidebar(null);
-          setActiveFocus("chat");
-          return;
-        }
+      if (key.upArrow) {
+        setSidebarScrollOffset((prev) => Math.max(0, prev - 1));
+        return;
       }
-      // Let sidebar component handle all other keystrokes
-      return;
+      if (key.downArrow) {
+        setSidebarScrollOffset((prev) => prev + 1);
+        return;
+      }
+      if (key.pageUp) {
+        setSidebarScrollOffset((prev) => Math.max(0, prev - 10));
+        return;
+      }
+      if (key.pageDown) {
+        setSidebarScrollOffset((prev) => prev + 10);
+        return;
+      }
+      if (input === "q" && textRef.current.length === 0) {
+        clearTerminalScreen();
+        setActiveSidebar(null);
+        setActiveFocus("chat");
+        return;
+      }
+      // If user typed any character, backspace, or enter, immediately switch to chat and process!
+      setActiveFocus("chat");
     }
 
     if (key.escape) {
-      if (isSlashActive || inputText.length > 0) {
-        setInputText("");
-        setCursorIndex(0);
+      if (isSlashActive || textRef.current.length > 0) {
+        updateInputAndCursor("", 0);
         return;
       }
       if (chatScrollOffset > 0) {
@@ -455,6 +491,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       if (activeSidebar !== null) {
         clearTerminalScreen();
         setActiveSidebar(null);
+        setActiveFocus("chat");
         return;
       }
       clearTerminalScreen();
@@ -468,7 +505,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
 
     // Tab key toggles focus between Chat and Sidebar when split view is active
     if (key.tab && !isSlashActive && activeSidebar !== null) {
-      setActiveFocus("sidebar");
+      setActiveFocus((prev) => (prev === "chat" ? "sidebar" : "chat"));
       return;
     }
 
@@ -519,8 +556,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       if (key.tab) {
         const picked = matchingSlashCommands[selectedSlashIndex];
         if (picked) {
-          setInputText(picked.cmd);
-          setCursorIndex(picked.cmd.length);
+          updateInputAndCursor(picked.cmd, picked.cmd.length);
         }
         return;
       }
@@ -528,55 +564,66 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
 
     // Left / Right arrow cursor navigation in text input
     if (key.leftArrow) {
-      setCursorIndex((prev) => Math.max(0, prev - 1));
+      const cur = Math.max(0, cursorRef.current - 1);
+      cursorRef.current = cur;
+      setCursorIndex(cur);
       return;
     }
     if (key.rightArrow) {
-      setCursorIndex((prev) => Math.min(inputText.length, prev + 1));
+      const cur = Math.min(textRef.current.length, cursorRef.current + 1);
+      cursorRef.current = cur;
+      setCursorIndex(cur);
       return;
     }
 
-    // Ctrl+A / Ctrl+E Home and End navigation
-    if (key.ctrl && input === "a") {
+    // Ctrl+A / Home navigation
+    if ((key.ctrl && input === "a") || (key as any).home) {
+      cursorRef.current = 0;
       setCursorIndex(0);
       return;
     }
-    if (key.ctrl && input === "e") {
-      setCursorIndex(inputText.length);
+
+    // Ctrl+E / End navigation
+    if ((key.ctrl && input === "e") || (key as any).end) {
+      const cur = textRef.current.length;
+      cursorRef.current = cur;
+      setCursorIndex(cur);
       return;
     }
 
     // Ctrl+U / Ctrl+C clear entire input text
     if (key.ctrl && (input === "u" || input === "c")) {
-      setInputText("");
-      setCursorIndex(0);
+      updateInputAndCursor("", 0);
       return;
     }
 
     // Ctrl+W delete word backwards
     if (key.ctrl && input === "w") {
-      const before = inputText.slice(0, cursorIndex);
-      const after = inputText.slice(cursorIndex);
+      const cur = cursorRef.current;
+      const txt = textRef.current;
+      const before = txt.slice(0, cur);
+      const after = txt.slice(cur);
       const trimmedBefore = before.replace(/\s+$/, "");
       const lastSpace = trimmedBefore.lastIndexOf(" ");
       const newBefore = lastSpace >= 0 ? trimmedBefore.slice(0, lastSpace + 1) : "";
-      setInputText(newBefore + after);
-      setCursorIndex(newBefore.length);
+      updateInputAndCursor(newBefore + after, newBefore.length);
       return;
     }
 
     // Ctrl+K kill to end of line
     if (key.ctrl && input === "k") {
-      setInputText(inputText.slice(0, cursorIndex));
+      const cur = cursorRef.current;
+      const txt = textRef.current;
+      updateInputAndCursor(txt.slice(0, cur), cur);
       return;
     }
 
     // When not typing, Up/Down arrows scroll chat line-by-line
-    if (key.upArrow && !isSlashActive && inputText === "") {
+    if (key.upArrow && !isSlashActive && textRef.current === "") {
       setChatScrollOffset((prev) => Math.min(maxScroll, prev + 1));
       return;
     }
-    if (key.downArrow && !isSlashActive && inputText === "") {
+    if (key.downArrow && !isSlashActive && textRef.current === "") {
       setChatScrollOffset((prev) => Math.max(0, prev - 1));
       return;
     }
@@ -734,24 +781,30 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         return;
       }
 
-      setInputText("");
-      setCursorIndex(0);
+      updateInputAndCursor("", 0);
       handleSend(trimmed);
     } else if (key.backspace || input === "\x7f" || input === "\b" || input === "\x08") {
-      if (cursorIndex > 0) {
-        setInputText((prev) => prev.slice(0, cursorIndex - 1) + prev.slice(cursorIndex));
-        setCursorIndex((prev) => Math.max(0, prev - 1));
-      } else if (inputText.length > 0) {
-        setInputText((prev) => prev.slice(0, -1));
-        setCursorIndex((prev) => Math.max(0, prev - 1));
+      const cur = cursorRef.current;
+      const txt = textRef.current;
+      if (cur > 0) {
+        const newTxt = txt.slice(0, cur - 1) + txt.slice(cur);
+        updateInputAndCursor(newTxt, cur - 1);
+      } else if (txt.length > 0) {
+        const newTxt = txt.slice(0, -1);
+        updateInputAndCursor(newTxt, Math.min(cur, newTxt.length));
       }
     } else if (key.delete) {
-      if (cursorIndex < inputText.length) {
-        setInputText((prev) => prev.slice(0, cursorIndex) + prev.slice(cursorIndex + 1));
+      const cur = cursorRef.current;
+      const txt = textRef.current;
+      if (cur < txt.length) {
+        const newTxt = txt.slice(0, cur) + txt.slice(cur + 1);
+        updateInputAndCursor(newTxt, cur);
       }
     } else if (input && !key.ctrl && !key.meta && input !== "\x7f" && input !== "\b" && input !== "\x08") {
-      setInputText((prev) => prev.slice(0, cursorIndex) + input + prev.slice(cursorIndex));
-      setCursorIndex((prev) => prev + input.length);
+      const cur = cursorRef.current;
+      const txt = textRef.current;
+      const newTxt = txt.slice(0, cur) + input + txt.slice(cur);
+      updateInputAndCursor(newTxt, cur + input.length);
     }
   });
 
@@ -792,20 +845,20 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       reply = "Displayed Lil-Zila companion mascot & anti-cheating mission.";
     } else if (rawCmd === "/leaderboard" || rawCmd === "leaderboard" || rawCmd === "rankings" || rawCmd === "/rankings") {
       setActiveSidebar("leaderboard");
-      setActiveFocus("sidebar");
-      reply = "Opened Cohort Leaderboard on the right. Press Tab to switch to chat, or Esc to close.";
+      setActiveFocus("chat");
+      reply = "Opened Cohort Leaderboard on the right. Press Tab to switch to sidebar, or Esc to close.";
     } else if (rawCmd === "/group" || rawCmd === "group" || rawCmd === "peers" || rawCmd === "/peers") {
       setActiveSidebar("group");
-      setActiveFocus("sidebar");
-      reply = "Opened Cohort Team & Intern Roster on the right. Press Tab to switch to chat, or Esc to close.";
+      setActiveFocus("chat");
+      reply = "Opened Cohort Team & Intern Roster on the right. Press Tab to switch to sidebar, or Esc to close.";
     } else if (rawCmd === "/cohorts" || rawCmd === "cohorts" || rawCmd === "programs" || rawCmd === "/programs") {
       setActiveSidebar("cohorts");
-      setActiveFocus("sidebar");
-      reply = "Opened Enrolled Programs & Cohorts on the right. Press Tab to switch to chat, or Esc to close.";
+      setActiveFocus("chat");
+      reply = "Opened Enrolled Programs & Cohorts on the right. Press Tab to switch to sidebar, or Esc to close.";
     } else if (rawCmd === "/logbook" || rawCmd === "logbook" || rawCmd === "ledger") {
       setActiveSidebar("logbook");
-      setActiveFocus("sidebar");
-      reply = "Opened Contributor Audit Ledger on the right. Press Tab to switch to chat, or Esc to close.";
+      setActiveFocus("chat");
+      reply = "Opened Contributor Audit Ledger on the right. Press Tab to switch to sidebar, or Esc to close.";
     } else if (rawCmd === "/submit-report" || rawCmd === "submit-report" || rawCmd === "/report" || rawCmd === "report") {
       setActiveSidebar("submit-report");
       setActiveFocus("sidebar");
@@ -953,7 +1006,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       });
       setSidebarScrollOffset(0);
       setActiveSidebar("command-output");
-      setActiveFocus("sidebar");
+      setActiveFocus("chat");
     }
 
     setMessages((prev) => [

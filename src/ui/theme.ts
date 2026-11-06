@@ -35,10 +35,10 @@ export const theme = {
     background: "#090D16",     // Dark terminal background
     backgroundLight: "#0F172A",
     panel: "#0F172A",
-    sidebarBg: undefined,       // Seamless transparent background matching terminal
+    sidebarBg: "#0F172A",       // Dark navy/slate background
     sidebarBorder: "#155DFC",   // Retro Zigex Blue pane border
     sidebarDivider: "#1E293B",  // Soft divider line
-    sidebarHeaderBg: undefined, // Transparent header
+    sidebarHeaderBg: "#1E293B", // Dark header background
 
     // Semantic colors
     link: "#38BDF8",
