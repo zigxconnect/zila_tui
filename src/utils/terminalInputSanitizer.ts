@@ -9,6 +9,7 @@ const MOUSE_SGR_FRAG_REGEX = /\[<(\d+);(\d+);(\d+)([Mm])/g;
 const MOUSE_COORD_FRAG_REGEX = /^\d+;\d+[Mm]$/;
 const MOUSE_PARTIAL_CHUNK_REGEX = /(?:\[<|\x1b\[<)?\d+;\d+;\d+[Mm]/g;
 const ANSI_ESCAPE_REGEX = /\x1b\[[0-9;?]*[a-zA-Z]/g;
+const OSC_REGEX = /\x1b\][^\x07\x1b]*(\x07|\x1b\\)?|\]\d+;[^\x07\x1b]*(\x07|\x1b\\)?/g;
 
 /**
  * Checks whether an incoming input string is or starts with a mouse event
@@ -32,8 +33,13 @@ export function isMouseOrControlSequence(input: string): boolean {
     return true;
   }
 
-  // Raw ANSI escape sequences (e.g. \x1b[?1000h, \x1b[?1002h)
-  if (input.startsWith("\x1b[?") || input.startsWith("[?")) {
+  // Raw ANSI escape sequences (e.g. \x1b[?1000h, \x1b[?1002h, \x1b[2J)
+  if (input.startsWith("\x1b[?") || input.startsWith("[?") || input.startsWith("\x1b[")) {
+    return true;
+  }
+
+  // Operating System Command (OSC) title/palette injection
+  if (input.includes("\x1b]") || input.startsWith("]0;")) {
     return true;
   }
 
@@ -53,8 +59,9 @@ export function cleanTypedInput(input: string): string {
   if (!input) return "";
 
   if (isMouseOrControlSequence(input)) {
-    // Strip all mouse sequences and ANSI escape codes
+    // Strip all mouse sequences, OSC codes, and ANSI escape codes
     let cleaned = input
+      .replace(OSC_REGEX, "")
       .replace(MOUSE_SGR_FULL_REGEX, "")
       .replace(MOUSE_SGR_FRAG_REGEX, "")
       .replace(MOUSE_PARTIAL_CHUNK_REGEX, "")
@@ -74,5 +81,5 @@ export function cleanTypedInput(input: string): string {
   }
 
   // Strip unprintable control characters
-  return input.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+  return input.replace(OSC_REGEX, "").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 }
