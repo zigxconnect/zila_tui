@@ -97,9 +97,18 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
   }, []);
 
   // Refresh files whenever directory changes
-  const refreshDirectory = (subDir: string) => {
-    if (!repoInfo) return;
-    const entries = listWorkspaceFiles(repoInfo.localPath, subDir);
+  const refreshDirectory = (subDir: string, info = repoInfo) => {
+    if (!info) return;
+    const entries = listWorkspaceFiles(info.localPath, subDir);
+    if (subDir) {
+      const parentDir = path.dirname(subDir);
+      const nextDir = parentDir === "." ? "" : parentDir;
+      entries.unshift({
+        name: ".. (parent directory)",
+        relativePath: nextDir,
+        isDir: true,
+      });
+    }
     setFiles(entries);
     setSelectedIndex(0);
   };
@@ -125,14 +134,26 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
         return;
       }
 
-      if (key.return) {
+      // Left arrow goes up to parent directory
+      if (key.leftArrow) {
+        if (currentSubDir) {
+          const parentDir = path.dirname(currentSubDir);
+          const nextDir = parentDir === "." ? "" : parentDir;
+          setCurrentSubDir(nextDir);
+          refreshDirectory(nextDir);
+        }
+        return;
+      }
+
+      // Enter or Right arrow enters directory or opens file
+      if (key.return || key.rightArrow) {
         const item = files[selectedIndex];
         if (!item || !repoInfo) return;
 
         if (item.isDir) {
           setCurrentSubDir(item.relativePath);
           refreshDirectory(item.relativePath);
-        } else {
+        } else if (key.return) {
           const fullPath = path.join(repoInfo.localPath, item.relativePath);
           const readRes = readWorkspaceFile(fullPath);
           if (readRes.success) {
@@ -459,9 +480,9 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
         left={{
           text:
             viewMode === "explorer"
-              ? "Enter open · Backspace up · 'O' VS Code"
+              ? "Enter/→ open · Backspace/← up · 'O' editor"
               : viewMode === "viewer"
-              ? "↑/↓ scroll · 'O' VS Code · 'E' edit"
+              ? "↑/↓ scroll · 'O' editor · 'E' edit"
               : "Ctrl+S save · Esc cancel",
           color: theme.colors.retroSlateDark,
         }}
