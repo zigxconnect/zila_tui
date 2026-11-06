@@ -16,6 +16,15 @@ import { GroupSidebar } from "./GroupSidebar.js";
 import { CohortsSidebar } from "./CohortsSidebar.js";
 import { SubmitReportScreen } from "./SubmitReportScreen.js";
 import { SubmitTaskScreen } from "./SubmitTaskScreen.js";
+import { OpportunitiesSidebar } from "./OpportunitiesSidebar.js";
+import { HistorySidebar } from "./HistorySidebar.js";
+import { formatTerminalText } from "../utils/terminalTextFormatter.js";
+import {
+  saveLocalChatSession,
+  syncChatSessionWithApi,
+  type LocalChatSession,
+  type StoredChatMessage,
+} from "../utils/chatHistory.js";
 import { ZigexLoader } from "../ui/Spinner.js";
 import { clearTerminalScreen } from "../ui/terminal.js";
 import { LLAMA_ART, LIL_ZILA_TEXT } from "../ui/LilZilaBanner.js";
@@ -161,6 +170,8 @@ type SidebarMode =
   | "submit-task"
   | "submit-report"
   | "command-output"
+  | "search"
+  | "history"
   | null;
 type ModalMode = "submit-report" | "submit-task" | null;
 
@@ -188,6 +199,12 @@ export function getCommandPanelTitle(cmd: string): string {
       return "System Architecture & Mentor Profile";
     case "model":
       return "AI Model & Provider Config";
+    case "search":
+    case "opportunities":
+      return "Tavily Career & Opportunity Radar";
+    case "history":
+    case "sessions":
+      return "Chat Session History";
     case "generate-repo":
     case "create-curriculum":
       return "Curriculum Prototype Generator";
@@ -290,6 +307,8 @@ export const CommandOutputSidebar: React.FC<CommandOutputSidebarProps> = ({
 const AVAILABLE_SLASH_COMMANDS: SlashCommandItem[] = [
   { cmd: "/help", desc: "Display interactive command directory & tips" },
   { cmd: "/welcome", desc: "View the Lil-Zila child mascot & anti-cheating mission" },
+  { cmd: "/search", desc: "Search internships, bounties & opportunities via Tavily API" },
+  { cmd: "/history", desc: "Browse and resume previous Lil-Zila chat sessions" },
   { cmd: "/leaderboard", desc: "Open cohort rankings & PR evaluation leaderboard on the right" },
   { cmd: "/group", desc: "Open cohort team & fellow interns roster on the right" },
   { cmd: "/cohorts", desc: "Browse enrolled programs and cohort workspaces on the right" },
@@ -355,6 +374,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   const [activeFocus, setActiveFocus] = useState<"chat" | "sidebar">("chat");
   const [commandPanelData, setCommandPanelData] = useState<CommandPanelData | null>(null);
   const [sidebarScrollOffset, setSidebarScrollOffset] = useState<number>(0);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => `session-${Date.now()}`);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const config = loadAgentConfig();
 
@@ -378,9 +399,19 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     setWorkspaceContext(ctx);
   }, []);
 
-
   useEffect(() => {
+    try {
+      // Enable SGR mouse tracking: mouse clicks and wheel
+      process.stdout.write("\x1b[?1000h\x1b[?1002h\x1b[?1006h");
+    } catch {
+      // Ignore
+    }
     return () => {
+      try {
+        process.stdout.write("\x1b[?1006l\x1b[?1002l\x1b[?1000l");
+      } catch {
+        // Ignore
+      }
       // Purge screen buffer on teardown to prevent trailing artifacts
       clearTerminalScreen();
     };
@@ -415,6 +446,18 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   const startIndex = Math.max(0, endIndex - chatViewportHeight);
   const visibleLines = allChatLines.slice(startIndex, endIndex);
 
+  const chatScrollbar = useMemo(() => {
+    if (totalLines <= chatViewportHeight) return null;
+    const thumbSize = Math.max(1, Math.round((chatViewportHeight / totalLines) * chatViewportHeight));
+    const maxScrollLines = Math.max(1, totalLines - chatViewportHeight);
+    const scrollRatio = 1 - currentOffset / maxScrollLines;
+    const thumbStart = Math.min(
+      chatViewportHeight - thumbSize,
+      Math.max(0, Math.round(scrollRatio * (chatViewportHeight - thumbSize))),
+    );
+    return { thumbStart, thumbSize };
+  }, [totalLines, chatViewportHeight, currentOffset]);
+
   useEffect(() => {
     if (chatScrollOffset > maxScroll) {
       setChatScrollOffset(maxScroll);
@@ -422,9 +465,50 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
   }, [chatScrollOffset, maxScroll]);
 
   useInput((input, key) => {
-    // When focus is on an interactive form modal (submit-task or submit-report), pass keyboard input to sidebar
-    const isInteractiveForm = activeSidebar === "submit-task" || activeSidebar === "submit-report";
-    if (activeFocus === "sidebar" && isInteractiveForm) {
+    // Intercept SGR mouse tracking escape sequences: \x1b[<btn;x;yM or m
+    const mouseMatch = input.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
+    if (mouseMatch) {
+      const btn = mouseMatch[1] ? parseInt(mouseMatch[1], 10) : 0;
+      const x = mouseMatch[2] ? parseInt(mouseMatch[2], 10) : 0;
+      const action = mouseMatch[4];
+
+      if (action === "M") {
+        if (btn === 0) {
+          // Left mouse button click
+          if (isSplitActive) {
+            if (x <= splitLeftWidth) {
+              setActiveFocus("chat");
+            } else {
+              setActiveFocus("sidebar");
+            }
+          }
+        } else if (btn === 64) {
+          // Mouse wheel up
+          if (isSplitActive && x > splitLeftWidth) {
+            setSidebarScrollOffset((prev) => Math.max(0, prev - 3));
+          } else {
+            setChatScrollOffset((prev) => Math.min(maxScroll, prev + 3));
+          }
+        } else if (btn === 65) {
+          // Mouse wheel down
+          if (isSplitActive && x > splitLeftWidth) {
+            setSidebarScrollOffset((prev) => prev + 3);
+          } else {
+            setChatScrollOffset((prev) => Math.max(0, prev - 3));
+          }
+        }
+      }
+      return;
+    }
+
+    // When focus is on an interactive sidebar (submit-task, submit-report, search, or history), pass keyboard input to sidebar
+    const isInteractiveSidebar =
+      activeSidebar === "submit-task" ||
+      activeSidebar === "submit-report" ||
+      activeSidebar === "search" ||
+      activeSidebar === "history";
+
+    if (activeFocus === "sidebar" && isInteractiveSidebar) {
       if (key.tab) {
         setActiveFocus("chat");
         return;
@@ -434,7 +518,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         setActiveFocus("chat");
         return;
       }
-      // Let interactive modal form handle its field inputs
+      // Let interactive sidebar handle its field inputs
       return;
     }
 
@@ -688,7 +772,9 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         lowerTrimmed === "hide logbook" ||
         lowerTrimmed === "close leaderboard" ||
         lowerTrimmed === "close group" ||
-        lowerTrimmed === "close cohorts"
+        lowerTrimmed === "close cohorts" ||
+        lowerTrimmed === "close search" ||
+        lowerTrimmed === "close history"
       ) {
         setActiveSidebar(null);
         setActiveFocus("chat");
@@ -737,6 +823,28 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         lowerTrimmed === "/programs"
       ) {
         handleSlashCommand("/cohorts");
+        return;
+      }
+
+      if (
+        lowerTrimmed === "search" ||
+        lowerTrimmed === "/search" ||
+        lowerTrimmed.startsWith("search ") ||
+        lowerTrimmed.startsWith("/search ") ||
+        lowerTrimmed === "opportunities" ||
+        lowerTrimmed === "/opportunities"
+      ) {
+        handleSlashCommand(trimmed);
+        return;
+      }
+
+      if (
+        lowerTrimmed === "history" ||
+        lowerTrimmed === "/history" ||
+        lowerTrimmed === "sessions" ||
+        lowerTrimmed === "/sessions"
+      ) {
+        handleSlashCommand("/history");
         return;
       }
 
@@ -837,6 +945,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         "◈ Zigex Lil-Agent Command Reference:",
         "  /help          — Display this interactive help directory",
         "  /welcome       — View the Lil-Zila companion mascot & anti-cheating mission",
+        "  /search        — Search internships, bounties & opportunities via Tavily API",
+        "  /history       — View and resume previous Lil-Zila chat sessions",
         "  /leaderboard   — Open cohort rankings & PR evaluation leaderboard on the right",
         "  /group         — Open cohort team & fellow interns roster on the right",
         "  /cohorts       — Browse enrolled programs and cohort workspaces on the right",
@@ -857,6 +967,29 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     } else if (rawCmd === "/welcome" || rawCmd === "/mascot") {
       setShowFirstRunWelcome(true);
       reply = "Displayed Lil-Zila companion mascot & anti-cheating mission.";
+    } else if (
+      rawCmd === "/search" ||
+      rawCmd === "search" ||
+      rawCmd.startsWith("/search ") ||
+      rawCmd.startsWith("search ") ||
+      rawCmd === "/opportunities" ||
+      rawCmd === "opportunities"
+    ) {
+      const parts = commandStr.trim().split(/\s+/);
+      const query = parts.length > 1 ? parts.slice(1).join(" ") : "";
+      setSearchQuery(query);
+      setActiveSidebar("search");
+      setActiveFocus("sidebar");
+      reply = "Opened Career & Opportunity Radar on the right. Press Tab to switch to chat, or Esc to close.";
+    } else if (
+      rawCmd === "/history" ||
+      rawCmd === "history" ||
+      rawCmd === "/sessions" ||
+      rawCmd === "sessions"
+    ) {
+      setActiveSidebar("history");
+      setActiveFocus("sidebar");
+      reply = "Opened Chat History on the right. Select a session and press Enter to resume, or Esc to close.";
     } else if (rawCmd === "/leaderboard" || rawCmd === "leaderboard" || rawCmd === "rankings" || rawCmd === "/rankings") {
       setActiveSidebar("leaderboard");
       setActiveFocus("chat");
@@ -924,9 +1057,10 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         "◈ About Lil-Zila Autonomous Pair Engineer:",
         "  Engine:      Zigex AI Engine (v2.5 High-Throughput Reasoning)",
         "  Role:        Autonomous Pair Programming Mentor for Intern Engineers",
+        "  Creator:     Fonyuy Gita (Founder & Chief Architect) & Zigex Team",
         "  Ecosystem:   SEED 50 Days of Code Bootcamp & Founder Program",
-        "  Features:    Context-aware diff analysis, supervisor rubric extraction,",
-        "               truthful evaluation & contributor logbook automation.",
+        "  Mission:     Anti-cheating zero-sycophancy mentor, AST rubric verification,",
+        "               points of truth (0.0-1.0) grading & contributor ledger audit.",
       ].join("\n");
     } else if (rawCmd === "/status") {
       const currentCohort = getActiveCohort();
@@ -1006,6 +1140,8 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       "/logbook", "logbook", "ledger",
       "/submit-task", "submit-task", "/submit", "submit", "zila-submit", "/zila-submit",
       "/submit-report", "submit-report", "/report", "report",
+      "/search", "search", "/opportunities", "opportunities",
+      "/history", "history", "/sessions", "sessions",
       "/clear", "/exit", "/quit", "/top", "/bottom", "/scroll top", "/scroll bottom", "/close", "close", "hide",
     ];
 
@@ -1055,19 +1191,31 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         ? "Paid / Pro Plan (Unlimited Automated Evaluations)"
         : `Free Trial Tier (${currentCohort?.tasksSubmittedCount || 0}/5 evaluations used, unpaid)`;
 
-      const systemPrompt = `You are Lil-Zila, the official Zigex autonomous AI pair programming mentor for intern engineers.
-Current Workspace Context:
-- Active Cohort: ${workspaceContext?.cohortName || "General Curriculum"}
-- Domain: ${workspaceContext?.domain || "Engineering"}
+      const systemPrompt = `You are Lil-Zila, the official autonomous AI pair programming mentor in the Zigex Engineering Ecosystem, created by Fonyuy Gita (Founder & Chief Architect) and the Zigex Core Engineering Team for the SEED 50 Days of Code Bootcamp.
+
+Your Architecture & Capabilities:
+- Role: Autonomous technical mentor, code auditor, and pair programmer for intern engineers.
+- Zero Sycophancy Mission: You provide honest, rigorous feedback. You grade strictly between 0.0 and 1.0 (Points of Truth) based on actual code evidence, AST syntax analysis, and supervisor rubrics. You NEVER flatter or inflate scores.
+- AST Rubric Verification: You analyze Abstract Syntax Trees of student tasks to verify logic, imports, algorithms, and structural integrity.
+- Contributor Ledger: You audit daily progress into the local engineering logbook (diffs, test execution, commit hash integrity).
+- Evaluation Quota: Daily quota of 2 GitHub PR evaluations per day for fair resource allocation.
+- Opportunity Radar: You integrate Tavily search to match intern skills with verified internships, bounties, and hackathons.
+- Chat History: All conversations are persisted locally in ~/.zila/history/ and synced with the Neon Postgres backend.
+
+Current Workspace & Student Context:
+- Active Cohort: ${workspaceContext?.cohortName || "General Engineering Bootcamp"}
+- Supervisor: ${currentCohort?.supervisorName || "Assigned Engineering Supervisor"}
+- Domain / Track: ${(workspaceContext?.domain || "Software Engineering").toUpperCase()}
 - Plan & Tuition: ${planStatus}
 - Git Branch: ${workspaceContext?.gitBranch || "local"}
 - Recent Commits: ${workspaceContext?.recentCommits.join(", ") || "none"}
 ${workspaceContext?.exerciseFile ? `- Active Exercise File (${workspaceContext.exerciseFile.path}):\n${workspaceContext.exerciseFile.content}` : ""}
 
-Behavior Guidelines:
-1. Act as a patient Zigex technical mentor: explain engineering principles, identify bugs, and provide hints.
-2. Be concise, direct, professional, and encouraging.
-3. Keep terminal output clean, well-formatted, and aligned with Zigex engineering standards.`;
+CRITICAL STYLING & FORMATTING RULES:
+1. NEVER output raw markdown symbols like double asterisks (**bold**), underscores, hashtag headers (### Header), or markdown backticks/fences.
+2. Format headings cleanly using unicode bullets like ◈ or ›.
+3. Write clean, readable terminal text with appropriate line breaks.
+4. If asked about who made you or what you do, answer authoritatively and proudly about Zigex, Fonyuy Gita, and the anti-cheating zero-sycophancy mission.`;
 
       const chatHistory: ChatMessage[] = [
         { role: "system", content: systemPrompt },
@@ -1078,14 +1226,42 @@ Behavior Guidelines:
       ];
 
       const response = await generateChatResponse(chatHistory, { temperature: 0.6 });
+      const cleanResponse = formatTerminalText(response);
 
       const assistantMsg: DisplayMessage = {
         id: `agent-${Date.now()}`,
         role: "assistant",
-        content: response,
+        content: cleanResponse,
       };
 
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages((prev) => {
+        const nextMsgs = [...prev, assistantMsg];
+
+        // Persist session locally & sync to API
+        try {
+          const userTitle = prompt.length > 40 ? prompt.slice(0, 37) + "..." : prompt;
+          const storedMsgs: StoredChatMessage[] = nextMsgs.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            createdAt: new Date().toISOString(),
+          }));
+          const sessionToSave: LocalChatSession = {
+            id: currentSessionId,
+            title: userTitle,
+            cohortId: currentCohort?.id,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            messages: storedMsgs,
+          };
+          saveLocalChatSession(sessionToSave);
+          syncChatSessionWithApi(sessionToSave).catch(() => {});
+        } catch {
+          // Ignore sync/save errors
+        }
+
+        return nextMsgs;
+      });
       setStatusText("Ready");
     } catch (err: any) {
       setMessages((prev) => [
@@ -1209,112 +1385,136 @@ Behavior Guidelines:
           <Text color={theme.colors.retroBlue}>{"─".repeat(activeLineWidth)}</Text>
         )}
 
-        {/* Messages Stream */}
+        {/* Messages Stream with Scrollbar */}
         <Box
-          flexDirection="column"
+          flexDirection="row"
           height={isSplitActive || showFirstRunWelcome ? chatViewportHeight : undefined}
           width="100%"
-          justifyContent={showFirstRunWelcome ? "center" : undefined}
-          alignItems={showFirstRunWelcome ? "center" : undefined}
           overflow="hidden"
         >
-          {showFirstRunWelcome ? (
-            <Box flexDirection="column" alignItems="center" justifyContent="center" width="100%">
-              {/* Little ASCII llama mascot in blue */}
-              <Box flexDirection="column" alignItems="center">
-                {LLAMA_ART.map((line, i) => (
-                  <Text key={i} color={theme.colors.retroBlue} bold>
-                    {line}
-                  </Text>
-                ))}
-              </Box>
-
-              <Box marginTop={1}>
-                <Text color={theme.colors.retroCyanBright} bold>Hi, I’m Lil-Zila.</Text>
-              </Box>
-
-              <Box
-                marginTop={1}
-                borderStyle="round"
-                borderColor={theme.colors.retroBlue}
-                paddingX={2}
-                paddingY={0}
-              >
-                <Text color={theme.colors.white}>
-                  I am here to monitor and make sure you do the writing...{"\n"}
-                  Together, we can say no to cheating the right way:{"\n"}
-                  <Text color={theme.colors.retroBlueBright} bold>
-                    That’s the aim of Lil-Zila.
-                  </Text>
-                </Text>
-              </Box>
-
-              <Box marginTop={1}>
-                <Text color={theme.colors.retroSlateDark}>
-                  Start by asking me about your code or task.
-                </Text>
-              </Box>
-            </Box>
-          ) : visibleLines.map((line) => {
-            if (line.role === "blank") {
-              return (
-                <Box key={line.id} height={1}>
-                  <Text> </Text>
-                </Box>
-              );
-            }
-            if (line.role === "system") {
-              return (
-                <Box key={line.id} height={1}>
-                  <Text color={theme.colors.retroSlateDark} wrap="truncate">
-                    {line.text}
-                  </Text>
-                </Box>
-              );
-            }
-            if (line.role === "user") {
-              if (line.isHeader) {
-                return (
-                  <Box key={line.id} height={1} flexDirection="row">
-                    <Text color={theme.colors.retroCyanBright} bold>
-                      ❯ Intern:{" "}
+          <Box
+            flexDirection="column"
+            flexGrow={1}
+            justifyContent={showFirstRunWelcome ? "center" : undefined}
+            alignItems={showFirstRunWelcome ? "center" : undefined}
+            overflow="hidden"
+          >
+            {showFirstRunWelcome ? (
+              <Box flexDirection="column" alignItems="center" justifyContent="center" width="100%">
+                {/* Little ASCII llama mascot in blue */}
+                <Box flexDirection="column" alignItems="center">
+                  {LLAMA_ART.map((line, i) => (
+                    <Text key={i} color={theme.colors.retroBlue} bold>
+                      {line}
                     </Text>
+                  ))}
+                </Box>
+
+                <Box marginTop={1}>
+                  <Text color={theme.colors.retroCyanBright} bold>Hi, I’m Lil-Zila.</Text>
+                </Box>
+
+                <Box
+                  marginTop={1}
+                  borderStyle="round"
+                  borderColor={theme.colors.retroBlue}
+                  paddingX={2}
+                  paddingY={0}
+                >
+                  <Text color={theme.colors.white}>
+                    I am here to monitor and make sure you do the writing...{"\n"}
+                    Together, we can say no to cheating the right way:{"\n"}
+                    <Text color={theme.colors.retroBlueBright} bold>
+                      That’s the aim of Lil-Zila.
+                    </Text>
+                  </Text>
+                </Box>
+
+                <Box marginTop={1}>
+                  <Text color={theme.colors.retroSlateDark}>
+                    Start by asking me about your code or task.
+                  </Text>
+                </Box>
+              </Box>
+            ) : visibleLines.map((line) => {
+              if (line.role === "blank") {
+                return (
+                  <Box key={line.id} height={1}>
+                    <Text> </Text>
+                  </Box>
+                );
+              }
+              if (line.role === "system") {
+                return (
+                  <Box key={line.id} height={1}>
+                    <Text color={theme.colors.retroSlateDark} wrap="truncate">
+                      {line.text}
+                    </Text>
+                  </Box>
+                );
+              }
+              if (line.role === "user") {
+                if (line.isHeader) {
+                  return (
+                    <Box key={line.id} height={1} flexDirection="row">
+                      <Text color={theme.colors.retroCyanBright} bold>
+                        ❯ Intern:{" "}
+                      </Text>
+                      <Text color={theme.colors.white} wrap="truncate">
+                        {line.text}
+                      </Text>
+                    </Box>
+                  );
+                }
+                return (
+                  <Box key={line.id} height={1} paddingLeft={10}>
                     <Text color={theme.colors.white} wrap="truncate">
                       {line.text}
                     </Text>
                   </Box>
                 );
               }
+              // Assistant / Lil-Zila
+              if (line.isHeader) {
+                return (
+                  <Box key={line.id} height={1} flexDirection="row" gap={1}>
+                    <Text color={theme.colors.retroBlueBright} bold>
+                      🤖 Lil-Zila:
+                    </Text>
+                  </Box>
+                );
+              }
               return (
-                <Box key={line.id} height={1} paddingLeft={10}>
-                  <Text color={theme.colors.white} wrap="truncate">
+                <Box key={line.id} height={1} paddingLeft={3}>
+                  <Text color={theme.colors.retroWhite} wrap="truncate">
                     {line.text}
                   </Text>
                 </Box>
               );
-            }
-            // Assistant / Lil-Zila
-            if (line.isHeader) {
-              return (
-                <Box key={line.id} height={1} flexDirection="row" gap={1}>
-                  <Text color={theme.colors.retroBlueBright} bold>
-                    🤖 Lil-Zila:
-                  </Text>
-                </Box>
-              );
-            }
-            return (
-              <Box key={line.id} height={1} paddingLeft={3}>
-                <Text color={theme.colors.retroWhite} wrap="truncate">
-                  {line.text}
-                </Text>
-              </Box>
-            );
-          })}
+            })}
 
-          {isThinking && (
-            <Box height={1} paddingLeft={3}>
-              <ZigexLoader suffix="analyzing workspace & reasoning" />
+            {isThinking && (
+              <Box height={1} paddingLeft={3}>
+                <ZigexLoader suffix="analyzing workspace & reasoning" />
+              </Box>
+            )}
+          </Box>
+
+          {!showFirstRunWelcome && chatScrollbar && (
+            <Box flexDirection="column" width={1} alignItems="flex-end">
+              {Array.from({ length: chatViewportHeight }).map((_, rIdx) => {
+                const isThumb =
+                  rIdx >= chatScrollbar.thumbStart &&
+                  rIdx < chatScrollbar.thumbStart + chatScrollbar.thumbSize;
+                return (
+                  <Text
+                    key={rIdx}
+                    color={isThumb ? theme.colors.retroCyanBright : theme.colors.retroSlateDark}
+                  >
+                    {isThumb ? "█" : "│"}
+                  </Text>
+                );
+              })}
             </Box>
           )}
         </Box>
@@ -1496,6 +1696,51 @@ Behavior Guidelines:
               }}
             />
           </Box>
+        )}
+        {activeSidebar === "search" && (
+          <OpportunitiesSidebar
+            initialQuery={searchQuery}
+            width={splitRightWidth}
+            height={fullHeight}
+            isFocused={activeFocus === "sidebar"}
+            onClose={() => {
+              setActiveSidebar(null);
+              setActiveFocus("chat");
+            }}
+          />
+        )}
+        {activeSidebar === "history" && (
+          <HistorySidebar
+            width={splitRightWidth}
+            height={fullHeight}
+            isFocused={activeFocus === "sidebar"}
+            currentSessionId={currentSessionId}
+            onSelectSession={(session) => {
+              setCurrentSessionId(session.id);
+              const restoredMsgs: DisplayMessage[] = session.messages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+              }));
+              setMessages(
+                restoredMsgs.length > 0
+                  ? restoredMsgs
+                  : [
+                      {
+                        id: "msg-0",
+                        role: "system",
+                        content: `Loaded session "${session.title}". Resuming conversation with Lil-Zila.`,
+                      },
+                    ],
+              );
+              setActiveSidebar(null);
+              setActiveFocus("chat");
+            }}
+            onClose={() => {
+              setActiveSidebar(null);
+              setActiveFocus("chat");
+            }}
+          />
         )}
         {activeSidebar === "command-output" && commandPanelData && (
           <CommandOutputSidebar
