@@ -378,16 +378,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     setWorkspaceContext(ctx);
   }, []);
 
-  const isFirstSidebarRender = React.useRef(true);
-  useEffect(() => {
-    if (isFirstSidebarRender.current) {
-      isFirstSidebarRender.current = false;
-      return;
-    }
-    // Erase the canvas when transitioning between single-pane and split-view
-    // so no ghost split lines or remnants persist on screen.
-    clearTerminalScreen();
-  }, [activeSidebar]);
 
   useEffect(() => {
     return () => {
@@ -440,7 +430,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         return;
       }
       if (key.escape) {
-        clearTerminalScreen();
         setActiveSidebar(null);
         setActiveFocus("chat");
         return;
@@ -456,7 +445,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         return;
       }
       if (key.escape) {
-        clearTerminalScreen();
         setActiveSidebar(null);
         setActiveFocus("chat");
         return;
@@ -478,7 +466,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         return;
       }
       if (input === "q" && textRef.current.length === 0) {
-        clearTerminalScreen();
         setActiveSidebar(null);
         setActiveFocus("chat");
         return;
@@ -497,7 +484,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
         return;
       }
       if (activeSidebar !== null) {
-        clearTerminalScreen();
         setActiveSidebar(null);
         setActiveFocus("chat");
         return;
@@ -918,7 +904,6 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       reply = await executeDetachRepo({ cohortId });
     } else if (rawCmd === "/close" || rawCmd === "close" || rawCmd === "hide") {
       setActiveSidebar(null);
-      clearTerminalScreen();
       reply = "Closed right-hand sidebar.";
     } else if (rawCmd === "/quota" || rawCmd === "quota") {
       const q = checkDailyPrQuota();
@@ -1486,7 +1471,6 @@ Behavior Guidelines:
               width={splitRightWidth - 4}
               isFocused={activeFocus === "sidebar"}
               onComplete={() => {
-                clearTerminalScreen();
                 setActiveSidebar(null);
                 setActiveFocus("chat");
               }}
@@ -1507,7 +1491,6 @@ Behavior Guidelines:
               width={splitRightWidth - 4}
               isFocused={activeFocus === "sidebar"}
               onComplete={() => {
-                clearTerminalScreen();
                 setActiveSidebar(null);
                 setActiveFocus("chat");
               }}
@@ -1524,7 +1507,6 @@ Behavior Guidelines:
             isFocused={activeFocus === "sidebar"}
             scrollOffset={sidebarScrollOffset}
             onClose={() => {
-              clearTerminalScreen();
               setActiveSidebar(null);
               setActiveFocus("chat");
             }}
