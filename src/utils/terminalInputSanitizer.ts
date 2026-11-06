@@ -33,8 +33,8 @@ export function isMouseOrControlSequence(input: string): boolean {
     return true;
   }
 
-  // Raw ANSI escape sequences (e.g. \x1b[?1000h, \x1b[?1002h, \x1b[2J)
-  if (input.startsWith("\x1b[?") || input.startsWith("[?") || input.startsWith("\x1b[")) {
+  // Mouse mode enable/disable sequences (e.g. \x1b[?1000h, \x1b[?1002h)
+  if (input.startsWith("\x1b[?") || input.startsWith("[?")) {
     return true;
   }
 

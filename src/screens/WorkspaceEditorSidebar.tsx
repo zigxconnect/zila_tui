@@ -410,8 +410,18 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
         return;
       }
 
+      const isBackspace =
+        key.backspace ||
+        input === "\x7f" ||
+        input === "\b" ||
+        input === "\x08" ||
+        input === "\u007f" ||
+        input === "\u0008";
+
+      const isDelete = key.delete || input === "\x1b[3~";
+
       // Backspace key (delete character before cursor)
-      if (key.backspace || input === "\x7f" || input === "\b") {
+      if (isBackspace) {
         const cur = editCursor;
         if (cur > 0) {
           const newBuf = editBuffer.slice(0, cur - 1) + editBuffer.slice(cur);
@@ -422,11 +432,16 @@ export const WorkspaceEditorSidebar: React.FC<WorkspaceEditorSidebarProps> = ({
       }
 
       // Delete key (delete character at cursor)
-      if (key.delete || input === "\x1b[3~") {
+      if (isDelete) {
         const cur = editCursor;
         if (cur < editBuffer.length) {
           const newBuf = editBuffer.slice(0, cur) + editBuffer.slice(cur + 1);
           setEditBuffer(newBuf);
+        } else if (cur > 0 && cur === editBuffer.length) {
+          // Fallback for terminals that map physical Backspace key to Delete sequence
+          const newBuf = editBuffer.slice(0, cur - 1);
+          setEditBuffer(newBuf);
+          setEditCursor(cur - 1);
         }
         return;
       }
