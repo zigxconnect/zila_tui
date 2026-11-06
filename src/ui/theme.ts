@@ -35,10 +35,10 @@ export const theme = {
     background: "#090D16",     // Dark terminal background
     backgroundLight: "#0F172A",
     panel: "#0F172A",
-    sidebarBg: "#1E1E1E",       // Authentic VS Code dark editor background for coders
-    sidebarBorder: "#2D2D2D",   // Subtle VS Code dark pane border
-    sidebarDivider: "#2A2A2A",  // Soft VS Code divider line
-    sidebarHeaderBg: "#252526", // VS Code tab/activity header background
+    sidebarBg: undefined,       // Seamless transparent background matching terminal
+    sidebarBorder: "#155DFC",   // Retro Zigex Blue pane border
+    sidebarDivider: "#1E293B",  // Soft divider line
+    sidebarHeaderBg: undefined, // Transparent header
 
     // Semantic colors
     link: "#38BDF8",

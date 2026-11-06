@@ -443,7 +443,7 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     }
 
     if (key.escape) {
-      if (isSlashActive) {
+      if (isSlashActive || inputText.length > 0) {
         setInputText("");
         setCursorIndex(0);
         return;
@@ -543,6 +543,31 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
     }
     if (key.ctrl && input === "e") {
       setCursorIndex(inputText.length);
+      return;
+    }
+
+    // Ctrl+U / Ctrl+C clear entire input text
+    if (key.ctrl && (input === "u" || input === "c")) {
+      setInputText("");
+      setCursorIndex(0);
+      return;
+    }
+
+    // Ctrl+W delete word backwards
+    if (key.ctrl && input === "w") {
+      const before = inputText.slice(0, cursorIndex);
+      const after = inputText.slice(cursorIndex);
+      const trimmedBefore = before.replace(/\s+$/, "");
+      const lastSpace = trimmedBefore.lastIndexOf(" ");
+      const newBefore = lastSpace >= 0 ? trimmedBefore.slice(0, lastSpace + 1) : "";
+      setInputText(newBefore + after);
+      setCursorIndex(newBefore.length);
+      return;
+    }
+
+    // Ctrl+K kill to end of line
+    if (key.ctrl && input === "k") {
+      setInputText(inputText.slice(0, cursorIndex));
       return;
     }
 
@@ -712,16 +737,19 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       setInputText("");
       setCursorIndex(0);
       handleSend(trimmed);
-    } else if (key.backspace) {
+    } else if (key.backspace || input === "\x7f" || input === "\b" || input === "\x08") {
       if (cursorIndex > 0) {
         setInputText((prev) => prev.slice(0, cursorIndex - 1) + prev.slice(cursorIndex));
+        setCursorIndex((prev) => Math.max(0, prev - 1));
+      } else if (inputText.length > 0) {
+        setInputText((prev) => prev.slice(0, -1));
         setCursorIndex((prev) => Math.max(0, prev - 1));
       }
     } else if (key.delete) {
       if (cursorIndex < inputText.length) {
         setInputText((prev) => prev.slice(0, cursorIndex) + prev.slice(cursorIndex + 1));
       }
-    } else if (input && !key.ctrl && !key.meta) {
+    } else if (input && !key.ctrl && !key.meta && input !== "\x7f" && input !== "\b" && input !== "\x08") {
       setInputText((prev) => prev.slice(0, cursorIndex) + input + prev.slice(cursorIndex));
       setCursorIndex((prev) => prev + input.length);
     }
@@ -763,29 +791,21 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       setShowFirstRunWelcome(true);
       reply = "Displayed Lil-Zila companion mascot & anti-cheating mission.";
     } else if (rawCmd === "/leaderboard" || rawCmd === "leaderboard" || rawCmd === "rankings" || rawCmd === "/rankings") {
-      setActiveSidebar((prev) => (prev === "leaderboard" ? null : "leaderboard"));
+      setActiveSidebar("leaderboard");
       setActiveFocus("sidebar");
-      reply = activeSidebar !== "leaderboard"
-        ? "Opened Cohort Leaderboard on the right. Type 'close' or /leaderboard to toggle."
-        : "Closed Cohort Leaderboard.";
+      reply = "Opened Cohort Leaderboard on the right. Press Tab to switch to chat, or Esc to close.";
     } else if (rawCmd === "/group" || rawCmd === "group" || rawCmd === "peers" || rawCmd === "/peers") {
-      setActiveSidebar((prev) => (prev === "group" ? null : "group"));
+      setActiveSidebar("group");
       setActiveFocus("sidebar");
-      reply = activeSidebar !== "group"
-        ? "Opened Cohort Team & Intern Roster on the right. Type 'close' or /group to toggle."
-        : "Closed Cohort Team Roster.";
+      reply = "Opened Cohort Team & Intern Roster on the right. Press Tab to switch to chat, or Esc to close.";
     } else if (rawCmd === "/cohorts" || rawCmd === "cohorts" || rawCmd === "programs" || rawCmd === "/programs") {
-      setActiveSidebar((prev) => (prev === "cohorts" ? null : "cohorts"));
+      setActiveSidebar("cohorts");
       setActiveFocus("sidebar");
-      reply = activeSidebar !== "cohorts"
-        ? "Opened Enrolled Programs & Cohorts on the right. Type 'close' or /cohorts to toggle."
-        : "Closed Enrolled Programs & Cohorts.";
+      reply = "Opened Enrolled Programs & Cohorts on the right. Press Tab to switch to chat, or Esc to close.";
     } else if (rawCmd === "/logbook" || rawCmd === "logbook" || rawCmd === "ledger") {
-      setActiveSidebar((prev) => (prev === "logbook" ? null : "logbook"));
+      setActiveSidebar("logbook");
       setActiveFocus("sidebar");
-      reply = activeSidebar !== "logbook"
-        ? "Opened Contributor Audit Ledger logbook sidebar on the right. Type 'close' to hide."
-        : "Closed Contributor Audit Ledger logbook sidebar.";
+      reply = "Opened Contributor Audit Ledger on the right. Press Tab to switch to chat, or Esc to close.";
     } else if (rawCmd === "/submit-report" || rawCmd === "submit-report" || rawCmd === "/report" || rawCmd === "report") {
       setActiveSidebar("submit-report");
       setActiveFocus("sidebar");
@@ -915,10 +935,17 @@ export const LilAgentShellScreen: React.FC<LilAgentShellScreenProps> = ({
       reply = `Unknown command '${commandStr}'. Type /help to see all available agent commands.`;
     }
 
-    if (
-      reply &&
-      !["/clear", "/exit", "/quit", "/top", "/bottom", "/scroll top", "/scroll bottom", "/close", "close", "hide"].includes(rawCmd)
-    ) {
+    const dedicatedSidebars = [
+      "/leaderboard", "leaderboard", "rankings", "/rankings",
+      "/group", "group", "peers", "/peers",
+      "/cohorts", "cohorts", "programs", "/programs",
+      "/logbook", "logbook", "ledger",
+      "/submit-task", "submit-task", "/submit", "submit", "zila-submit", "/zila-submit",
+      "/submit-report", "submit-report", "/report", "report",
+      "/clear", "/exit", "/quit", "/top", "/bottom", "/scroll top", "/scroll bottom", "/close", "close", "hide",
+    ];
+
+    if (reply && !dedicatedSidebars.includes(rawCmd)) {
       setCommandPanelData({
         title: getCommandPanelTitle(rawCmd),
         command: rawCmd.split(/\s+/)[0] || "/command",

@@ -51,8 +51,8 @@ export const SidebarContainer: React.FC<SidebarContainerProps> = ({
       flexDirection="column"
       width={width}
       height={height}
-      borderStyle="round"
-      borderColor={isFocused ? theme.colors.borderFocus : theme.colors.sidebarBorder}
+      borderStyle="single"
+      borderColor={isFocused ? theme.colors.retroBlueBright : theme.colors.retroBlue}
       paddingX={0}
       paddingY={0}
     >
@@ -83,7 +83,7 @@ export const SidebarTwoColumnRow: React.FC<SidebarTwoColumnRowProps> = ({
   right,
   width,
 }) => {
-  const panelBg = theme.colors.sidebarBg;
+  const panelBg = undefined;
   const maxAvail = Math.max(10, width - 2);
   const rightW = stringWidth(right.text);
   const leftMaxW = Math.max(4, maxAvail - rightW - 1);
@@ -124,7 +124,7 @@ interface SidebarDividerProps {
  * Renders a full-width subtle separator line with the VS Code panel background.
  */
 export const SidebarDivider: React.FC<SidebarDividerProps> = ({ width }) => {
-  const panelBg = theme.colors.sidebarBg;
+  const panelBg = undefined;
   return (
     <Box flexDirection="row" width={width} height={1} overflow="hidden">
       <Text backgroundColor={panelBg} color={theme.colors.sidebarDivider}>
@@ -153,7 +153,7 @@ interface SidebarTableRowProps {
  * plus the trailing space is covered with the VS Code panel background.
  */
 export const SidebarTableRow: React.FC<SidebarTableRowProps> = ({ columns, width }) => {
-  const panelBg = theme.colors.sidebarBg;
+  const panelBg = undefined;
   const avail = Math.max(10, width - 2);
   const used = columns.reduce((acc, c) => acc + c.width, 0);
   const trailGap = Math.max(0, avail - used);
@@ -195,7 +195,7 @@ export const SidebarLine: React.FC<SidebarLineProps> = ({
   bold,
   dimColor,
 }) => {
-  const panelBg = theme.colors.sidebarBg;
+  const panelBg = undefined;
   const avail = Math.max(4, width - 2);
   const truncated = truncateVisual(text, avail);
   const remaining = Math.max(0, avail - stringWidth(truncated));
@@ -225,7 +225,7 @@ interface SidebarLoadingRowProps {
  * Renders an animated loader row constrained to exactly height 1 with the VS Code background.
  */
 export const SidebarLoadingRow: React.FC<SidebarLoadingRowProps> = ({ suffix, width }) => {
-  const panelBg = theme.colors.sidebarBg;
+  const panelBg = undefined;
   return (
     <Box flexDirection="row" width={width} height={1} overflow="hidden">
       <Text backgroundColor={panelBg}> </Text>
@@ -243,7 +243,7 @@ interface SidebarEmptyRowsProps {
  * Fills remaining vertical space with blank rows of the VS Code background color.
  */
 export const SidebarEmptyRows: React.FC<SidebarEmptyRowsProps> = ({ count, width }) => {
-  const panelBg = theme.colors.sidebarBg;
+  const panelBg = undefined;
   if (count <= 0) return null;
   const emptyLine = " ".repeat(Math.max(0, width));
 
